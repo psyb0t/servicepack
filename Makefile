@@ -43,18 +43,18 @@ test-coverage: ## Run tests with coverage check. Fails if coverage is below the 
 build: ## Build the app binary using Docker
 	@echo "Building $(APP_NAME) binary..."
 	@mkdir -p ./build
-	docker run --rm \
+	@docker run --rm \
 		-v $(PWD):/app \
 		-w /app \
 		golang:1.24.6-alpine sh -c "apk add --no-cache gcc musl-dev && CGO_ENABLED=1 go build -race -o ./build/$(APP_NAME) ./cmd/..."
 
 docker-build-dev: ## Build the development Docker image
 	@echo "Building the development Docker image..."
-	docker build -f Dockerfile.dev -t $(APP_NAME)-dev .
+	@docker build -f Dockerfile.dev -t $(APP_NAME)-dev .
 
 run-dev: docker-build-dev ## Run in the development Docker image
 	@echo "Starting the containerized development environment..."
-	docker run -i --rm \
+	@docker run -i --rm \
 		--name $(APP_NAME)-dev \
 		$(APP_NAME)-dev sh -c "CGO_ENABLED=1 go build -race -o ./build/$(APP_NAME) ./cmd/... && ./build/$(APP_NAME) run"
 
