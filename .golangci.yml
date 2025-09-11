@@ -107,22 +107,15 @@ linters:
             - github.com/spf13/cobra
 
   exclusions:
-    generated: disable
+    generated: lax
     presets:
-      - std-error-handling
+      - comments
       - common-false-positives
-    rules:
-      - linters:
-          - revive
-        text: "or be unexported"
-      - linters:
-          - revive
-        text: "should have a package comment"
-      - path: _test\.go
-        linters:
-          - cyclop
-          - funlen
-          - maintidx
+    paths:
+      - _test\.go$
+      - third_party$
+      - builtin$
+      - examples$
 
 formatters:
   enable:
@@ -130,9 +123,10 @@ formatters:
     - gofmt
     - gofumpt
     - goimports
-
-  settings:
-    gofmt:
-      simplify: false
-    gofumpt:
-      extra-rules: true
+  exclusions:
+    generated: lax
+    paths:
+      - _test\.go$
+      - third_party$
+      - builtin$
+      - examples$

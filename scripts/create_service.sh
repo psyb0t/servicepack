@@ -25,8 +25,8 @@ echo "Creating service '$SERVICE_NAME'..."
 mkdir -p "$SERVICE_DIR"
 
 # Convert service name to proper Go struct name
-# my-service -> MyServiceService
-STRUCT_NAME=$(echo "$SERVICE_NAME" | sed 's/-/ /g' | sed 's/\b\w/\U&/g' | sed 's/ //g')Service
+# my-service -> MyService
+STRUCT_NAME=$(echo "$SERVICE_NAME" | sed 's/-/ /g' | sed 's/\b\w/\U&/g' | sed 's/ //g')
 
 # Generate the service file
 cat > "$SERVICE_FILE" << EOF
@@ -35,15 +35,35 @@ package $SERVICE_NAME
 import (
 	"context"
 
+	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/gonfiguration"
 	"github.com/sirupsen/logrus"
 )
 
 const serviceName = "$SERVICE_NAME"
 
-type $STRUCT_NAME struct{}
+type Config struct {
+	Value string \`env:"${SERVICE_NAME^^}_VALUE"\`
+}
 
-func New() *$STRUCT_NAME {
-	return &$STRUCT_NAME{}
+type $STRUCT_NAME struct{
+	config Config
+}
+
+func New() (*$STRUCT_NAME, error) {
+	cfg := Config{}
+	
+	gonfiguration.SetDefaults(map[string]any{
+		"${SERVICE_NAME^^}_VALUE": "default-value",
+	})
+	
+	if err := gonfiguration.Parse(&cfg); err != nil {
+		return nil, ctxerrors.Wrap(err, "failed to parse $SERVICE_NAME config")
+	}
+	
+	return &$STRUCT_NAME{
+		config: cfg,
+	}, nil
 }
 
 func (s *$STRUCT_NAME) Name() string {

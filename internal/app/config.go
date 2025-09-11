@@ -5,7 +5,9 @@ import (
 	"github.com/psyb0t/gonfiguration"
 )
 
-type config struct{}
+type config struct {
+	EnabledServices []string `env:"SERVICEPACK_ENABLEDSERVICES"`
+}
 
 func parseConfig() (config, error) {
 	cfg := config{}

@@ -1,6 +1,35 @@
 # gonfiguration 🔧
 
-A kickass configuration package for Golang. Because, why the hell not? Simplify setting defaults and setting struct field vals from env vars without the unnecessary bullshit.
+A no-bullshit, thread-safe configuration library for Go that doesn't make you wanna punch your monitor. Tired of writing the same boring-ass env var parsing shit over and over? This badass package's got your back with reflection magic that actually works without making you cry.
+
+## What This Beast Can Do
+
+This ain't your granddad's config parser. Here's what makes this package fucking legendary:
+
+### 🎯 **Supported Types (All The Good Shit)**
+
+- **Basic Types**: `string`, `bool` - the bread and butter
+- **Signed Integers**: `int`, `int8`, `int16`, `int32`, `int64` - all the flavors you need
+- **Unsigned Integers**: `uint`, `uint8`, `uint16`, `uint32`, `uint64` - for when you don't do negative vibes
+- **Floating Point**: `float32`, `float64` - because math is hard
+- **Time Durations**: `time.Duration` - parsed with Go's native format (`"5s"`, `"10m"`, `"1h30m"`)
+- **String Slices**: `[]string` - comma-separated values that get split automagically (`"val1,val2,val3"`)
+
+### 🚀 **Core Features**
+
+- **Thread-Safe**: Won't shit the bed under concurrent load
+- **Default Values**: Set fallbacks so your app doesn't break when someone forgets to set an env var
+- **Minimal Dependencies**: Just stdlib and one error handling package because we're not monsters
+- **Reflection-Based**: Uses Go's reflection to automagically map env vars to struct fields
+- **Type Safety**: Validates types and gives you proper error messages instead of cryptic bullshit
+
+## Installation
+
+```bash
+go get github.com/psyb0t/gonfiguration
+```
+
+## Basic Usage Example
 
 ```go
 package main
@@ -9,138 +38,196 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/psyb0t/gonfiguration"
 )
 
-type config struct {
+type AppConfig struct {
+	// Basic types
 	ListenAddress string `env:"LISTEN_ADDRESS"`
-	DBDSN         string `env:"DB_DSN"`
-	DBName        string `env:"DB_NAME"`
-	DBUser        string `env:"DB_USER"`
-	DBPass        string `env:"DB_PASS"`
+	Debug         bool   `env:"DEBUG"`
+	Port          int    `env:"PORT"`
+
+	// Advanced types
+	Timeout       time.Duration `env:"TIMEOUT"`
+	AllowedHosts  []string      `env:"ALLOWED_HOSTS"`
+
+	// Database shit
+	DBDSN    string `env:"DB_DSN"`
+	DBName   string `env:"DB_NAME"`
+	DBUser   string `env:"DB_USER"`
+	DBPass   string `env:"DB_PASS"`
 }
 
 func main() {
-	cfg := config{}
+	cfg := AppConfig{}
 
+	// Set some defaults because you're not a savage
 	gonfiguration.SetDefaults(map[string]interface{}{
 		"LISTEN_ADDRESS": "127.0.0.1:8080",
+		"DEBUG":          false,
+		"PORT":           8080,
+		"TIMEOUT":        30 * time.Second,
+		"ALLOWED_HOSTS":  []string{"localhost", "127.0.0.1"},
 		"DB_DSN":         "postgresql://postgres:postgres@localhost:5432/postgres?sslmode=disable",
 	})
 
-	if err := os.Setenv("DB_NAME", "postgres"); err != nil {
-		log.Fatalf("holy fuque! can't set env: %v", err)
-	}
+	// Set some env vars (in real life these come from your environment)
+	os.Setenv("DB_NAME", "myapp")
+	os.Setenv("DB_USER", "postgres-user")
+	os.Setenv("DB_PASS", "super-secret-password")
+	os.Setenv("DEBUG", "true")
+	os.Setenv("ALLOWED_HOSTS", "api.example.com, cdn.example.com, *.example.com")
 
-	if err := os.Setenv("DB_USER", "postgres-user"); err != nil {
-		log.Fatalf("holy fuque! can't set env: %v", err)
-	}
-
-	if err := os.Setenv("DB_PASS", "postgres-pass"); err != nil {
-		log.Fatalf("holy fuque! can't set env: %v", err)
-	}
-
+	// Parse that shit
 	if err := gonfiguration.Parse(&cfg); err != nil {
-		log.Fatalf("holy fuque! can't parse config: %v", err)
+		log.Fatalf("holy fuque! config parsing failed: %v", err)
 	}
 
-	fmt.Printf("%+v\n", cfg) //nolint:forbidigo
+	fmt.Printf("Config loaded: %+v\n", cfg)
+	fmt.Printf("Allowed hosts: %v\n", cfg.AllowedHosts) // ["api.example.com", "cdn.example.com", "*.example.com"]
+	fmt.Printf("Timeout: %v\n", cfg.Timeout)           // 30s
 }
 ```
 
-## Installation
+## Complete API Reference
 
-```bash
-go get github.com/psyb0t/gonfiguration
-```
+### Core Functions
 
-## Usage
+#### `Parse(dst any) error`
 
-Alright, let's break it down:
-
-### Step 1: Define Your Config Struct
-
-Define your configuration struct. This badass package is all about keeping it simple. It only vibes with simple structs that don't piss me off. If your config's looking like a damn novel, maybe it's time to split that project into bite-sized chunks. And by the way, those env tags? They're your env var's alter ego. Get it right!
-
-Here's a sweet little example:
+The main function that does all the magic. Pass a pointer to your config struct and it'll populate it with env vars.
 
 ```go
-type MyAwesomeConfig struct {
-    ListenAddress string `env:"LISTEN_ADDRESS"`
-    DBDSN         string `env:"DB_DSN"`
-    DBName        string `env:"DB_NAME"`
-    DBUser        string `env:"DB_USER"`
-    DBPass        string `env:"DB_PASS"`
-}
+cfg := MyConfig{}
+err := gonfiguration.Parse(&cfg)
 ```
 
-### Step 2: Set Some Defaults (If You're Into That)
+#### `SetDefault(key string, val any)`
 
-You can set defaults that'll make your life easier. They're like your wingman, always there when no one else is:
+Set a single default value for when the env var doesn't exist.
+
+```go
+gonfiguration.SetDefault("PORT", 8080)
+gonfiguration.SetDefault("DEBUG", false)
+gonfiguration.SetDefault("TIMEOUT", 30*time.Second)
+```
+
+#### `SetDefaults(defaults map[string]any)`
+
+Set multiple defaults at once because batch operations are cooler.
 
 ```go
 gonfiguration.SetDefaults(map[string]interface{}{
-    "LISTEN_ADDRESS": "127.0.0.1:8080",
-    // ... and so on for your other config variables.
+    "PORT":     8080,
+    "DEBUG":    false,
+    "TIMEOUT":  30*time.Second,
+    "HOSTS":    []string{"localhost", "127.0.0.1"}, // for []string fields
 })
 ```
 
-### Step 3: Parse It Like You Mean It
+#### `GetDefaults() map[string]any`
 
-Make `gonfiguration` work for you. Tell it to grab those env vars and slap 'em into your config struct:
-
-```go
-cfg := MyAwesomeConfig{}
-if err := gonfiguration.Parse(&cfg); err != nil {
-    log.Fatalf("whoa there, partner! can't parse config: %v", err)
-}
-```
-
-And BAM! Your app's environment is now fresher than a mint garden.
-
-### Step 4: (Optional) Get All Values Because You're Nosy
-
-Just wanna see all the values? We got you:
+Get all the default values you've set. Useful for debugging or just being nosy.
 
 ```go
-allTheSecrets := gonfiguration.GetAllValues()
-// Now go forth and spill those beans.
+defaults := gonfiguration.GetDefaults()
+fmt.Printf("All defaults: %+v\n", defaults)
 ```
 
-### Step 5: Hit The Reset Button When You Wanna Start Over
+#### `GetEnvVars() map[string]string`
 
-Overdid it? Call in a mulligan and reset those defaults and env vars:
+Get all the environment variables that were processed. Again, useful for debugging.
 
 ```go
-gonfiguration.Reset()
+envVars := gonfiguration.GetEnvVars()
+fmt.Printf("Processed env vars: %+v\n", envVars)
 ```
 
-## Development
+#### `GetAllValues() map[string]any`
 
-### Makefile
+Get everything - defaults merged with env vars. Env vars override defaults because that's how the world works.
 
-Run these bad boys:
-
-- `make dep` for dependency management.
-- `make lint` to lint all your Golang files because nobody likes messy code.
-- `make test` for the usual tests.
-- `make test-coverage` to see if you're covering your ass enough with tests.
-
-For a full list of commands:
-
-```bash
-make help
+```go
+allValues := gonfiguration.GetAllValues()
+fmt.Printf("All config values: %+v\n", allValues)
 ```
 
-## Contributing
+#### `Reset()`
 
-Got some wicked improvements or just found a dumb bug? Open a PR or shoot an issue. Let's get chaotic together.
+Nuke everything and start fresh. Clears all defaults and cached env vars.
+
+```go
+gonfiguration.Reset() // Back to square one
+```
+
+## Error Handling (When Shit Goes Wrong)
+
+The library returns descriptive errors when things fuck up:
+
+```go
+// Invalid struct (not a pointer)
+err := gonfiguration.Parse(cfg) // Missing &
+// Error: "yo, the destination ain't a pointer"
+
+// Invalid target (not a struct)
+str := "not a struct"
+err := gonfiguration.Parse(&str)
+// Error: "what the hell? expected a struct, but this ain't one"
+
+// Type mismatch in defaults
+gonfiguration.SetDefault("PORT", "not a number") // PORT field is int
+cfg := Config{}
+err := gonfiguration.Parse(&cfg)
+// Error: "wtf.. Default value type mismatch"
+
+// Invalid env var value
+os.Setenv("PORT", "not-a-number")
+err := gonfiguration.Parse(&cfg)
+// Error: "wtf.. Failed to parse int: ..."
+```
+
+## Thread Safety (Because Concurrency Is Hard)
+
+This package is thread-safe using `sync.RWMutex`. You can safely:
+
+- Call `Parse()` from multiple goroutines
+- Set defaults concurrently
+- Get values from different goroutines
+
+```go
+// This won't blow up your app
+go func() {
+    gonfiguration.SetDefault("KEY1", "value1")
+}()
+
+go func() {
+    gonfiguration.SetDefault("KEY2", "value2")
+}()
+
+go func() {
+    cfg := MyConfig{}
+    gonfiguration.Parse(&cfg)
+}()
+```
+
+## Rules and Limitations (Read This Shit)
+
+1. **Struct fields MUST have `env:"ENV_VAR_NAME"` tags** - no tag, no parsing
+2. **Only supports simple structs** - no nested structs, no complex types, no maps
+3. **Pass a pointer to `Parse()`** - not the struct itself, you savage
+4. **String slices use comma separation** - `"val1,val2,val3"` becomes `["val1", "val2", "val3"]`
+5. **Time durations use Go format** - `"30s"`, `"5m"`, `"2h30m"`, etc.
+6. **Empty string slices become empty slices** - `""` becomes `[]string{}`
+7. **Default value types must match field types** - don't be an idiot
 
 ## License
 
 Copyright 2023-2025 Ciprian Mandache ([ciprian.51k.eu](https://ciprian.51k.eu))
 
-Listen up! Permission is straight-up given, no strings attached, to any badass out there snagging a copy of this masterpiece (let's call it the "Software"). You can rock out with the Software any damn way you please. Want to use it? Go for it. Modify it? Be my guest. Merge, publish, distribute, sublicense, or even make a quick buck selling it? Hell yeah, you can. Just if you're handing this gem to someone else, don't be a douche – include this copyright notice and my cool permission ramble in all copies or major parts of the Software.
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-Now, here's the kicker: the Software is provided "as is". I ain't making any pinky promises on how it'll perform or if it might royally screw things up. So, if some shit hits the fan, don't come crying to me or any other folks holding the copyright. We're just chilling and ain't responsible for whatever chaos you or this code might stir up.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

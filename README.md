@@ -2,6 +2,8 @@
 
 A Go framework for building concurrent service applications without the usual boilerplate bullshit.
 
+Write once, deploy everywhere - run your entire stack locally for debugging or distribute services across machines with a single env var. No Docker Compose nightmares or managing 47 separate repos.
+
 ## Why This Shit Exists
 
 Tired of writing the same goddamn service boilerplate every time? ServicePack handles the boring lifecycle bullshit so you can focus on actual work instead of reinventing goroutine management for the millionth fuckin' time.
@@ -28,11 +30,11 @@ That's it. Three fucking methods and you're done.
 make service NAME=myservice
 ```
 
-This generates a service skeleton in `internal/pkg/services/myservice/` and automatically registers it. No manual wiring required.
+This generates a service skeleton in `internal/pkg/services/myservice/` with configuration support and automatically registers it. No manual wiring required.
 
 ### 2. Edit the Generated Service
 
-Implement your business logic in the generated `Run()` method and any cleanup in `Stop()`.
+Implement your business logic in the generated `Run()` method and any cleanup in `Stop()`. The generated service includes configuration parsing using environment variables.
 
 ### 3. Build and Run
 
@@ -41,7 +43,7 @@ make build
 ./servicepack
 ```
 
-All services start automatically. If one dies, they all die. Simple and predictable.
+All services start automatically. If one dies, they all die. Simple and predictable (for now - see TODOs for planned retry and failure tolerance features).
 
 ## Development Workflow
 
@@ -75,7 +77,7 @@ make run-dev
 
 - **Singletons**: One fucking app instance, one service manager - no race condition bullshit
 - **Code Generation**: Scans your code and wires up services so you don't have to do jack shit
-- **Fail-Fast**: One service shits the bed, everything dies - no fucking zombie processes
+- **Fail-Fast**: One service shits the bed, everything dies - no fucking zombie processes (for now - see TODOs for retry mechanisms)
 - **Goroutines**: Services run in parallel because that's what the fuck Go was made for
 
 ## What You Fucking Get
@@ -86,10 +88,29 @@ make run-dev
 ## Service Example
 
 ```go
-type MyService struct{}
+type Config struct {
+    Value string `env:"MYSERVICE_VALUE"`
+}
 
-func New() *MyService {
-    return &MyService{}
+type MyService struct{
+    config   Config
+    stopOnce sync.Once
+}
+
+func New() (*MyService, error) {
+    cfg := Config{}
+    
+    gonfiguration.SetDefaults(map[string]any{
+        "MYSERVICE_VALUE": "default-value",
+    })
+    
+    if err := gonfiguration.Parse(&cfg); err != nil {
+        return nil, ctxerrors.Wrap(err, "failed to parse myservice config")
+    }
+    
+    return &MyService{
+        config: cfg,
+    }, nil
 }
 
 func (s *MyService) Name() string {
@@ -97,19 +118,29 @@ func (s *MyService) Name() string {
 }
 
 func (s *MyService) Run(ctx context.Context) error {
-    for {
-        select {
-        case <-ctx.Done():
-            return nil  // Graceful shutdown
-        default:
-            // Do your work here
-            time.Sleep(time.Second)
-        }
+    defer s.Stop(ctx)
+
+    errCh := make(chan error, 1)
+
+    // Simulate some background work that might fail
+    go func() {
+        time.Sleep(10 * time.Second)
+        errCh <- errors.New("service got fucked")
+    }()
+
+    select {
+    case <-ctx.Done():
+        return nil  // Graceful shutdown
+    case err := <-errCh:
+        return err  // Service failure
     }
 }
 
 func (s *MyService) Stop(ctx context.Context) error {
-    // Cleanup logic
+    s.stopOnce.Do(func() {
+        // Cleanup logic runs only once
+    })
+
     return nil
 }
 ```
@@ -121,6 +152,26 @@ Currently minimal - uses environment variables:
 **Environment (psyb0t/common-go/env):**
 
 - `ENV=dev`: Environment setting (defaults to `prod` if not set)
+
+**Service Control:**
+
+- `SERVICEPACK_ENABLEDSERVICES=service1,service2`: Comma-separated list of services to run (if empty, runs all services)
+
+This is where the magic happens - one codebase that works everywhere:
+
+**Development**: Run the entire fucking stack locally with all services. Debug across services in a single session without Docker Compose hell.
+
+**Production**: Deploy the same binary, control what runs per machine:
+
+- `SERVICEPACK_ENABLEDSERVICES=user-service` on machine 1
+- `SERVICEPACK_ENABLEDSERVICES=payment-service` on machine 2
+- `SERVICEPACK_ENABLEDSERVICES=notification-service` on machine 3
+
+**Testing**: Mix and match services as needed:
+
+- `SERVICEPACK_ENABLEDSERVICES=user-service,payment-service` for integration tests
+
+No separate repos, no Docker file madness, no Kubernetes clusterfuck - just env vars.
 
 **Logging (psyb0t/logrus-configurator):**
 

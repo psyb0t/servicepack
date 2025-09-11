@@ -17,8 +17,8 @@ import (
 var ErrShutdownTimeout = errors.New("shutdown timeout")
 
 const (
-	envVarNameAppRunnerShutdownTimeout     = "APPRUNNER_SHUTDOWNTIMEOUT"
-	defaultShutdownTimeout             int = 10
+	envVarNameAppRunnerShutdownTimeout = "APPRUNNER_SHUTDOWNTIMEOUT"
+	defaultShutdownTimeout             = 10 * time.Second
 )
 
 type Runnable interface {
@@ -27,7 +27,7 @@ type Runnable interface {
 }
 
 type config struct {
-	ShutdownTimeout int `mapstructure:"APPRUNNER_SHUTDOWNTIMEOUT"` // seconds
+	ShutdownTimeout time.Duration `env:"APPRUNNER_SHUTDOWNTIMEOUT"`
 }
 
 func Run(runnable Runnable) error {
@@ -41,7 +41,7 @@ func Run(runnable Runnable) error {
 
 	runner := &appRunner{
 		runnable:        runnable,
-		shutdownTimeout: time.Second * time.Duration(cfg.ShutdownTimeout),
+		shutdownTimeout: cfg.ShutdownTimeout,
 	}
 
 	return runner.run(ctx)

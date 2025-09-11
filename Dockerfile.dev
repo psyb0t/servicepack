@@ -19,6 +19,7 @@ ENV ENV=dev
 ENV LOG_LEVEL=debug
 ENV LOG_FORMAT=text
 ENV LOG_CALLER=true
+ENV SERVICEPACK_ENABLEDSERVICES=
 
 # Default command - shows available make targets
 CMD ["make", "help"]

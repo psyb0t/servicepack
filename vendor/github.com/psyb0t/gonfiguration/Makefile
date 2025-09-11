@@ -1,6 +1,6 @@
 MIN_TEST_COVERAGE := 90
 
-all: dep lint test ## Run dep, lint and test
+all: dep lint-fix test-coverage ## Run dep, lint and test
 
 dep: ## Get project dependencies
 	@echo "Getting project dependencies..."

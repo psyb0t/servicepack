@@ -76,7 +76,7 @@ func (a *App) Run(ctx context.Context) error {
 	go func() {
 		defer a.wg.Done()
 
-		if err := a.serviceManager.Run(ctx); err != nil {
+		if err := a.serviceManager.Run(ctx, a.config.EnabledServices); err != nil {
 			errCh <- err
 		}
 	}()

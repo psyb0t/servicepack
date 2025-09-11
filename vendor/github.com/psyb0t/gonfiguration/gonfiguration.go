@@ -4,6 +4,7 @@ import (
 	"maps"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -11,16 +12,19 @@ import (
 )
 
 //nolint:gochecknoglobals
-var gonfig *gonfiguration
+var (
+	gonfig     *gonfiguration
+	gonfigOnce sync.Once
+)
 
 //nolint:gochecknoinits
 func init() {
-	if gonfig == nil {
+	gonfigOnce.Do(func() {
 		gonfig = &gonfiguration{
 			defaults: map[string]any{},
 			envVars:  map[string]string{},
 		}
-	}
+	})
 }
 
 func Parse(dst any) error {
@@ -119,7 +123,7 @@ func setDefaultValue(fieldValue reflect.Value, tag string) error {
 		return nil
 	}
 
-	if reflect.TypeOf(defaultValue).Kind() != fieldValue.Kind() {
+	if reflect.TypeOf(defaultValue) != fieldValue.Type() {
 		return errors.New("wtf.. Default value type mismatch")
 	}
 
@@ -132,6 +136,11 @@ func setEnvVarValue(fieldValue reflect.Value, envVal string) error {
 	// Handle time.Duration specifically since it has underlying type int64
 	if fieldValue.Type() == reflect.TypeOf(time.Duration(0)) {
 		return setDuration(fieldValue, envVal)
+	}
+
+	// Handle []string specifically
+	if fieldValue.Type() == reflect.TypeOf([]string{}) {
+		return setStringSlice(fieldValue, envVal)
 	}
 
 	switch fieldValue.Kind() { //nolint:exhaustive
@@ -212,6 +221,23 @@ func setDuration(fieldValue reflect.Value, envVal string) error {
 	return nil
 }
 
+func setStringSlice(fieldValue reflect.Value, envVal string) error {
+	if envVal == "" {
+		fieldValue.Set(reflect.ValueOf([]string{}))
+
+		return nil
+	}
+
+	parts := strings.Split(envVal, ",")
+	for i, part := range parts {
+		parts[i] = strings.TrimSpace(part)
+	}
+
+	fieldValue.Set(reflect.ValueOf(parts))
+
+	return nil
+}
+
 func getDstStructValue(dst any) (reflect.Value, error) {
 	val := reflect.ValueOf(dst)
 	if val.Kind() != reflect.Ptr {
@@ -229,6 +255,11 @@ func getDstStructValue(dst any) (reflect.Value, error) {
 func isSupportedType(fieldValue reflect.Value) bool {
 	// Handle time.Duration specifically
 	if fieldValue.Type() == reflect.TypeOf(time.Duration(0)) {
+		return true
+	}
+
+	// Handle []string specifically
+	if fieldValue.Type() == reflect.TypeOf([]string{}) {
 		return true
 	}
 

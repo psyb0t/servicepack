@@ -208,7 +208,7 @@ func TestServiceManager_Run(t *testing.T) {
 
 				return ctx, cancel
 			},
-			expectError: false,
+			expectError: true, // Now expects error since no services means "no enabled services"
 			stopMethod:  "context",
 		},
 	}
@@ -226,7 +226,7 @@ func TestServiceManager_Run(t *testing.T) {
 			runDone := make(chan error, 1)
 
 			go func() {
-				runDone <- sm.Run(ctx)
+				runDone <- sm.Run(ctx, nil)
 			}()
 
 			// Give services time to start
@@ -290,11 +290,12 @@ func TestServiceManager_Stop(t *testing.T) {
 		},
 		{
 			name: "stop service with error",
-			services: []Service{&mockService{
-				name:      "failing",
-				stopError: errTestServiceStop,
-				stopCh:    make(chan struct{}),
-			}},
+			services: []Service{func() *mockService {
+				svc := newMockService("failing")
+				svc.stopError = errTestServiceStop
+
+				return svc
+			}()},
 			expectStopErrors: true,
 		},
 		{
@@ -312,13 +313,37 @@ func TestServiceManager_Stop(t *testing.T) {
 
 			ctx := context.Background()
 
-			// First stop
-			sm.Stop(ctx)
+			// First run the services if there are any (so they get added to runningServices)
+			if len(tt.services) > 0 {
+				runCtx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+				defer cancel()
 
-			// Verify all services had Stop called
-			for _, svc := range tt.services {
-				if mockSvc, ok := svc.(*mockService); ok {
-					assert.True(t, mockSvc.wasStopCalled(), "Service %s should have Stop called", mockSvc.name)
+				// Run services in background so they can be stopped
+				runDone := make(chan error, 1)
+
+				go func() {
+					runDone <- sm.Run(runCtx, nil)
+				}()
+
+				// Give services time to start
+				time.Sleep(5 * time.Millisecond)
+
+				// Now stop them
+				sm.Stop(ctx)
+
+				// Wait for run to complete
+				<-runDone
+			} else {
+				// For empty services test, just call stop
+				sm.Stop(ctx)
+			}
+
+			// Verify all services had Stop called (only for non-empty services)
+			if len(tt.services) > 0 {
+				for _, svc := range tt.services {
+					if mockSvc, ok := svc.(*mockService); ok {
+						assert.True(t, mockSvc.wasStopCalled(), "Service %s should have Stop called", mockSvc.name)
+					}
 				}
 			}
 
@@ -331,6 +356,7 @@ func TestServiceManager_Stop(t *testing.T) {
 					}
 				}
 
+				// Call stop again - this should be a no-op due to sync.Once
 				sm.Stop(ctx)
 
 				// Services should NOT be stopped again due to sync.Once
@@ -374,7 +400,93 @@ func TestServiceManager_Concurrency(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
-		err := sm.Run(ctx)
+		err := sm.Run(ctx, nil)
 		assert.NoError(t, err)
+	})
+
+	t.Run("should only run enabled services when filtered", func(t *testing.T) {
+		sm := NewServiceManager()
+		sm.ClearServices()
+
+		// Create test services
+		service1 := &mockService{name: "service1"}
+		service2 := &mockService{name: "service2"}
+		service3 := &mockService{name: "service3"}
+
+		sm.Add(service1, service2, service3)
+
+		// Run only service1 and service3
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		runDone := make(chan error, 1)
+
+		go func() {
+			runDone <- sm.Run(ctx, []string{"service1", "service3"})
+		}()
+
+		// Give services time to start
+		time.Sleep(5 * time.Millisecond)
+
+		// Check that only enabled services ran
+		assert.True(t, service1.wasRunCalled(), "service1 should have been called")
+		assert.False(t, service2.wasRunCalled(), "service2 should NOT have been called")
+		assert.True(t, service3.wasRunCalled(), "service3 should have been called")
+
+		cancel()
+
+		err := <-runDone
+		assert.NoError(t, err)
+	})
+
+	t.Run("should run all services when empty filter provided", func(t *testing.T) {
+		sm := NewServiceManager()
+		sm.ClearServices()
+
+		// Create test services
+		service1 := &mockService{name: "service1"}
+		service2 := &mockService{name: "service2"}
+
+		sm.Add(service1, service2)
+
+		// Run with empty filter (should run all)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		runDone := make(chan error, 1)
+
+		go func() {
+			runDone <- sm.Run(ctx, []string{})
+		}()
+
+		// Give services time to start
+		time.Sleep(5 * time.Millisecond)
+
+		// Check that all services ran
+		assert.True(t, service1.wasRunCalled(), "service1 should have been called")
+		assert.True(t, service2.wasRunCalled(), "service2 should have been called")
+
+		cancel()
+
+		err := <-runDone
+		assert.NoError(t, err)
+	})
+
+	t.Run("should return error when non-existent service requested", func(t *testing.T) {
+		sm := NewServiceManager()
+		sm.ClearServices()
+
+		// Create test service
+		service1 := &mockService{name: "service1"}
+		sm.Add(service1)
+
+		// Try to run non-existent service
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		err := sm.Run(ctx, []string{"non-existent-service"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "service not found")
+		assert.Contains(t, err.Error(), "non-existent-service")
 	})
 }

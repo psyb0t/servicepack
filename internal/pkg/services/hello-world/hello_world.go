@@ -11,8 +11,8 @@ const serviceName = "hello-world"
 
 type HelloWorld struct{}
 
-func New() *HelloWorld {
-	return &HelloWorld{}
+func New() (*HelloWorld, error) {
+	return &HelloWorld{}, nil
 }
 
 func (h *HelloWorld) Name() string {

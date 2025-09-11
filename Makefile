@@ -67,7 +67,7 @@ service-remove: ## Remove a service. Usage: make service-remove NAME=myservice
 	@$(MAKE) service-registration
 
 service-registration: ## Regenerate service registration file
-	@./$(SCRIPTS_DIR)/regenerate_service_registration.sh
+	@./$(SCRIPTS_DIR)/register_services.sh
 
 help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

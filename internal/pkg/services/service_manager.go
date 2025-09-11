@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/psyb0t/ctxerrors"
@@ -20,11 +21,13 @@ type Service interface {
 }
 
 type ServiceManager struct {
-	services      map[string]Service
-	servicesMutex sync.RWMutex
-	wg            sync.WaitGroup
-	doneCh        chan struct{}
-	stopOnce      sync.Once
+	services             map[string]Service
+	servicesMutex        sync.RWMutex
+	runningServices      []Service
+	runningServicesMutex sync.RWMutex
+	wg                   sync.WaitGroup
+	doneCh               chan struct{}
+	stopOnce             sync.Once
 }
 
 func GetServiceManagerInstance() *ServiceManager {
@@ -69,8 +72,11 @@ func (s *ServiceManager) Add(services ...Service) {
 	}
 }
 
-func (s *ServiceManager) Run(ctx context.Context) error {
-	logrus.Info("running registered services")
+func (s *ServiceManager) Run(
+	ctx context.Context,
+	services []string,
+) error {
+	logrus.Info("running services")
 
 	s.servicesMutex.RLock()
 	defer s.servicesMutex.RUnlock()
@@ -81,17 +87,16 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 	defer s.wg.Wait()
 	defer s.Stop(ctx)
 
-	for _, service := range s.services {
-		s.wg.Add(1)
-
-		go func(service Service) {
-			defer s.wg.Done()
-
-			if err := service.Run(ctx); err != nil {
-				errCh <- err
-			}
-		}(service)
+	enabledServices, err := s.filterServices(services)
+	if err != nil {
+		return err
 	}
+
+	if len(enabledServices) == 0 {
+		return ErrNoEnabledServices
+	}
+
+	s.runServices(ctx, enabledServices, errCh)
 
 	select {
 	case <-ctx.Done():
@@ -105,6 +110,62 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 	}
 }
 
+func (s *ServiceManager) filterServices(services []string) ([]Service, error) {
+	enabledServices := []Service{}
+
+	if len(services) == 0 {
+		for _, service := range s.services {
+			enabledServices = append(enabledServices, service)
+		}
+
+		return enabledServices, nil
+	}
+
+	for _, serviceName := range services {
+		if service, ok := s.services[serviceName]; ok {
+			enabledServices = append(enabledServices, service)
+
+			continue
+		}
+
+		return nil, ctxerrors.Wrap(ErrServiceNotFound, serviceName)
+	}
+
+	// Log which services are not enabled
+	for serviceName := range s.services {
+		isEnabled := slices.Contains(services, serviceName)
+
+		if !isEnabled {
+			logrus.Infof("service %s is not enabled", serviceName)
+		}
+	}
+
+	return enabledServices, nil
+}
+
+func (s *ServiceManager) runServices(
+	ctx context.Context,
+	services []Service,
+	errCh chan<- error,
+) {
+	s.runningServicesMutex.Lock()
+	defer s.runningServicesMutex.Unlock()
+
+	for _, service := range services {
+		s.wg.Add(1)
+
+		go func(service Service) {
+			defer s.wg.Done()
+
+			if err := service.Run(ctx); err != nil {
+				errCh <- err
+			}
+		}(service)
+
+		s.runningServices = append(s.runningServices, service)
+	}
+}
+
 func (s *ServiceManager) Stop(ctx context.Context) {
 	s.stopOnce.Do(func() {
 		logrus.Info("stopping services")
@@ -112,11 +173,11 @@ func (s *ServiceManager) Stop(ctx context.Context) {
 
 		close(s.doneCh)
 
-		s.servicesMutex.RLock()
-		defer s.servicesMutex.RUnlock()
+		s.runningServicesMutex.RLock()
+		defer s.runningServicesMutex.RUnlock()
 
 		var wg sync.WaitGroup
-		for _, service := range s.services {
+		for _, service := range s.runningServices {
 			wg.Add(1)
 
 			go func(service Service) {
