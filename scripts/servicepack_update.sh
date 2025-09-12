@@ -47,7 +47,16 @@ if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
     exit 0
 fi
 
-echo "Update available! Proceeding with framework update..."
+echo "Update available! Creating backup before proceeding..."
+
+# Create backup before updating
+if ! make backup; then
+    echo "Error: Failed to create backup. Update cancelled."
+    exit 1
+fi
+echo ""
+
+echo "Proceeding with framework update..."
 
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
@@ -93,10 +102,12 @@ echo "Updated servicepack.version to: $LATEST_VERSION"
 # Clean up
 rm -rf "$TEMP_DIR"
 
-echo "Framework updated successfully!"
+echo "Framework updated successfully! Hopefully it didn't mess up your shit!"
 echo ""
 echo "Next steps:"
 echo "1. Run 'make dep' to update dependencies"
 echo "2. Run 'make service-registration' to regenerate service registration"
 echo "3. Run 'make test' to make sure everything still works"
 echo "4. Check the diff and commit your changes"
+echo ""
+echo "If you notice fucked up stuff, run 'make backup-restore' to go back to your backup."

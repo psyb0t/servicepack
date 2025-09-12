@@ -68,6 +68,10 @@ find . -type f -name "*.go" -exec sed -i "s|$OLD_MODULE|$MODNAME|g" {} \;
 find . -type f -name "*.mod" -exec sed -i "s|$OLD_MODULE|$MODNAME|g" {} \;
 find . -type f -name "*.md" -exec sed -i "s|$OLD_MODULE|$MODNAME|g" {} \;
 
+# Replace README.md with just the project name
+PROJECT_NAME=$(echo "$MODNAME" | awk -F'/' '{print $NF}')
+echo "# $PROJECT_NAME" > README.md
+
 echo "Module name replacement completed!"
 echo ""
 echo "Contents of new go.mod:"

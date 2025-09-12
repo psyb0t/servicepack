@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 
-	"github.com/joho/godotenv"
 	apprunner "github.com/psyb0t/common-go/app-runner"
 	_ "github.com/psyb0t/logrus-configurator"
 	"github.com/psyb0t/servicepack/internal/app"
@@ -17,10 +16,6 @@ import (
 var appName = "servicepack"
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		logrus.Warnf("godotenv.Load error: %v", err)
-	}
-
 	a := app.GetInstance()
 
 	rootCmd := buildRootCommand(a)

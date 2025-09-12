@@ -1,10 +1,10 @@
 # servicepack
 
-A Go service framework that runs services concurrently and handles graceful shutdown.
+A Go service framework that runs your shit concurrently without fucking around.
 
 ## What is this?
 
-It's a concurrent service runner. You write services that implement a simple interface, the framework runs them all concurrently and handles graceful shutdown. That's it.
+You write services, this thing runs them. All your services go into one binary so you can debug the fuck out of service-to-service calls without dealing with distributed bullshit. Run everything locally, then deploy individual services as microservices when you're ready. Or just fuckin' deploy everything together, y not.
 
 ## Quick Start (Make It Your Own in 30 Seconds)
 
@@ -26,9 +26,9 @@ This will:
 - Nuke the .git directory
 - Replace the module name everywhere
 - Set you up with a fresh go.mod
+- Replace README with just your project name
 - Run `git init` to start fresh
 - Setup dependencies
-- Build your new project
 
 You'll see the hello-world service spamming "Hello, World!" every 5 seconds. Hit Ctrl+C to stop it cleanly.
 
@@ -49,7 +49,7 @@ Create a new service:
 make service NAME=my-cool-service
 ```
 
-This generates a skeleton service at `internal/pkg/services/my-cool-service/`. Edit the generated file and implement your logic in the `Run()` method. That's it - your service will automatically start when you run the app.
+This shits out a skeleton service at `internal/pkg/services/my-cool-service/`. Edit the generated file, put your logic in the `Run()` method. Done - your service starts automatically.
 
 Remove a service:
 
@@ -119,8 +119,16 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 
 ### Framework Management
 
-- `make servicepack-update` - Update to latest servicepack framework
+- `make servicepack-update` - Update to latest servicepack framework (creates backup first)
 - `make own MODNAME=github.com/you/project` - Make this framework your own
+
+### Backup Management
+
+- `make backup` - Create timestamped backup in `/tmp` and `.backup/`
+- `make backup-restore [BACKUP=filename.tar.gz]` - Restore from backup (defaults to latest, nukes everything first)
+- `make backup-clear` - Delete all backup files
+
+**Note**: Framework updates (`make servicepack-update`) automatically create backups before making changes.
 
 ## Architecture
 
@@ -138,11 +146,11 @@ internal/pkg/services/              # Service layer
 
 ### Key Components
 
-**ServiceManager**: Runs all registered services concurrently, handles graceful shutdown, routes errors. It's a singleton because globals are fine when you know what you're doing.
+**ServiceManager**: Runs your services concurrently, handles shutdown, routes errors. It's a singleton because globals are fine when you know what you're doing.
 
-**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool that finds all implementations of the Service interface. No manual registration bullshit.
+**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations. No manual registration bullshit.
 
-**App**: Wrapper that handles the overall application lifecycle and orchestrates the ServiceManager.
+**App**: Wrapper that runs the ServiceManager and handles the lifecycle shit.
 
 ## Environment Variables
 
@@ -196,14 +204,16 @@ This script:
 
 1. Checks for uncommitted changes (fails if found)
 2. Compares current version with latest
-3. Downloads latest framework
-4. Updates core files while preserving your services
-5. Maintains your custom module name
+3. Creates backup if update is needed
+4. Downloads latest framework
+5. Updates core files while preserving your services
+6. Maintains your custom module name
 
 **Warning**: Don't modify framework core files or they'll get overwritten on update:
+
 ```
 cmd/                    # Framework files - don't touch
-internal/app/          # Framework files - don't touch  
+internal/app/          # Framework files - don't touch
 internal/pkg/services/service_manager.go    # Framework files - don't touch
 internal/pkg/services/errors.go             # Framework files - don't touch
 scripts/               # Framework files - don't touch

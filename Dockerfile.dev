@@ -1,7 +1,7 @@
-# Development Dockerfile for PIrateRF
+# Development Dockerfile
 FROM golang:1.24.6-alpine
 
-# Install build dependencies, sox, and ffmpeg
+# Install build dependencies
 RUN apk add --no-cache \
     make \
     gcc \
@@ -23,11 +23,3 @@ ENV SERVICES_ENABLED=
 
 # Default command - shows available make targets
 CMD ["make", "help"]
-
-# Development commands you can run:
-# docker build -f Dockerfile.dev -t piraterf-dev .
-# docker run -it --rm piraterf-dev make build
-# docker run -it --rm piraterf-dev make test
-# docker run -it --rm piraterf-dev make lint
-# docker run -it --rm piraterf-dev make coverage
-# docker run -it --rm piraterf-dev bash  # for interactive shell

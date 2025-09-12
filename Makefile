@@ -3,7 +3,8 @@ SCRIPTS_DIR := scripts
 APP_NAME := $(shell head -n 1 go.mod | awk '{print $$2}' | awk -F'/' '{print $$NF}')
 
 .PHONY: all dep lint lint-fix test test-coverage build \
-	service service-remove service-registration servicepack-update own
+	service service-remove service-registration servicepack-update own \
+	backup backup-restore backup-clear
 
 all: dep lint test ## Run dep, lint and test
 
@@ -86,6 +87,15 @@ own: ## Make this project your own. Usage: make own MODNAME=github.com/foo/bar
 	@./$(SCRIPTS_DIR)/make_own.sh $(MODNAME)
 	@$(MAKE) dep
 	@git init
+
+backup: ## Create backup of the current project
+	@./$(SCRIPTS_DIR)/backup.sh
+
+backup-restore: ## Restore from backup. Usage: make backup-restore [BACKUP=filename.tar.gz] (defaults to latest)
+	@./$(SCRIPTS_DIR)/restore_backup.sh $(BACKUP)
+
+backup-clear: ## Delete all backup files
+	@./$(SCRIPTS_DIR)/backup_clear.sh
 
 help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
