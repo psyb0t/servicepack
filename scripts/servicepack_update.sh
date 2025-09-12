@@ -81,7 +81,7 @@ fi
 echo "Updating framework core files..."
 
 # Update core framework files, but preserve user services
-rsync -av --delete \
+rsync -av \
     --exclude='internal/pkg/services/*' \
     --exclude='.git*' \
     --exclude='build/' \
