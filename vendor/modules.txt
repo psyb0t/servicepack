@@ -528,9 +528,6 @@ github.com/jingyugao/rowserrcheck/passes/rowserr
 # github.com/jjti/go-spancheck v0.6.5
 ## explicit; go 1.22.1
 github.com/jjti/go-spancheck
-# github.com/joho/godotenv v1.5.1
-## explicit; go 1.12
-github.com/joho/godotenv
 # github.com/julz/importas v0.2.0
 ## explicit; go 1.20
 github.com/julz/importas
@@ -855,7 +852,6 @@ github.com/stretchr/objx
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
 github.com/stretchr/testify/mock
-github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
 github.com/subosito/gotenv
