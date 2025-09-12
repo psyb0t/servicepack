@@ -5,8 +5,9 @@ import (
 	"github.com/psyb0t/gonfiguration"
 )
 
+// Ready for your gorgeous ass config vals.
 type config struct {
-	EnabledServices []string `env:"SERVICEPACK_ENABLEDSERVICES"`
+	NiceField string `env:"APP_NICEFIELD"`
 }
 
 func parseConfig() (config, error) {

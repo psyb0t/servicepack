@@ -1,191 +1,305 @@
-# ServicePack
+# servicepack
 
-A Go framework for building concurrent service applications without the usual boilerplate bullshit.
+A Go service framework that runs your shit concurrently without fucking around.
 
-Write once, deploy everywhere - run your entire stack locally for debugging or distribute services across machines with a single env var. No Docker Compose nightmares or managing 47 separate repos.
+## What is this?
 
-## Why This Shit Exists
+You write services, this thing runs them. All your services go into one binary so you can debug the fuck out of service-to-service calls without dealing with distributed bullshit. Run everything locally, then deploy individual services as microservices when you're ready. Or just fuckin' deploy everything together, y not.
 
-Tired of writing the same goddamn service boilerplate every time? ServicePack handles the boring lifecycle bullshit so you can focus on actual work instead of reinventing goroutine management for the millionth fuckin' time.
+## Quick Start (Make It Your Own in 30 Seconds)
 
-## The Service Interface
+```bash
+# Clone this shit
+git clone https://github.com/psyb0t/servicepack
+cd servicepack
 
-Every service implements this simple interface:
+# Make it yours
+make own MODNAME=github.com/yourname/yourproject
+
+# Build and run
+make build
+./build/yourproject run
+```
+
+This will:
+
+- Nuke the .git directory
+- Replace the module name everywhere
+- Set you up with a fresh go.mod
+- Replace README with just your project name
+- Run `git init` to start fresh
+- Setup dependencies
+
+You'll see the hello-world service spamming "Hello, World!" every 5 seconds. Hit Ctrl+C to stop it cleanly.
+
+## Just Want to Try It First?
+
+```bash
+git clone https://github.com/psyb0t/servicepack
+cd servicepack
+make build
+./build/servicepack run
+```
+
+## Creating Services
+
+Create a new service:
+
+```bash
+make service NAME=my-cool-service
+```
+
+This shits out a skeleton service at `internal/pkg/services/my-cool-service/`. Edit the generated file, put your logic in the `Run()` method. Done - your service starts automatically.
+
+Remove a service:
+
+```bash
+make service-remove NAME=my-cool-service
+```
+
+## Service Interface
+
+Every service implements this interface:
 
 ```go
 type Service interface {
-    Name() string
-    Run(ctx context.Context) error
-    Stop(ctx context.Context) error
+    Name() string                        // Return service name
+    Run(ctx context.Context) error      // Your service logic goes here
+    Stop(ctx context.Context) error     // Cleanup logic (optional)
 }
 ```
 
-That's it. Three fucking methods and you're done.
+The `Run()` method should:
 
-## How To Use This Shit
+- Listen for `ctx.Done()` and return cleanly when cancelled
+- Return an error if something goes wrong (this will stop all services)
+- Do whatever the fuck your service is supposed to do
 
-### 1. Create a New Service
+The `Stop()` method is for cleanup - it runs when the app is shutting down.
+
+## How Services Actually Work
+
+1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
+2. The `scripts/register_services.sh` script finds all Service implementations
+3. It generates `internal/pkg/services/services.gen.go` with registration code
+4. Services get filtered based on the `SERVICES_ENABLED` environment variable
+
+### Service Filtering
+
+By default, all services run. To run specific services:
 
 ```bash
-make service NAME=myservice
+export SERVICES_ENABLED="hello-world,my-cool-service"
+./build/servicepack run
 ```
 
-This generates a service skeleton in `internal/pkg/services/myservice/` with configuration support and automatically registers it. No manual wiring required.
+Leave `SERVICES_ENABLED` empty or unset to run all services.
 
-### 2. Edit the Generated Service
+## The Makefile (Your New Best Friend)
 
-Implement your business logic in the generated `Run()` method and any cleanup in `Stop()`. The generated service includes configuration parsing using environment variables.
+### Basic Commands
 
-### 3. Build and Run
+- `make build` - Build the binary using Docker (static linking)
+- `make dep` - Get dependencies with `go mod tidy` and `go mod vendor`
+- `make test` - Run all tests with race detection
+- `make test-coverage` - Run tests with 90% coverage requirement (excludes hello-world and cmd packages)
+- `make lint` - Lint your code with comprehensive golangci-lint rules (80+ linters enabled)
+- `make lint-fix` - Lint and auto-fix issues
+
+### Service Management
+
+- `make service NAME=foo` - Create new service
+- `make service-remove NAME=foo` - Remove service
+- `make service-registration` - Regenerate service discovery
+
+### Development
+
+- `make run-dev` - Run in development Docker container
+- `make docker-build-dev` - Build dev image
+
+### Framework Management
+
+- `make servicepack-update` - Update to latest servicepack framework (creates backup first)
+- `make own MODNAME=github.com/you/project` - Make this framework your own
+
+### Backup Management
+
+- `make backup` - Create timestamped backup in `/tmp` and `.backup/`
+- `make backup-restore [BACKUP=filename.tar.gz]` - Restore from backup (defaults to latest, nukes everything first)
+- `make backup-clear` - Delete all backup files
+
+**Note**: Framework updates (`make servicepack-update`) automatically create backups before making changes.
+
+## Architecture
+
+```
+cmd/main.go                          # Entry point, CLI setup
+internal/app/                        # Application layer
+├── app.go                          # Main app orchestration
+├── config.go                       # Configuration parsing
+internal/pkg/services/              # Service layer
+├── service_manager.go              # Concurrent service runner
+├── services.gen.go                 # Auto-generated service registration
+├── hello-world/                    # Example service
+└── your-services/                  # Your services go here
+```
+
+### Key Components
+
+**ServiceManager**: Runs your services concurrently, handles shutdown, routes errors. It's a singleton because globals are fine when you know what you're doing.
+
+**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations. No manual registration bullshit.
+
+**App**: Wrapper that runs the ServiceManager and handles the lifecycle shit.
+
+## Environment Variables
+
+The framework uses these:
 
 ```bash
-make build
-./servicepack
+# Logging (via logrus-configurator)
+LOG_LEVEL=debug          # trace, debug, info, warn, error
+LOG_FORMAT=json          # json, text
+LOG_CALLER=true          # show file:line in logs
+
+# Service filtering
+SERVICES_ENABLED=service1,service2   # comma-separated, empty = all
+
+# Your services can define their own env vars
 ```
 
-All services start automatically. If one dies, they all die. Simple and predictable (for now - see TODOs for planned retry and failure tolerance features).
+## Build System Details
 
-## Development Workflow
+The build system is dynamic as fuck:
+
+1. App name is extracted from `go.mod` automatically
+2. Binary gets built with static linking (no external deps)
+3. App name is injected at build time via ldflags
+4. Docker builds ensure consistent environment
+
+### Build Process
+
+```makefile
+APP_NAME := $(shell head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')
+
+build:
+    docker run --rm -v $(PWD):/app -w /app golang:1.24.6-alpine \
+        sh -c "apk add --no-cache gcc musl-dev && \
+               CGO_ENABLED=0 go build -a \
+               -ldflags '-extldflags \"-static\" -X main.appName=$(APP_NAME)' \
+               -o ./build/$(APP_NAME) ./cmd/..."
+```
+
+This means your binary name matches your module name automatically.
+
+## Framework Updates
+
+Keep your servicepack framework up to date:
 
 ```bash
-# Install dependencies
-make dep
-
-# Create a new service
-make service NAME=notification
-
-# Edit the generated service file
-# internal/pkg/services/notification/notification.go
-
-# Build the application
-make build
-
-# Run tests
-make test
-
-# Run with coverage
-make test-coverage
-
-# Lint the code
-make lint
-
-# Run in development mode (Docker)
-make run-dev
+make servicepack-update
 ```
 
-## How This Shit Works
+This script:
 
-- **Singletons**: One fucking app instance, one service manager - no race condition bullshit
-- **Code Generation**: Scans your code and wires up services so you don't have to do jack shit
-- **Fail-Fast**: One service shits the bed, everything dies - no fucking zombie processes (for now - see TODOs for retry mechanisms)
-- **Goroutines**: Services run in parallel because that's what the fuck Go was made for
+1. Checks for uncommitted changes (fails if found)
+2. Compares current version with latest
+3. Creates backup if update is needed
+4. Downloads latest framework
+5. Updates core files while preserving your services
+6. Maintains your custom module name
 
-## What You Fucking Get
+**Warning**: Don't modify framework core files or they'll get overwritten on update:
 
-- **Zero Bullshit**: Implement 3 methods, you're done
-- **Auto-Discovery**: Framework finds your shit automatically without you lifting a finger
-
-## Service Example
-
-```go
-type Config struct {
-    Value string `env:"MYSERVICE_VALUE"`
-}
-
-type MyService struct{
-    config   Config
-    stopOnce sync.Once
-}
-
-func New() (*MyService, error) {
-    cfg := Config{}
-    
-    gonfiguration.SetDefaults(map[string]any{
-        "MYSERVICE_VALUE": "default-value",
-    })
-    
-    if err := gonfiguration.Parse(&cfg); err != nil {
-        return nil, ctxerrors.Wrap(err, "failed to parse myservice config")
-    }
-    
-    return &MyService{
-        config: cfg,
-    }, nil
-}
-
-func (s *MyService) Name() string {
-    return "myservice"
-}
-
-func (s *MyService) Run(ctx context.Context) error {
-    defer s.Stop(ctx)
-
-    errCh := make(chan error, 1)
-
-    // Simulate some background work that might fail
-    go func() {
-        time.Sleep(10 * time.Second)
-        errCh <- errors.New("service got fucked")
-    }()
-
-    select {
-    case <-ctx.Done():
-        return nil  // Graceful shutdown
-    case err := <-errCh:
-        return err  // Service failure
-    }
-}
-
-func (s *MyService) Stop(ctx context.Context) error {
-    s.stopOnce.Do(func() {
-        // Cleanup logic runs only once
-    })
-
-    return nil
-}
+```
+cmd/                    # Framework files - don't touch
+internal/app/          # Framework files - don't touch
+internal/pkg/services/service_manager.go    # Framework files - don't touch
+internal/pkg/services/errors.go             # Framework files - don't touch
+scripts/               # Framework files - don't touch
+Makefile              # Framework files - don't touch
+Dockerfile.dev        # Framework files - don't touch
+.golangci.yml         # Framework files - don't touch
+go.mod                # Your module name preserved
+go.sum                # Gets regenerated
 ```
 
-## Configuration
+Your services in `internal/pkg/services/your-service/` are safe and won't be touched.
 
-Currently minimal - uses environment variables:
+## Pre-commit Hook
 
-**Environment (psyb0t/common-go/env):**
+There's a `pre-commit.sh` script that runs `make lint && make test-coverage`. You can:
 
-- `ENV=dev`: Environment setting (defaults to `prod` if not set)
+- Use your favorite pre-commit tool to manage hooks
+- Use [`ez-pre-commit`](https://github.com/psyb0t/ez-pre-commit) to auto-setup Git hooks that run this script
+- Just use the simple script as-is (it runs lint and coverage checks)
 
-**Service Control:**
+## Testing
 
-- `SERVICEPACK_ENABLEDSERVICES=service1,service2`: Comma-separated list of services to run (if empty, runs all services)
+Tests are structured per component:
 
-This is where the magic happens - one codebase that works everywhere:
+- `internal/app/app_test.go` - Application tests with mock services
+- `internal/pkg/services/service_manager_test.go` - Service manager tests with concurrency testing
+- `internal/pkg/services/errors_test.go` - Error definition and matching tests
+- Each service should have its own `*_test.go` files
 
-**Development**: Run the entire fucking stack locally with all services. Debug across services in a single session without Docker Compose hell.
+90% test coverage is required by default (excludes hello-world service). The coverage check runs with race detection and fails if below threshold.
 
-**Production**: Deploy the same binary, control what runs per machine:
+### Test Isolation
 
-- `SERVICEPACK_ENABLEDSERVICES=user-service` on machine 1
-- `SERVICEPACK_ENABLEDSERVICES=payment-service` on machine 2
-- `SERVICEPACK_ENABLEDSERVICES=notification-service` on machine 3
+- `ResetServiceManagerInstance()` resets the singleton for clean test state
+- `ClearServices()` clears all registered services
+- Mock services implement the Service interface for testing
 
-**Testing**: Mix and match services as needed:
+## Concurrency Model
 
-- `SERVICEPACK_ENABLEDSERVICES=user-service,payment-service` for integration tests
+- Each service runs in its own goroutine
+- ServiceManager uses sync.WaitGroup for coordination
+- Context cancellation for clean shutdown
+- Services can fail independently (one failure stops all)
+- Graceful shutdown with configurable timeout
 
-No separate repos, no Docker file madness, no Kubernetes clusterfuck - just env vars.
+## Error Handling
 
-**Logging (psyb0t/logrus-configurator):**
+- Service errors bubble up through the ServiceManager
+- First error stops all services
+- Context errors (cancellation) are treated as clean shutdown
+- All errors use [`ctxerrors`](https://github.com/psyb0t/ctxerrors) for context preservation
+- `ErrNoEnabledServices` is returned when no services are registered (empty service list)
 
-- `LOG_LEVEL=debug`: Logging level (trace, debug, info, warn, error, fatal, panic)
-- `LOG_FORMAT=text`: Log output format (`text` or `json`)
-- `LOG_CALLER=true`: Include caller info in logs
+## Dependencies
 
-## Requirements
+Core dependencies:
 
-- Go 1.24+
-- Docker (for development environment)
-- Make
+- [`github.com/sirupsen/logrus`](https://github.com/sirupsen/logrus) - Logging
+- [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
+- [`github.com/psyb0t/gonfiguration`](https://github.com/psyb0t/gonfiguration) - Config parsing
+- [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
+- [`github.com/psyb0t/common-go`](https://github.com/psyb0t/common-go)/app-runner - App lifecycle
 
-## Shit That Needs Doing
+Development dependencies:
+
+- [`golangci-lint`](https://github.com/golangci/golangci-lint) - Comprehensive linting (80+ linters: errcheck, govet, staticcheck, gosec, etc.)
+- [`testify`](https://github.com/stretchr/testify) - Testing assertions and mocks
+- [`gofindimpl`](https://github.com/psyb0t/gofindimpl) - Service auto-discovery tool
+
+## Directory Structure
+
+```
+.
+├── cmd/main.go                     # Entry point
+├── internal/
+│   ├── app/                        # Application layer
+│   └── pkg/services/               # Services
+├── scripts/                        # Build and utility scripts
+├── build/                          # Build output
+├── vendor/                         # Vendored dependencies
+├── Makefile                        # Build automation
+├── Dockerfile.dev                  # Development container
+└── servicepack.version             # Framework version tracking
+```
+
+## Future Features (TODO)
 
 - **Service Retry**: When a service shits itself, check retry count and restart the fucker if it hasn't hit the limit yet
 - **Allowed Failures**: Let some services die without killing everything - useful for one-shot jobs like migrators that run once and fuck off
@@ -197,4 +311,4 @@ No separate repos, no Docker file madness, no Kubernetes clusterfuck - just env 
 
 ## License
 
-MIT - Do whatever the fuck you want with it.
+MIT

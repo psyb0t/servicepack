@@ -1,6 +1,10 @@
 MIN_TEST_COVERAGE := 90
-APP_NAME := servicepack
 SCRIPTS_DIR := scripts
+APP_NAME := $(shell head -n 1 go.mod | awk '{print $$2}' | awk -F'/' '{print $$NF}')
+
+.PHONY: all dep lint lint-fix test test-coverage build \
+	service service-remove service-registration servicepack-update own \
+	backup backup-restore backup-clear
 
 all: dep lint test ## Run dep, lint and test
 
@@ -46,7 +50,14 @@ build: ## Build the app binary using Docker
 	@docker run --rm \
 		-v $(PWD):/app \
 		-w /app \
-		golang:1.24.6-alpine sh -c "apk add --no-cache gcc musl-dev && CGO_ENABLED=1 go build -race -o ./build/$(APP_NAME) ./cmd/..."
+		-e USER_UID=$(shell id -u) \
+		-e USER_GID=$(shell id -g) \
+		golang:1.24.6-alpine \
+		sh -c "apk add --no-cache gcc musl-dev && \
+				CGO_ENABLED=0 go build -a \
+				-ldflags '-extldflags \"-static\" -X main.appName=$(APP_NAME)' \
+				-o ./build/$(APP_NAME) ./cmd/... && \
+				chown \$$USER_UID:\$$USER_GID ./build/$(APP_NAME)"
 
 docker-build-dev: ## Build the development Docker image
 	@echo "Building the development Docker image..."
@@ -68,6 +79,23 @@ service-remove: ## Remove a service. Usage: make service-remove NAME=myservice
 
 service-registration: ## Regenerate service registration file
 	@./$(SCRIPTS_DIR)/register_services.sh
+
+servicepack-update: ## Update servicepack framework to latest version
+	@./$(SCRIPTS_DIR)/servicepack_update.sh
+
+own: ## Make this project your own. Usage: make own MODNAME=github.com/foo/bar
+	@./$(SCRIPTS_DIR)/make_own.sh $(MODNAME)
+	@$(MAKE) dep
+	@git init
+
+backup: ## Create backup of the current project
+	@./$(SCRIPTS_DIR)/backup.sh
+
+backup-restore: ## Restore from backup. Usage: make backup-restore [BACKUP=filename.tar.gz] (defaults to latest)
+	@./$(SCRIPTS_DIR)/restore_backup.sh $(BACKUP)
+
+backup-clear: ## Delete all backup files
+	@./$(SCRIPTS_DIR)/backup_clear.sh
 
 help: ## Display this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

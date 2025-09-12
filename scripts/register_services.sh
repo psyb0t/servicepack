@@ -2,7 +2,7 @@
 
 set -e
 
-echo "Regenerating service registration file..."
+echo "Adding services to registration file..."
 REGISTRATION_FILE="internal/pkg/services/services.gen.go"
 SERVICE_IF_FILE="internal/pkg/services/service_manager.go"
 SERVICE_IF_NAME="Service"
@@ -21,22 +21,45 @@ package services
 
 EOF
 
-# Parse JSON and add imports, init function, and service registrations
+# Parse JSON and add imports, init function, and add services
 {
-    echo "$SERVICES_JSON" | jq -r '.[] | "import " + .package + " \"" + .packagePath + "\""'
-    echo "import \"github.com/sirupsen/logrus\""
+    echo "import ("
+    echo "	\"os\""
+    echo "	\"slices\""
+    echo "	\"strings\""
+    echo ""
+    echo "$SERVICES_JSON" | jq -r '.[] | "\t" + .package + " \"" + .packagePath + "\""'
+    echo "	\"github.com/sirupsen/logrus\""
+    echo ")"
+    echo ""
+    echo "const ("
+    echo "	envVarNameServicesEnabled = \"SERVICES_ENABLED\""
+    echo ")"
     echo ""
     echo "func init() { //nolint:gochecknoinits"
     echo "	sm := GetServiceManagerInstance()"
     echo ""
+    echo "	// Parse SERVICES_ENABLED env var"
+    echo "	servicesEnabledEnv := os.Getenv(envVarNameServicesEnabled)"
+    echo "	var enabledServices []string"
+    echo "	allEnabled := true"
+    echo ""
+    echo "	if servicesEnabledEnv != \"\" {"
+    echo "		allEnabled = false"
+    echo "		parts := strings.Split(servicesEnabledEnv, \",\")"
+    echo "		for _, part := range parts {"
+    echo "			enabledServices = append(enabledServices, strings.TrimSpace(part))"
+    echo "		}"
+    echo "	}"
+    echo ""
     echo "	var service Service"
     echo "	var err error"
     echo ""
-    echo "$SERVICES_JSON" | jq -r '.[] | "\tservice, err = " + .package + ".New()\n\tif err != nil {\n\t\tlogrus.Fatalf(\"failed to create " + .package + " service: %v\", err)\n\t}\n\tsm.Add(service)\n"'
+    echo "$SERVICES_JSON" | jq -r '.[] | "\tif slices.Contains(enabledServices, " + .package + ".ServiceName) || allEnabled {\n\t\tservice, err = " + .package + ".New()\n\t\tif err != nil {\n\t\t\tlogrus.Fatalf(\"failed to create " + .package + " service: %v\", err)\n\t\t}\n\t\tsm.Add(service)\n\t}\n"'
     echo "}"
 } >> "$REGISTRATION_FILE"
 
 # Format the generated file and organize imports
 go tool goimports -w "$REGISTRATION_FILE"
 
-echo "Service registration file regenerated at $REGISTRATION_FILE"
+echo "Services added to file at $REGISTRATION_FILE"

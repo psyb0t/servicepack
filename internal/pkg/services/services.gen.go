@@ -3,20 +3,43 @@
 package services
 
 import (
+	"os"
+	"slices"
+	"strings"
+
 	helloworld "github.com/psyb0t/servicepack/internal/pkg/services/hello-world"
 	"github.com/sirupsen/logrus"
+)
+
+const (
+	envVarNameServicesEnabled = "SERVICES_ENABLED"
 )
 
 func init() { //nolint:gochecknoinits
 	sm := GetServiceManagerInstance()
 
+	// Parse SERVICES_ENABLED env var
+	servicesEnabledEnv := os.Getenv(envVarNameServicesEnabled)
+	var enabledServices []string
+	allEnabled := true
+
+	if servicesEnabledEnv != "" {
+		allEnabled = false
+		parts := strings.Split(servicesEnabledEnv, ",")
+		for _, part := range parts {
+			enabledServices = append(enabledServices, strings.TrimSpace(part))
+		}
+	}
+
 	var service Service
 	var err error
 
-	service, err = helloworld.New()
-	if err != nil {
-		logrus.Fatalf("failed to create helloworld service: %v", err)
+	if slices.Contains(enabledServices, helloworld.ServiceName) || allEnabled {
+		service, err = helloworld.New()
+		if err != nil {
+			logrus.Fatalf("failed to create helloworld service: %v", err)
+		}
+		sm.Add(service)
 	}
-	sm.Add(service)
 
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const serviceName = "hello-world"
+const ServiceName = "hello-world"
 
 type HelloWorld struct{}
 
@@ -16,11 +16,11 @@ func New() (*HelloWorld, error) {
 }
 
 func (h *HelloWorld) Name() string {
-	return serviceName
+	return ServiceName
 }
 
 func (h *HelloWorld) Run(ctx context.Context) error {
-	logrus.Infof("Starting %s service", serviceName)
+	logrus.Infof("Starting %s service", ServiceName)
 
 	ticker := time.NewTicker(5 * time.Second) //nolint:mnd
 	defer ticker.Stop()
@@ -28,7 +28,7 @@ func (h *HelloWorld) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			logrus.Infof("Context cancelled, stopping %s service", serviceName)
+			logrus.Infof("Context cancelled, stopping %s service", ServiceName)
 
 			return nil
 		case <-ticker.C:
@@ -38,7 +38,7 @@ func (h *HelloWorld) Run(ctx context.Context) error {
 }
 
 func (h *HelloWorld) Stop(_ context.Context) error {
-	logrus.Infof("Stopping %s service", serviceName)
+	logrus.Infof("Stopping %s service", ServiceName)
 
 	return nil
 }

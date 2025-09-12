@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 
-	"github.com/joho/godotenv"
 	apprunner "github.com/psyb0t/common-go/app-runner"
 	_ "github.com/psyb0t/logrus-configurator"
 	"github.com/psyb0t/servicepack/internal/app"
@@ -11,16 +10,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	appCmd   = "servicepack"
-	appTitle = "ServicePack"
-)
+// go build -ldflags "-X main.appName=userservice".
+//
+//nolint:gochecknoglobals//need to be global bcuz ^.
+var appName = "servicepack"
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		logrus.Warnf("godotenv.Load error: %v", err)
-	}
-
 	a := app.GetInstance()
 
 	rootCmd := buildRootCommand(a)
@@ -31,8 +26,8 @@ func main() {
 
 func buildRootCommand(a *app.App) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   appCmd,
-		Short: appTitle,
+		Use:   appName,
+		Short: appName,
 	}
 
 	rootCmd.AddCommand(
