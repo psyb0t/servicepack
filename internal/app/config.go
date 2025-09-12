@@ -6,7 +6,6 @@ import (
 )
 
 type config struct {
-	EnabledServices []string `env:"SERVICEPACK_ENABLEDSERVICES"`
 }
 
 func parseConfig() (config, error) {

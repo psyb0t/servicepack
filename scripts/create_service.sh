@@ -14,6 +14,9 @@ SERVICE_NAME="$1"
 SERVICE_DIR="internal/pkg/services/$SERVICE_NAME"
 SERVICE_FILE="$SERVICE_DIR/${SERVICE_NAME}.go"
 
+# Create package name (remove hyphens, lowercase)
+PACKAGE_NAME=$(echo "$SERVICE_NAME" | tr -d '-' | tr '[:upper:]' '[:lower:]')
+
 # Check if service already exists
 if [ -d "$SERVICE_DIR" ]; then
     echo "Error: Service '$SERVICE_NAME' already exists at $SERVICE_DIR"
@@ -30,7 +33,7 @@ STRUCT_NAME=$(echo "$SERVICE_NAME" | sed 's/-/ /g' | sed 's/\b\w/\U&/g' | sed 's
 
 # Generate the service file
 cat > "$SERVICE_FILE" << EOF
-package $SERVICE_NAME
+package $PACKAGE_NAME
 
 import (
 	"context"
@@ -40,10 +43,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const serviceName = "$SERVICE_NAME"
+const ServiceName = "$SERVICE_NAME"
 
 type Config struct {
-	Value string \`env:"${SERVICE_NAME^^}_VALUE"\`
+	Value string \`env:"${PACKAGE_NAME^^}_VALUE"\`
 }
 
 type $STRUCT_NAME struct{
@@ -54,11 +57,11 @@ func New() (*$STRUCT_NAME, error) {
 	cfg := Config{}
 	
 	gonfiguration.SetDefaults(map[string]any{
-		"${SERVICE_NAME^^}_VALUE": "default-value",
+		"${PACKAGE_NAME^^}_VALUE": "default-value",
 	})
 	
 	if err := gonfiguration.Parse(&cfg); err != nil {
-		return nil, ctxerrors.Wrap(err, "failed to parse $SERVICE_NAME config")
+		return nil, ctxerrors.Wrap(err, "failed to parse $PACKAGE_NAME config")
 	}
 	
 	return &$STRUCT_NAME{
@@ -67,16 +70,16 @@ func New() (*$STRUCT_NAME, error) {
 }
 
 func (s *$STRUCT_NAME) Name() string {
-	return serviceName
+	return ServiceName
 }
 
 func (s *$STRUCT_NAME) Run(ctx context.Context) error {
-	logrus.Infof("Starting %s service", serviceName)
+	logrus.Infof("Starting %s service", ServiceName)
 	panic("TODO: Implement $SERVICE_NAME service logic")
 }
 
 func (s *$STRUCT_NAME) Stop(_ context.Context) error {
-	logrus.Infof("Stopping %s service", serviceName)
+	logrus.Infof("Stopping %s service", ServiceName)
 	return nil
 }
 EOF

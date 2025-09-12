@@ -11,10 +11,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	appCmd   = "servicepack"
-	appTitle = "ServicePack"
-)
+// go build -ldflags "-X main.appName=userservice".
+//
+//nolint:gochecknoglobals//need to be global bcuz ^.
+var appName = "servicepack"
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -31,8 +31,8 @@ func main() {
 
 func buildRootCommand(a *app.App) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   appCmd,
-		Short: appTitle,
+		Use:   appName,
+		Short: appName,
 	}
 
 	rootCmd.AddCommand(
