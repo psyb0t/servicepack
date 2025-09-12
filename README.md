@@ -226,6 +226,14 @@ go.sum                # Gets regenerated
 
 Your services in `internal/pkg/services/your-service/` are safe and won't be touched.
 
+## Pre-commit Hook
+
+There's a `pre-commit.sh` script that runs `make lint && make test-coverage`. You can:
+
+- Use your favorite pre-commit tool to manage hooks
+- Use [`ez-pre-commit`](https://github.com/psyb0t/ez-pre-commit) to auto-setup Git hooks that run this script
+- Just use the simple script as-is (it runs lint and coverage checks)
+
 ## Testing
 
 Tests are structured per component:
