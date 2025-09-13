@@ -70,7 +70,13 @@ find . -type f -name "*.md" -exec sed -i "s|$OLD_MODULE|$MODNAME|g" {} \;
 
 # Replace README.md with just the project name
 PROJECT_NAME=$(echo "$MODNAME" | awk -F'/' '{print $NF}')
-echo "# $PROJECT_NAME" > README.md
+cat > README.md << EOF
+# $PROJECT_NAME
+
+---
+
+*Built with spite using https://github.com/psyb0t/servicepack*
+EOF
 
 # Get current servicepack version and save it
 if [ -f "servicepack.version" ]; then
