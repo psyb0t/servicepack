@@ -29,6 +29,7 @@ This will:
 - Replace README with just your project name
 - Run `git init` to start fresh
 - Setup dependencies
+- Create initial commit on main branch
 
 You'll see the hello-world service spamming "Hello, World!" every 5 seconds. Hit Ctrl+C to stop it cleanly.
 

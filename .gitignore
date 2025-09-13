@@ -1,12 +1,12 @@
 .vscode
 .log
-./piraterf
 coverage.out
 coverage.html
 build
 __pycache__
-# CLAUDE.md
+CLAUDE.md
 env.js
 uploads
 research_files
 .tls
+.backup
