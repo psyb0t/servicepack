@@ -72,6 +72,17 @@ find . -type f -name "*.md" -exec sed -i "s|$OLD_MODULE|$MODNAME|g" {} \;
 PROJECT_NAME=$(echo "$MODNAME" | awk -F'/' '{print $NF}')
 echo "# $PROJECT_NAME" > README.md
 
+# Get current servicepack version and save it
+if [ -f "servicepack.version" ]; then
+    CURRENT_VERSION=$(cat servicepack.version)
+    echo "Preserving servicepack version: $CURRENT_VERSION"
+else
+    # Get latest commit from servicepack repo to set as current version
+    LATEST_VERSION=$(git ls-remote https://github.com/psyb0t/servicepack HEAD | cut -f1)
+    printf "%s" "$LATEST_VERSION" > servicepack.version
+    echo "Set servicepack version to: $LATEST_VERSION"
+fi
+
 echo "Module name replacement completed!"
 echo ""
 echo "Contents of new go.mod:"
