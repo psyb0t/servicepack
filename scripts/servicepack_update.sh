@@ -147,22 +147,7 @@ make service-registration
 
 # Commit changes to update branch
 git add -A
-git commit -m "Update servicepack framework to $LATEST_VERSION
-
-- Updated from: $CURRENT_VERSION
-- Updated to: $LATEST_VERSION
-- Branch: $UPDATE_BRANCH
-
-To review changes:
-  git diff $CURRENT_BRANCH..HEAD
-
-To apply update:
-  git checkout $CURRENT_BRANCH
-  git merge $UPDATE_BRANCH
-
-To revert:
-  git checkout $CURRENT_BRANCH
-  git branch -D $UPDATE_BRANCH"
+git commit -m "Updated servicepack from $CURRENT_VERSION to $LATEST_VERSION"
 
 section "Finalizing Update"
 
