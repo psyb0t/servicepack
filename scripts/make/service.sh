@@ -90,6 +90,10 @@ EOF
 
 success "Service '$SERVICE_NAME' created at $SERVICE_FILE"
 
+# Regenerate service registration
+info "Regenerating service registration..."
+make service-registration
+
 section "Next Steps"
 echo "1. Implement the service logic in the Run() method"
 echo "2. Your service will automatically start when the app runs!"

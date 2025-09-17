@@ -28,3 +28,7 @@ warning "Removing service '$SERVICE_NAME'..."
 rm -rf "$SERVICE_DIR"
 
 success "Service '$SERVICE_NAME' removed from $SERVICE_DIR"
+
+# Regenerate service registration
+info "Regenerating service registration..."
+make service-registration

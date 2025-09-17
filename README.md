@@ -81,7 +81,7 @@ The `Stop()` method is for cleanup - it runs when the app is shutting down.
 ## How Services Actually Work
 
 1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
-2. The `scripts/register_services.sh` script finds all Service implementations
+2. The `scripts/make/service_registration.sh` script finds all Service implementations
 3. It generates `internal/pkg/services/services.gen.go` with a `services.Init()` function
 4. The `services.Init()` function is called when the app starts to register all services
 5. Services get filtered based on the `SERVICES_ENABLED` environment variable
