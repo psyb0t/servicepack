@@ -95,6 +95,10 @@ echo "Module name replacement completed!"
 echo "Installing golangci-lint tool..."
 go get -tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4
 
+# Install gofindimpl
+echo "Installing gofindimpl tool..."
+go get -tool github.com/psyb0t/gofindimpl
+
 # Update dependencies
 echo "Updating dependencies..."
 make dep
