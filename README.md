@@ -2,6 +2,53 @@
 
 A Go service framework that runs your shit concurrently without fucking around.
 
+## Table of Contents
+
+**Getting Started**
+- [What is this?](#what-is-this)
+- [Quick Start (Make It Your Own in 30 Seconds)](#quick-start-make-it-your-own-in-30-seconds)
+- [Just Want to Try It First?](#just-want-to-try-it-first)
+
+**Core Concepts**
+- [Creating Services](#creating-services)
+- [Service Interface](#service-interface)
+- [How Services Actually Work](#how-services-actually-work)
+  - [Service Filtering](#service-filtering)
+
+**Essential Tools**
+- [The Makefile (Your New Best Friend)](#the-makefile-your-new-best-friend)
+  - [Basic Commands](#basic-commands)
+  - [Service Management](#service-management)
+  - [Development](#development)
+  - [Framework Management](#framework-management)
+  - [Backup Management](#backup-management)
+  - [Script Customization](#script-customization)
+
+**System Details**
+- [Architecture](#architecture)
+  - [Key Components](#key-components)
+- [Environment Variables](#environment-variables)
+- [Build System Details](#build-system-details)
+  - [Build Process](#build-process)
+
+**Framework Management**
+- [Framework Updates](#framework-updates)
+  - [Review and Apply Updates](#review-and-apply-updates)
+  - [Customizing Updates with .servicepackupdateignore](#customizing-updates-with-servicepackupdateignore)
+
+**Advanced Topics**
+- [Pre-commit Hook](#pre-commit-hook)
+- [Testing](#testing)
+  - [Test Isolation](#test-isolation)
+- [Concurrency Model](#concurrency-model)
+- [Error Handling](#error-handling)
+
+**Reference**
+- [Dependencies](#dependencies)
+- [Directory Structure](#directory-structure)
+- [Future Features (TODO)](#future-features-todo)
+- [License](#license)
+
 ## What is this?
 
 You write services, this thing runs them. All your services go into one binary so you can debug the fuck out of service-to-service calls without dealing with distributed bullshit. Run everything locally, then deploy individual services as microservices when you're ready. Or just fuckin' deploy everything together, y not.
@@ -101,12 +148,14 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 
 ### Basic Commands
 
+- `make all` - Full pipeline: dep → lint-fix → test-coverage → build
 - `make build` - Build the binary using Docker (static linking)
 - `make dep` - Get dependencies with `go mod tidy` and `go mod vendor`
 - `make test` - Run all tests with race detection
 - `make test-coverage` - Run tests with 90% coverage requirement (excludes hello-world and cmd packages)
 - `make lint` - Lint your code with comprehensive golangci-lint rules (80+ linters enabled)
 - `make lint-fix` - Lint and auto-fix issues
+- `make clean` - Clean build artifacts and coverage files
 
 ### Service Management
 
@@ -132,6 +181,28 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 
 **Note**: Framework updates (`make servicepack-update`) automatically create backups before making changes.
 
+### Script Customization
+
+You can override any framework script by creating a user version:
+
+```bash
+# Create custom script (will override framework version)
+cp scripts/make/servicepack/test.sh scripts/make/test.sh
+# Edit your custom version
+vim scripts/make/test.sh
+```
+
+The Makefile checks for user scripts first (`scripts/make/`), then falls back to framework scripts (`scripts/make/servicepack/`). This lets you customize any build step while preserving the ability to update the framework without conflicts.
+
+**Framework scripts** (in `scripts/make/servicepack/`):
+- Get updated when you run `make servicepack-update`
+- Always preserved - your customizations won't get overwritten
+
+**User scripts** (in `scripts/make/`):
+- Take priority over framework scripts
+- Never touched by framework updates
+- Perfect for project-specific build customizations
+
 ## Architecture
 
 ```
@@ -149,6 +220,13 @@ internal/pkg/
     ├── hello-world/                # Example service
     ├── my-cool-service/            # Your service (one dir per service)
     └── another-service/            # Another service
+scripts/make/                        # Build script system
+├── servicepack/                    # Framework scripts (updated by framework)
+│   ├── build.sh                   # Docker build script
+│   ├── dep.sh                     # Dependency management
+│   ├── test.sh                    # Test runner
+│   └── *.sh                       # Other framework scripts
+└── [custom scripts]               # User overrides (take priority)
 ```
 
 ### Key Components
@@ -245,7 +323,6 @@ Create a `.servicepackupdateignore` file to exclude files from framework updates
 # Custom framework modifications
 Makefile
 Dockerfile.dev
-scripts/custom_deploy.sh
 
 # Local configuration files
 *.local
@@ -258,7 +335,8 @@ scripts/custom_deploy.sh
 cmd/                           # Framework files
 internal/app/                  # Framework files
 internal/pkg/service-manager/  # Framework files
-scripts/                       # Framework files
+scripts/make/servicepack/      # Framework scripts (updated by servicepack-update)
+scripts/make/                  # User scripts (override framework, never touched)
 Makefile                       # Framework files
 Dockerfile.dev                 # Framework files
 .github/                       # Framework files (CI/CD workflows)
@@ -338,10 +416,12 @@ Development dependencies:
 ├── internal/
 │   ├── app/                        # Application layer
 │   └── pkg/services/               # Services
-├── scripts/                        # Build and utility scripts
+├── scripts/make/                   # Build script system
+│   ├── servicepack/               # Framework scripts (auto-updated)
+│   └── [user scripts]             # User overrides (take priority)
 ├── build/                          # Build output
 ├── vendor/                         # Vendored dependencies
-├── Makefile                        # Build automation
+├── Makefile                        # Build automation (uses script resolution)
 ├── Dockerfile.dev                  # Development container
 └── servicepack.version             # Framework version tracking
 ```

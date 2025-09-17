@@ -12,7 +12,7 @@ section "Running in Development Container"
 
 # Build dev image first
 info "Building development Docker image..."
-"$SCRIPT_DIR/docker_build_dev.sh"
+make docker-build-dev
 
 info "Starting containerized development environment..."
 docker run -i --rm \
