@@ -20,8 +20,9 @@ endef
 
 # Framework PHONY targets
 .PHONY: all dep lint lint-fix test test-coverage build clean \
-	service service-remove service-registration servicepack-update own \
-	backup backup-restore backup-clear docker-build docker-build-dev run-dev help
+	service service-remove service-registration servicepack-update \
+	servicepack-update-review servicepack-update-merge servicepack-update-revert \
+	own backup backup-restore backup-clear docker-build docker-build-dev run-dev help
 
 # Default target
 all: dep lint-fix test-coverage build ## Run dep, lint-fix, test-coverage and build
@@ -71,6 +72,15 @@ service-registration: ## Regenerate service registration file
 # Framework management
 servicepack-update: ## Update servicepack framework to latest version
 	@$(call find_script,servicepack_update.sh)
+
+servicepack-update-review: ## Review pending servicepack update changes
+	@$(call find_script,servicepack_update_review.sh)
+
+servicepack-update-merge: ## Merge pending servicepack update
+	@$(call find_script,servicepack_update_merge.sh)
+
+servicepack-update-revert: ## Revert pending servicepack update
+	@$(call find_script,servicepack_update_revert.sh)
 
 own: ## Make this project your own. Usage: make own MODNAME=github.com/foo/bar
 	@$(call find_script,own.sh) $(MODNAME)

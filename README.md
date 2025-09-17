@@ -176,6 +176,9 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 ### Framework Management
 
 - `make servicepack-update` - Update to latest servicepack framework (creates backup first)
+- `make servicepack-update-review` - Review pending framework update changes
+- `make servicepack-update-merge` - Merge pending framework update
+- `make servicepack-update-revert` - Revert pending framework update
 - `make own MODNAME=github.com/you/project` - Make this framework your own
 
 ### Backup Management
@@ -348,18 +351,16 @@ After running `make servicepack-update`:
 
 ```bash
 # Review what changed
-git diff main..HEAD
+make servicepack-update-review
 
 # Test the update
 make dep && make service-registration && make test
 
 # If satisfied, merge the update
-git checkout main
-git merge servicepack_update_to_VERSION
+make servicepack-update-merge
 
 # If not satisfied, discard the update
-git checkout main
-git branch -D servicepack_update_to_VERSION
+make servicepack-update-revert
 ```
 
 ### Customizing Updates with .servicepackupdateignore
