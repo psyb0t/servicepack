@@ -2,8 +2,10 @@
 # This file contains all framework commands and gets included in the main Makefile
 # Users can override any of these commands in their main Makefile
 
-# Framework variables
-MIN_TEST_COVERAGE := 90
+# Framework variables (can be overridden by user)
+MIN_TEST_COVERAGE ?= 90
+
+# Framework constants (do not override)
 SCRIPTS_DIR := scripts
 APP_NAME := $(shell head -n 1 go.mod | awk '{print $$2}' | awk -F'/' '{print $$NF}')
 
