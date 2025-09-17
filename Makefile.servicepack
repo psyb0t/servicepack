@@ -97,4 +97,4 @@ backup-clear: ## Delete all backup files
 
 # Help
 help: ## Display this help message
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":"}; {filename=$$1; sub(/.*\//, "", filename); rule=$$2; desc=$$3; gsub(/.*?## /, "", desc); printf "\033[36m%-30s\033[0m \033[90m[%s]\033[0m %s\n", rule, filename, desc}' | sort
