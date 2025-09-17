@@ -103,6 +103,9 @@ go get -tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4
 echo "Initializing git repository..."
 git init
 
+# Rename branch to main
+git branch -m main
+
 # Add all files and create initial commit
 echo "Creating initial commit..."
 git add -A
