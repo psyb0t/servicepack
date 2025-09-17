@@ -2,18 +2,22 @@
 
 set -e
 
-echo "Checking servicepack framework updates..."
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
+info "Checking servicepack framework updates..."
 
 # Check if we're in a git repo
 if [ ! -d ".git" ]; then
-    echo "Error: Not in a git repository. Framework updates require git."
+    error "Not in a git repository. Framework updates require git."
     exit 1
 fi
 
 # Check for uncommitted changes
 if [ -n "$(git status --porcelain)" ]; then
-    echo "Error: You have uncommitted changes in your repository."
-    echo "Please commit or stash your changes before updating the framework."
+    error "You have uncommitted changes in your repository."
+    warning "Please commit or stash your changes before updating the framework."
     echo ""
     echo "Current uncommitted changes:"
     git status --short
@@ -27,56 +31,57 @@ CURRENT_BRANCH=$(git branch --show-current)
 CURRENT_VERSION=""
 if [ -f "servicepack.version" ]; then
     CURRENT_VERSION=$(cat servicepack.version)
-    echo "Current servicepack version: $CURRENT_VERSION"
+    info "Current servicepack version: $CURRENT_VERSION"
 fi
 
-# Get the latest version (tag or commit SHA from main branch)
-echo "Fetching latest servicepack version..."
+section "Fetching Latest Version"
 
 # Check if there are any version tags
 LATEST_TAG=$(git ls-remote --tags --sort=version:refname https://github.com/psyb0t/servicepack | grep -v '\^{}$' | tail -n1 | cut -f2 | sed 's|refs/tags/||')
 
 if [ -n "$LATEST_TAG" ]; then
     LATEST_VERSION="$LATEST_TAG"
-    echo "Latest servicepack version (tag): $LATEST_VERSION"
+    info "Latest servicepack version (tag): $LATEST_VERSION"
 else
     # Fallback to commit SHA from main branch
     LATEST_VERSION=$(git ls-remote https://github.com/psyb0t/servicepack HEAD | cut -f1)
-    echo "Latest servicepack version (commit): $LATEST_VERSION"
+    info "Latest servicepack version (commit): $LATEST_VERSION"
 fi
 
 # Check if update is needed
 if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
-    echo "Servicepack is already up to date!"
+    success "Servicepack is already up to date!"
     exit 0
 fi
 
-echo "Update available! Creating backup before proceeding..."
+section "Preparing Update"
+warning "Update available! Creating backup before proceeding..."
 
 # Create backup before updating
 if ! make backup; then
-    echo "Error: Failed to create backup. Update cancelled."
+    error "Failed to create backup. Update cancelled."
     exit 1
 fi
-echo ""
 
-echo "Proceeding with framework update..."
+section "Creating Update Branch"
 
 # Create update branch
 UPDATE_BRANCH="servicepack_update_to_${LATEST_VERSION}"
-echo "Creating update branch: $UPDATE_BRANCH"
+info "Creating update branch: $UPDATE_BRANCH"
 
 if git show-ref --verify --quiet "refs/heads/$UPDATE_BRANCH"; then
-    echo "Error: Branch $UPDATE_BRANCH already exists."
-    echo "Delete it first with: git branch -D $UPDATE_BRANCH"
+    error "Branch $UPDATE_BRANCH already exists."
+    warning "Delete it first with: git branch -D $UPDATE_BRANCH"
     exit 1
 fi
 
 git checkout -b "$UPDATE_BRANCH"
 
+section "Downloading Framework"
+
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
-echo "Downloading latest servicepack..."
+info "Downloading latest servicepack to $TEMP_DIR..."
 
 # Clone the latest servicepack
 if [ -n "$LATEST_TAG" ]; then
@@ -91,17 +96,17 @@ fi
 USER_MODULE=""
 if [ -f "go.mod" ]; then
     USER_MODULE=$(head -n 1 go.mod | awk '{print $2}')
-    echo "Preserving user module name: $USER_MODULE"
+    info "Preserving user module name: $USER_MODULE"
 fi
 
-echo "Updating framework core files..."
+section "Updating Framework Files"
 
 # Build exclude args - default excludes (protect user content)
-EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=README.md --exclude=LICENSE --exclude=.git --exclude=.gitignore --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
+EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=README.md --exclude=LICENSE --exclude=.git --exclude=.gitignore --exclude=.servicepackupdateignore --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
 
 # Add excludes from .servicepackupdateignore if it exists
 if [ -f ".servicepackupdateignore" ]; then
-    echo "Using .servicepackupdateignore exclusions..."
+    info "Using .servicepackupdateignore exclusions..."
     while IFS= read -r line; do
         # Skip comments (lines starting with #) and empty lines
         [[ "$line" =~ ^[[:space:]]*# ]] && continue
@@ -113,12 +118,14 @@ fi
 # Update core framework files with exclusions
 eval "rsync -av $EXCLUDE_ARGS \"$TEMP_DIR/\" ./"
 
+section "Restoring User Configuration"
+
 # If user had a custom module name, restore it everywhere
 if [ -n "$USER_MODULE" ]; then
-    echo "Restoring user module name in go.mod..."
+    info "Restoring user module name in go.mod..."
     sed -i "1s|.*|module $USER_MODULE|" go.mod
 
-    echo "Replacing module references in all files..."
+    info "Replacing module references in all files..."
     # Get the original module name from the downloaded framework
     FRAMEWORK_MODULE=$(head -n 1 "$TEMP_DIR/go.mod" | awk '{print $2}')
 
@@ -129,10 +136,9 @@ fi
 
 # Save the new version
 printf "%s" "$LATEST_VERSION" > servicepack.version
-echo "Updated servicepack.version to: $LATEST_VERSION"
+success "Updated servicepack.version to: $LATEST_VERSION"
 
-# Update dependencies
-echo "Updating dependencies..."
+section "Updating Dependencies"
 make dep
 
 # Commit changes to update branch
@@ -154,17 +160,26 @@ To revert:
   git checkout $CURRENT_BRANCH
   git branch -D $UPDATE_BRANCH"
 
+section "Finalizing Update"
+
 # Clean up
 rm -rf "$TEMP_DIR"
+info "Cleaned up temporary files"
 
+success "Framework updated successfully in branch '$UPDATE_BRANCH'!"
+info "You are now on the update branch to review changes."
+
+section "Next Steps"
+echo "1. Review changes:"
+echo "   ${BLUE}git diff $CURRENT_BRANCH..HEAD${NC}"
 echo ""
-echo "Framework updated successfully in branch '$UPDATE_BRANCH'!"
-echo "You are now on the update branch to review changes."
+echo "2. Test the update:"
+echo "   ${BLUE}make dep && make service-registration && make test${NC}"
 echo ""
-echo "Next steps:"
-echo "1. Review changes: git diff $CURRENT_BRANCH..HEAD"
-echo "2. Test the update: make dep && make service-registration && make test"
-echo "3. If satisfied: git checkout $CURRENT_BRANCH && git merge $UPDATE_BRANCH"
-echo "4. If not satisfied, revert: git checkout $CURRENT_BRANCH && git branch -D $UPDATE_BRANCH"
+echo "3. If satisfied, merge the update:"
+echo "   ${BLUE}git checkout $CURRENT_BRANCH && git merge $UPDATE_BRANCH${NC}"
 echo ""
-echo "Note: A backup was created before updating. Use 'make backup-restore' if needed."
+echo "4. If not satisfied, revert:"
+echo "   ${BLUE}git checkout $CURRENT_BRANCH && git branch -D $UPDATE_BRANCH${NC}"
+echo ""
+warning "A backup was created before updating. Use 'make backup-restore' if needed."

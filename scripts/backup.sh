@@ -2,20 +2,25 @@
 
 set -e
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
 APP_NAME=$(head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')
 TIMESTAMP=$(date +%Y_%m_%d_%H_%M_%S)
 BACKUP_NAME="${TIMESTAMP}_${APP_NAME}.tar.gz"
 TMP_BACKUP="/tmp/servicepack-backup"
 LOCAL_BACKUP=".backup"
 
-echo "Creating backup: $BACKUP_NAME"
+section "Creating Backup"
+info "Backup name: $BACKUP_NAME"
 
 # Create backup directories
 mkdir -p "$TMP_BACKUP"
 mkdir -p "$LOCAL_BACKUP"
 
 # Create the backup archive
-echo "Archiving project..."
+info "Archiving project..."
 tar --exclude='.backup' \
     --exclude='build' \
     --exclude='coverage.txt' \
@@ -24,17 +29,17 @@ tar --exclude='.backup' \
 # Copy to local backup directory
 cp "$TMP_BACKUP/$BACKUP_NAME" "$LOCAL_BACKUP/"
 
-echo "Backup created:"
+success "Backup created:"
 echo "  - /tmp: $TMP_BACKUP/$BACKUP_NAME"
 echo "  - local: $LOCAL_BACKUP/$BACKUP_NAME"
 
 # Keep only latest 6 backups in local directory
-echo "Cleaning old backups (keeping latest 6)..."
+info "Cleaning old backups (keeping latest 6)..."
 cd "$LOCAL_BACKUP"
 find . -name "*.tar.gz" -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | tail -n +7 | cut -d' ' -f2- | xargs -r rm -f
 cd - > /dev/null
 
 BACKUP_COUNT=$(find "$LOCAL_BACKUP" -name "*.tar.gz" -type f 2>/dev/null | wc -l)
-echo "Local backups: $BACKUP_COUNT/6"
+info "Local backups: $BACKUP_COUNT/6"
 
-echo "Backup completed successfully!"
+success "Backup completed successfully!"

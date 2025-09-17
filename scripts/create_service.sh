@@ -2,9 +2,13 @@
 
 set -e
 
+# Source common functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
 # Check if service name is provided
 if [ -z "$1" ]; then
-    echo "Error: Service name is required"
+    error "Service name is required"
     echo "Usage: $0 <service-name>"
     echo "Example: $0 myservice"
     exit 1
@@ -19,12 +23,12 @@ PACKAGE_NAME=$(echo "$SERVICE_NAME" | tr -d '-' | tr '[:upper:]' '[:lower:]')
 
 # Check if service already exists
 if [ -d "$SERVICE_DIR" ]; then
-    echo "Error: Service '$SERVICE_NAME' already exists at $SERVICE_DIR"
+    error "Service '$SERVICE_NAME' already exists at $SERVICE_DIR"
     exit 1
 fi
 
-# Create service directory
-echo "Creating service '$SERVICE_NAME'..."
+section "Creating Service"
+info "Service name: '$SERVICE_NAME'"
 mkdir -p "$SERVICE_DIR"
 
 # Convert service name to proper Go struct name
@@ -84,8 +88,8 @@ func (s *$STRUCT_NAME) Stop(_ context.Context) error {
 }
 EOF
 
-echo "Service '$SERVICE_NAME' created at $SERVICE_FILE"
-echo ""
-echo "Next steps:"
+success "Service '$SERVICE_NAME' created at $SERVICE_FILE"
+
+section "Next Steps"
 echo "1. Implement the service logic in the Run() method"
 echo "2. Your service will automatically start when the app runs!"
