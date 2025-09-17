@@ -260,11 +260,11 @@ internal/pkg/service-manager/  # Framework files
 scripts/                       # Framework files
 Makefile                       # Framework files
 Dockerfile.dev                 # Framework files
-LICENSE                        # Your project license - excluded by default
+LICENSE                        # Your project license
 .golangci.yml                  # Framework files
 go.mod                         # Your module name preserved
 go.sum                         # Gets regenerated
-README.md                      # Your project docs - excluded by default
+README.md                      # Your project docs
 internal/pkg/services/         # Your services - never touched
 ```
 

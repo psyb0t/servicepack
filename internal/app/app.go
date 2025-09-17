@@ -6,7 +6,7 @@ import (
 
 	"github.com/psyb0t/common-go/env"
 	"github.com/psyb0t/ctxerrors"
-	"github.com/psyb0t/servicepack/internal/pkg/service-manager"
+	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	"github.com/sirupsen/logrus"
 )
 
