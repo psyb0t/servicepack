@@ -4,6 +4,7 @@ __pycache__
 coverage.out
 coverage.html
 coverage.txt
+coverage_filtered.txt
 build
 CLAUDE.md
 .env
