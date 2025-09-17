@@ -6,7 +6,7 @@ import (
 
 	"github.com/psyb0t/common-go/env"
 	"github.com/psyb0t/ctxerrors"
-	"github.com/psyb0t/servicepack/internal/pkg/services"
+	"github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,7 +20,7 @@ type App struct {
 	wg             sync.WaitGroup
 	doneCh         chan struct{}
 	stopOnce       sync.Once
-	serviceManager *services.ServiceManager
+	serviceManager *servicemanager.ServiceManager
 }
 
 func GetInstance() *App {
@@ -34,7 +34,7 @@ func GetInstance() *App {
 func newApp() *App {
 	app := &App{
 		doneCh:         make(chan struct{}),
-		serviceManager: services.GetServiceManagerInstance(),
+		serviceManager: servicemanager.GetServiceManagerInstance(),
 	}
 
 	var err error
@@ -52,7 +52,7 @@ func resetInstance() {
 	once = sync.Once{}
 	instance = nil
 	// Also reset ServiceManager singleton
-	services.ResetServiceManagerInstance()
+	servicemanager.ResetServiceManagerInstance()
 }
 
 func (a *App) Run(ctx context.Context) error {

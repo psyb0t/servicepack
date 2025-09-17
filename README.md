@@ -138,11 +138,16 @@ cmd/main.go                          # Entry point, CLI setup
 internal/app/                        # Application layer
 ├── app.go                          # Main app orchestration
 ├── config.go                       # Configuration parsing
-internal/pkg/services/              # Service layer
-├── service_manager.go              # Concurrent service runner
-├── services.gen.go                 # Auto-generated service registration
-├── hello-world/                    # Example service
-└── your-services/                  # Your services go here
+internal/pkg/
+├── service-manager/                 # Framework service orchestration
+│   ├── service_manager.go          # Concurrent service runner
+│   ├── errors.go                   # Framework error definitions
+│   └── *_test.go                   # Framework tests
+└── services/                       # User service space
+    ├── services.gen.go             # Auto-generated service registration
+    ├── hello-world/                # Example service
+    ├── my-cool-service/            # Your service (one dir per service)
+    └── another-service/            # Another service
 ```
 
 ### Key Components
@@ -206,26 +211,60 @@ This script:
 1. Checks for uncommitted changes (fails if found)
 2. Compares current version with latest
 3. Creates backup if update is needed
-4. Downloads latest framework
-5. Updates core files while preserving your services
-6. Maintains your custom module name
+4. Creates update branch `servicepack_update_to_VERSION`
+5. Downloads latest framework and applies changes
+6. Commits changes to update branch for review
+7. Leaves you on update branch to review and test
 
-**Warning**: Don't modify framework core files or they'll get overwritten on update:
+### Review and Apply Updates
+
+After running `make servicepack-update`:
+
+```bash
+# Review what changed
+git diff main..HEAD
+
+# Test the update
+make dep && make service-registration && make test
+
+# If satisfied, merge the update
+git checkout main
+git merge servicepack_update_to_VERSION
+
+# If not satisfied, discard the update
+git checkout main
+git branch -D servicepack_update_to_VERSION
+```
+
+### Customizing Updates with .servicepackupdateignore
+
+Create a `.servicepackupdateignore` file to exclude files from framework updates:
 
 ```
-cmd/                    # Framework files - don't touch
-internal/app/          # Framework files - don't touch
-internal/pkg/services/service_manager.go    # Framework files - don't touch
-internal/pkg/services/errors.go             # Framework files - don't touch
-scripts/               # Framework files - don't touch
-Makefile              # Framework files - don't touch
-Dockerfile.dev        # Framework files - don't touch
-.golangci.yml         # Framework files - don't touch
-go.mod                # Your module name preserved
-go.sum                # Gets regenerated
+# Custom framework modifications
+Makefile
+Dockerfile.dev
+scripts/custom_deploy.sh
+
+# Local configuration files
+*.local
+.env*
 ```
 
-Your services in `internal/pkg/services/your-service/` are safe and won't be touched.
+**Framework vs User Files**:
+
+```
+cmd/                           # Framework files
+internal/app/                  # Framework files
+internal/pkg/service-manager/  # Framework files
+scripts/                       # Framework files
+Makefile                       # Framework files
+go.mod                         # Your module name preserved
+go.sum                         # Gets regenerated
+internal/pkg/services/         # Your services - never touched
+```
+
+Use `.servicepackupdateignore` to exclude any framework files you've customized.
 
 ## Pre-commit Hook
 
