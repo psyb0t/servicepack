@@ -7,6 +7,7 @@ import (
 	"github.com/psyb0t/common-go/env"
 	"github.com/psyb0t/ctxerrors"
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
+	"github.com/psyb0t/servicepack/internal/pkg/services"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,6 +33,9 @@ func GetInstance() *App {
 }
 
 func newApp() *App {
+	// Initialize services first
+	services.Init()
+
 	app := &App{
 		doneCh:         make(chan struct{}),
 		serviceManager: servicemanager.GetInstance(),

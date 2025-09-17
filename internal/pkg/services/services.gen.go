@@ -16,7 +16,7 @@ const (
 	envVarNameServicesEnabled = "SERVICES_ENABLED"
 )
 
-func init() { //nolint:gochecknoinits
+func Init() {
 	sm := servicemanager.GetInstance()
 
 	// Parse SERVICES_ENABLED env var

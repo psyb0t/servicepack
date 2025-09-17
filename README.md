@@ -82,8 +82,9 @@ The `Stop()` method is for cleanup - it runs when the app is shutting down.
 
 1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
 2. The `scripts/register_services.sh` script finds all Service implementations
-3. It generates `internal/pkg/services/services.gen.go` with registration code
-4. Services get filtered based on the `SERVICES_ENABLED` environment variable
+3. It generates `internal/pkg/services/services.gen.go` with a `services.Init()` function
+4. The `services.Init()` function is called when the app starts to register all services
+5. Services get filtered based on the `SERVICES_ENABLED` environment variable
 
 ### Service Filtering
 
@@ -144,7 +145,7 @@ internal/pkg/
 │   ├── errors.go                   # Framework error definitions
 │   └── *_test.go                   # Framework tests
 └── services/                       # User service space
-    ├── services.gen.go             # Auto-generated service registration
+    ├── services.gen.go             # Auto-generated services.Init() function
     ├── hello-world/                # Example service
     ├── my-cool-service/            # Your service (one dir per service)
     └── another-service/            # Another service
@@ -154,7 +155,7 @@ internal/pkg/
 
 **ServiceManager**: Runs your services concurrently, handles shutdown, routes errors. It's a singleton because globals are fine when you know what you're doing.
 
-**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations. No manual registration bullshit.
+**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations and generates a `services.Init()` function. No manual registration bullshit.
 
 **App**: Wrapper that runs the ServiceManager and handles the lifecycle shit.
 
@@ -292,9 +293,10 @@ Tests are structured per component:
 
 ### Test Isolation
 
-- `ResetServiceManagerInstance()` resets the singleton for clean test state
+- `ResetInstance()` resets the singleton for clean test state
 - `ClearServices()` clears all registered services
 - Mock services implement the Service interface for testing
+- Tests should avoid calling `services.Init()` and manually add mock services instead
 
 ## Concurrency Model
 

@@ -26,7 +26,7 @@ if [ "$SERVICE_COUNT" -eq 0 ]; then
 
 package services
 
-func init() { //nolint:gochecknoinits
+func Init() {
 	panic("No services")
 }
 EOF
@@ -57,7 +57,7 @@ EOF
     echo "	envVarNameServicesEnabled = \"SERVICES_ENABLED\""
     echo ")"
     echo ""
-    echo "func init() { //nolint:gochecknoinits"
+    echo "func Init() {"
     echo "	sm := servicemanager.GetInstance()"
     echo ""
     echo "	// Parse SERVICES_ENABLED env var"
