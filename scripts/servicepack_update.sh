@@ -141,6 +141,10 @@ success "Updated servicepack.version to: $LATEST_VERSION"
 section "Updating Dependencies"
 make dep
 
+# Regenerate service registration after dependency updates
+info "Regenerating service registration..."
+make service-registration
+
 # Commit changes to update branch
 git add -A
 git commit -m "Update servicepack framework to $LATEST_VERSION
