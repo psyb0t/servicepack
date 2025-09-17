@@ -90,6 +90,23 @@ else
 fi
 
 echo "Module name replacement completed!"
-echo ""
-echo "Contents of new go.mod:"
-cat go.mod
+
+# Update dependencies
+echo "Updating dependencies..."
+make dep
+
+# Install golangci-lint tool
+echo "Installing golangci-lint tool..."
+go get -tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4
+
+# Initialize git repository
+echo "Initializing git repository..."
+git init
+
+# Add all files and create initial commit
+echo "Creating initial commit..."
+git add -A
+git commit -m "Initial commit"
+
+# Show commit log
+git log

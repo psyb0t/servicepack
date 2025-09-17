@@ -85,11 +85,6 @@ servicepack-update: ## Update servicepack framework to latest version
 
 own: ## Make this project your own. Usage: make own MODNAME=github.com/foo/bar
 	@./$(SCRIPTS_DIR)/make_own.sh $(MODNAME)
-	@$(MAKE) dep
-	@git init
-	@git branch -m main
-	@git add -A
-	@git commit -m "initial commit"
 
 backup: ## Create backup of the current project
 	@./$(SCRIPTS_DIR)/backup.sh
