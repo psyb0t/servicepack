@@ -1,13 +1,11 @@
 .vscode
 .log
+__pycache__
 coverage.out
 coverage.html
 coverage.txt
 build
-__pycache__
 CLAUDE.md
-env.js
-uploads
+.env
 research_files
-.tls
 .backup
