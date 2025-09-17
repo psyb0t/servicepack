@@ -34,7 +34,7 @@ func GetInstance() *App {
 func newApp() *App {
 	app := &App{
 		doneCh:         make(chan struct{}),
-		serviceManager: servicemanager.GetServiceManagerInstance(),
+		serviceManager: servicemanager.GetInstance(),
 	}
 
 	var err error
@@ -52,7 +52,7 @@ func resetInstance() {
 	once = sync.Once{}
 	instance = nil
 	// Also reset ServiceManager singleton
-	servicemanager.ResetServiceManagerInstance()
+	servicemanager.ResetInstance()
 }
 
 func (a *App) Run(ctx context.Context) error {

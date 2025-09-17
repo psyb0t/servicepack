@@ -17,7 +17,7 @@ const (
 )
 
 func init() { //nolint:gochecknoinits
-	sm := servicemanager.GetServiceManagerInstance()
+	sm := servicemanager.GetInstance()
 
 	// Parse SERVICES_ENABLED env var
 	servicesEnabledEnv := os.Getenv(envVarNameServicesEnabled)

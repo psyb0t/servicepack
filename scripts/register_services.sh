@@ -38,7 +38,7 @@ EOF
     echo ")"
     echo ""
     echo "func init() { //nolint:gochecknoinits"
-    echo "	sm := servicemanager.GetServiceManagerInstance()"
+    echo "	sm := servicemanager.GetInstance()"
     echo ""
     echo "	// Parse SERVICES_ENABLED env var"
     echo "	servicesEnabledEnv := os.Getenv(envVarNameServicesEnabled)"

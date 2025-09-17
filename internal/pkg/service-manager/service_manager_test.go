@@ -72,22 +72,22 @@ func (m *mockService) wasStopCalled() bool {
 	return atomic.LoadInt32(&m.stopCalled) == 1
 }
 
-func TestGetServiceManagerInstance(t *testing.T) {
+func TestGetInstance(t *testing.T) {
 	// Reset singleton before test
-	ResetServiceManagerInstance()
+	ResetInstance()
 
-	sm1 := GetServiceManagerInstance()
+	sm1 := GetInstance()
 	assert.NotNil(t, sm1)
 	assert.NotNil(t, sm1.services)
 	assert.NotNil(t, sm1.doneCh)
 	assert.Equal(t, 0, len(sm1.services))
 
 	// Test that subsequent calls return the same instance
-	sm2 := GetServiceManagerInstance()
+	sm2 := GetInstance()
 	assert.Same(t, sm1, sm2)
 
 	// Test that NewServiceManager also returns the same instance
-	sm3 := NewServiceManager()
+	sm3 := GetInstance()
 	assert.Same(t, sm1, sm3)
 }
 
@@ -121,9 +121,9 @@ func TestServiceManager_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ResetServiceManagerInstance()
+			ResetInstance()
 
-			sm := NewServiceManager()
+			sm := GetInstance()
 			sm.Add(tt.services...)
 
 			assert.Equal(t, tt.expected, len(sm.services))
@@ -215,9 +215,9 @@ func TestServiceManager_Run(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ResetServiceManagerInstance()
+			ResetInstance()
 
-			sm := NewServiceManager()
+			sm := GetInstance()
 			sm.Add(tt.services...)
 
 			ctx, cancel := tt.contextSetup()
@@ -306,9 +306,9 @@ func TestServiceManager_Stop(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ResetServiceManagerInstance()
+			ResetInstance()
 
-			sm := NewServiceManager()
+			sm := GetInstance()
 			sm.Add(tt.services...)
 
 			ctx := context.Background()
@@ -372,9 +372,9 @@ func TestServiceManager_Stop(t *testing.T) {
 
 func TestServiceManager_Concurrency(t *testing.T) {
 	t.Run("concurrent add and run", func(t *testing.T) {
-		ResetServiceManagerInstance()
+		ResetInstance()
 
-		sm := NewServiceManager()
+		sm := GetInstance()
 
 		// Add services concurrently
 		done := make(chan bool, 10)
@@ -403,5 +403,4 @@ func TestServiceManager_Concurrency(t *testing.T) {
 		err := sm.Run(ctx)
 		assert.NoError(t, err)
 	})
-
 }
