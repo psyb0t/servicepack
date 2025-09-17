@@ -16,15 +16,15 @@ mkdir -p ./build
 
 # Build using Docker
 docker run --rm \
-    -v $(pwd):/app \
+    -v "$(pwd)":/app \
     -w /app \
-    -e USER_UID=$(id -u) \
-    -e USER_GID=$(id -g) \
+    -e USER_UID="$(id -u)" \
+    -e USER_GID="$(id -g)" \
     golang:1.24.6-alpine \
     sh -c "apk add --no-cache gcc musl-dev && \
-           CGO_ENABLED=0 go build -a \
-           -ldflags '-extldflags \"-static\" -X main.appName=$APP_NAME' \
-           -o ./build/$APP_NAME ./cmd/... && \
-           chown \$USER_UID:\$USER_GID ./build/$APP_NAME"
+        CGO_ENABLED=0 go build -a \
+        -ldflags '-extldflags \"-static\" -X main.appName=$APP_NAME' \
+        -o ./build/$APP_NAME ./cmd/... && \
+        chown \$USER_UID:\$USER_GID ./build/$APP_NAME"
 
 success "Binary built successfully: ./build/$APP_NAME"
