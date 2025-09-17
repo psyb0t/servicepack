@@ -138,7 +138,3 @@ git add -A
 git commit -m "Initial commit"
 
 success "Project setup completed!"
-
-section "Summary"
-echo "Contents of new go.mod:"
-cat go.mod
