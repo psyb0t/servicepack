@@ -1,7 +1,4 @@
-# Example user Dockerfile.dev
-# This file demonstrates how to override the framework development image
-# Delete this file to use the default framework image (Dockerfile.servicepack.dev)
-
+# Development Dockerfile
 FROM golang:1.24.6-alpine
 
 # Install build dependencies

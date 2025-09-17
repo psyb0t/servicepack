@@ -1,72 +1,12 @@
-MIN_TEST_COVERAGE := 90
-SCRIPTS_DIR := scripts
-APP_NAME := $(shell head -n 1 go.mod | awk '{print $$2}' | awk -F'/' '{print $$NF}')
+# Project Makefile
+# Add your custom targets here - they will override servicepack defaults
 
-# Function to find script: check user scripts first, then fall back to servicepack
-define find_script
-$(shell if [ -f "./$(SCRIPTS_DIR)/make/$(1)" ]; then \
-	echo "./$(SCRIPTS_DIR)/make/$(1)"; \
-else \
-	echo "./$(SCRIPTS_DIR)/make/servicepack/$(1)"; \
-fi)
-endef
+# Include servicepack framework commands
+include Makefile.servicepack
 
-.PHONY: all dep lint lint-fix test test-coverage build clean \
-	service service-remove service-registration servicepack-update own \
-	backup backup-restore backup-clear
+# Example of overriding a framework command:
+# build: ## Custom build command
+# 	@echo "Running custom build..."
+# 	@docker build -t myapp .
 
-all: dep lint-fix test-coverage build ## Run dep, lint-fix, test-coverage and build
-
-dep: ## Get project dependencies
-	@$(call find_script,dep.sh)
-
-lint: ## Lint all Golang files
-	@$(call find_script,lint.sh)
-
-lint-fix: ## Lint all Golang files and fix
-	@$(call find_script,lint_fix.sh)
-
-test: ## Run all tests
-	@$(call find_script,test.sh)
-
-test-coverage: ## Run tests with coverage check. Fails if coverage is below the threshold.
-	@$(call find_script,test_coverage.sh)
-
-build: ## Build the app binary using Docker
-	@$(call find_script,build.sh)
-
-clean: ## Clean build artifacts and coverage files
-	@$(call find_script,clean.sh)
-
-docker-build-dev: ## Build the development Docker image
-	@$(call find_script,docker_build_dev.sh)
-
-run-dev: ## Run in the development Docker image
-	@$(call find_script,run_dev.sh)
-
-service: ## Create a new service skeleton. Usage: make service NAME=myservice
-	@$(call find_script,service.sh) $(NAME)
-
-service-remove: ## Remove a service. Usage: make service-remove NAME=myservice
-	@$(call find_script,service_remove.sh) $(NAME)
-
-service-registration: ## Regenerate service registration file
-	@$(call find_script,service_registration.sh)
-
-servicepack-update: ## Update servicepack framework to latest version
-	@$(call find_script,servicepack_update.sh)
-
-own: ## Make this project your own. Usage: make own MODNAME=github.com/foo/bar
-	@$(call find_script,own.sh) $(MODNAME)
-
-backup: ## Create backup of the current project
-	@$(call find_script,backup.sh)
-
-backup-restore: ## Restore from backup. Usage: make backup-restore [BACKUP=filename.tar.gz] (defaults to latest)
-	@$(call find_script,backup_restore.sh) $(BACKUP)
-
-backup-clear: ## Delete all backup files
-	@$(call find_script,backup_clear.sh)
-
-help: ## Display this help message
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+# Add your custom targets below this line

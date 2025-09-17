@@ -102,7 +102,18 @@ fi
 section "Updating Framework Files"
 
 # Build exclude args - default excludes (protect user content)
-EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=README.md --exclude=LICENSE --exclude=.git --exclude=.gitignore --exclude=.servicepackupdateignore --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
+EXCLUDE_ARGS="--exclude=internal/pkg/services/* \
+    --exclude=README.md \
+    --exclude=LICENSE \
+    --exclude=.git \
+    --exclude=.gitignore \
+    --exclude=.servicepackupdateignore \
+    --exclude=Makefile \
+    --exclude=Dockerfile \
+    --exclude=Dockerfile.dev \
+    --exclude=build/ \
+    --exclude=coverage.txt \
+    --exclude=vendor/"
 
 # Add excludes from .servicepackupdateignore if it exists
 if [ -f ".servicepackupdateignore" ]; then

@@ -20,24 +20,21 @@ A Go service framework that runs your shit concurrently without fucking around.
   - [Basic Commands](#basic-commands)
   - [Service Management](#service-management)
   - [Development](#development)
-  - [Framework Management](#framework-management)
-  - [Backup Management](#backup-management)
   - [Script Customization](#script-customization)
-
-**System Details**
-- [Architecture](#architecture)
-  - [Key Components](#key-components)
 - [Environment Variables](#environment-variables)
-- [Build System Details](#build-system-details)
-  - [Build Process](#build-process)
 
 **Framework Management**
 - [Framework Updates](#framework-updates)
   - [Review and Apply Updates](#review-and-apply-updates)
   - [Customizing Updates with .servicepackupdateignore](#customizing-updates-with-servicepackupdateignore)
+  - [Framework Management](#framework-management)
+  - [Backup Management](#backup-management)
 
 **Advanced Topics**
-- [Pre-commit Hook](#pre-commit-hook)
+- [Architecture](#architecture)
+  - [Key Components](#key-components)
+- [Build System Details](#build-system-details)
+  - [Build Process](#build-process)
 - [Testing](#testing)
   - [Test Isolation](#test-isolation)
 - [Concurrency Model](#concurrency-model)
@@ -46,6 +43,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 **Reference**
 - [Dependencies](#dependencies)
 - [Directory Structure](#directory-structure)
+- [Pre-commit Hook](#pre-commit-hook)
 - [Future Features (TODO)](#future-features-todo)
 - [License](#license)
 
@@ -168,11 +166,6 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 - `make run-dev` - Run in development Docker container
 - `make docker-build-dev` - Build dev image
 
-### Docker
-
-- `make docker-build` - Build production Docker image
-- `make docker-build-dev` - Build development Docker image
-
 ### Framework Management
 
 - `make servicepack-update` - Update to latest servicepack framework (creates backup first)
@@ -207,48 +200,6 @@ The Makefile checks for user scripts first (`scripts/make/`), then falls back to
 - Take priority over framework scripts
 - Never touched by framework updates
 - Perfect for project-specific build customizations
-
-### Makefile Customization
-
-The build system uses a split Makefile approach:
-
-```bash
-# Override any framework command by defining it in your Makefile
-build: ## Custom build command
-	@echo "Running my custom build..."
-	@docker build -t myapp .
-
-# Add your own custom commands
-deploy: ## Deploy to production
-	@./deploy.sh
-```
-
-**How it works:**
-- `Makefile.servicepack` - Contains all framework commands (updated by framework)
-- `Makefile` - Your file that includes servicepack + allows custom commands (never touched)
-- User commands override framework commands automatically
-- `make help` shows both user and framework commands
-
-### Dockerfile Customization
-
-Both development and production Docker environments use the override pattern:
-
-```bash
-# Customize development environment
-cp Dockerfile.servicepack.dev Dockerfile.dev
-vim Dockerfile.dev
-
-# Customize production environment
-cp Dockerfile.servicepack Dockerfile
-vim Dockerfile
-```
-
-**How it works:**
-- `Dockerfile.servicepack.dev` - Framework development image (updated by framework)
-- `Dockerfile.dev` - Your custom development image (never touched)
-- `Dockerfile.servicepack` - Framework production image (updated by framework)
-- `Dockerfile` - Your custom production image (never touched)
-- `make docker-build-dev` automatically uses your custom development version if it exists
 
 ## Architecture
 
@@ -367,8 +318,10 @@ git branch -D servicepack_update_to_VERSION
 Create a `.servicepackupdateignore` file to exclude files from framework updates:
 
 ```
-# Custom framework modifications (these are already user files)
-# Note: Dockerfile, Dockerfile.dev, Makefile, and scripts/make/ are automatically excluded
+# Custom framework modifications
+Makefile
+Dockerfile.dev
+scripts/custom_deploy.sh
 
 # Local configuration files
 *.local
@@ -383,12 +336,8 @@ internal/app/                  # Framework files
 internal/pkg/service-manager/  # Framework files
 scripts/make/servicepack/      # Framework scripts (updated by servicepack-update)
 scripts/make/                  # User scripts (override framework, never touched)
-Makefile.servicepack           # Framework Makefile (updated by servicepack-update)
-Makefile                       # User Makefile (includes servicepack, never touched)
-Dockerfile.servicepack.dev     # Framework development image (updated by servicepack-update)
-Dockerfile.dev                 # User development image (overrides framework, never touched)
-Dockerfile.servicepack         # Framework production image (updated by servicepack-update)
-Dockerfile                     # User production image (never touched)
+Makefile                       # Framework files
+Dockerfile.dev                 # Framework files
 .github/                       # Framework files (CI/CD workflows)
 LICENSE                        # Your project license
 .golangci.yml                  # Framework files
@@ -471,12 +420,8 @@ Development dependencies:
 │   └── [user scripts]             # User overrides (take priority)
 ├── build/                          # Build output
 ├── vendor/                         # Vendored dependencies
-├── Makefile                        # User Makefile (includes servicepack framework)
-├── Makefile.servicepack            # Framework Makefile (auto-updated)
-├── Dockerfile                      # User production image (optional override)
-├── Dockerfile.dev                  # User development image (optional override)
-├── Dockerfile.servicepack          # Framework production image (auto-updated)
-├── Dockerfile.servicepack.dev      # Framework development image (auto-updated)
+├── Makefile                        # Build automation (uses script resolution)
+├── Dockerfile.dev                  # Development container
 └── servicepack.version             # Framework version tracking
 ```
 
