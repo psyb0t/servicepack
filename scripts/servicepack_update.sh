@@ -96,8 +96,8 @@ fi
 
 echo "Updating framework core files..."
 
-# Build exclude args - default excludes (protect user services only)
-EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=.git* --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
+# Build exclude args - default excludes (protect user content)
+EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=README.md --exclude=LICENSE --exclude=.git* --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
 
 # Add excludes from .servicepackupdateignore if it exists
 if [ -f ".servicepackupdateignore" ]; then
