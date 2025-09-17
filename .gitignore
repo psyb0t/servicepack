@@ -9,3 +9,4 @@ CLAUDE.md
 .env
 research_files
 .backup
+scripts/.post-update-temp
