@@ -91,13 +91,13 @@ fi
 
 echo "Module name replacement completed!"
 
-# Update dependencies
-echo "Updating dependencies..."
-make dep
-
 # Install golangci-lint tool
 echo "Installing golangci-lint tool..."
 go get -tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4
+
+# Update dependencies
+echo "Updating dependencies..."
+make dep
 
 # Initialize git repository
 echo "Initializing git repository..."
