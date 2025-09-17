@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	helloworld "github.com/psyb0t/servicepack/internal/pkg/services/hello-world"
 	"github.com/sirupsen/logrus"
 )
@@ -16,7 +17,7 @@ const (
 )
 
 func init() { //nolint:gochecknoinits
-	sm := GetServiceManagerInstance()
+	sm := servicemanager.GetInstance()
 
 	// Parse SERVICES_ENABLED env var
 	servicesEnabledEnv := os.Getenv(envVarNameServicesEnabled)
@@ -31,7 +32,7 @@ func init() { //nolint:gochecknoinits
 		}
 	}
 
-	var service Service
+	var service servicemanager.Service
 	var err error
 
 	if slices.Contains(enabledServices, helloworld.ServiceName) || allEnabled {

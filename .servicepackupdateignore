@@ -1,0 +1,19 @@
+# .servicepackupdateignore
+# Files and patterns to exclude when updating servicepack framework
+# Uses rsync exclude syntax - supports wildcards and paths
+
+# Example: Custom framework modifications
+# Makefile
+# Dockerfile.dev
+# .golangci.yml
+
+# Example: Custom scripts
+# scripts/custom_*
+# scripts/deploy.sh
+
+# Example: Local configuration files
+# *.local
+# .env*
+# config/local.yml
+
+# Note: internal/pkg/services/* is always excluded - your services are never touched

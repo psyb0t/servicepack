@@ -6,18 +6,22 @@ echo "Checking servicepack framework updates..."
 
 # Check if we're in a git repo
 if [ ! -d ".git" ]; then
-    echo "Warning: Not in a git repository. Make sure to commit your changes first."
-else
-    # Check for uncommitted changes
-    if [ -n "$(git status --porcelain)" ]; then
-        echo "Error: You have uncommitted changes in your repository."
-        echo "Please commit or stash your changes before updating the framework."
-        echo ""
-        echo "Current uncommitted changes:"
-        git status --short
-        exit 1
-    fi
+    echo "Error: Not in a git repository. Framework updates require git."
+    exit 1
 fi
+
+# Check for uncommitted changes
+if [ -n "$(git status --porcelain)" ]; then
+    echo "Error: You have uncommitted changes in your repository."
+    echo "Please commit or stash your changes before updating the framework."
+    echo ""
+    echo "Current uncommitted changes:"
+    git status --short
+    exit 1
+fi
+
+# Get current branch name
+CURRENT_BRANCH=$(git branch --show-current)
 
 # Get the current version SHA if it exists
 CURRENT_VERSION=""
@@ -58,6 +62,18 @@ echo ""
 
 echo "Proceeding with framework update..."
 
+# Create update branch
+UPDATE_BRANCH="servicepack_update_to_${LATEST_VERSION}"
+echo "Creating update branch: $UPDATE_BRANCH"
+
+if git show-ref --verify --quiet "refs/heads/$UPDATE_BRANCH"; then
+    echo "Error: Branch $UPDATE_BRANCH already exists."
+    echo "Delete it first with: git branch -D $UPDATE_BRANCH"
+    exit 1
+fi
+
+git checkout -b "$UPDATE_BRANCH"
+
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
 echo "Downloading latest servicepack..."
@@ -80,14 +96,22 @@ fi
 
 echo "Updating framework core files..."
 
-# Update core framework files, but preserve user services
-rsync -av \
-    --exclude='internal/pkg/services/*' \
-    --exclude='.git*' \
-    --exclude='build/' \
-    --exclude='coverage.txt' \
-    --exclude='vendor/' \
-    "$TEMP_DIR/" ./
+# Build exclude args - default excludes (protect user content)
+EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=README.md --exclude=LICENSE --exclude=.git* --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
+
+# Add excludes from .servicepackupdateignore if it exists
+if [ -f ".servicepackupdateignore" ]; then
+    echo "Using .servicepackupdateignore exclusions..."
+    while IFS= read -r line; do
+        # Skip comments (lines starting with #) and empty lines
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+        EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude=$line"
+    done < .servicepackupdateignore
+fi
+
+# Update core framework files with exclusions
+eval "rsync -av $EXCLUDE_ARGS \"$TEMP_DIR/\" ./"
 
 # If user had a custom module name, restore it
 if [ -n "$USER_MODULE" ]; then
@@ -99,15 +123,40 @@ fi
 printf "%s" "$LATEST_VERSION" > servicepack.version
 echo "Updated servicepack.version to: $LATEST_VERSION"
 
+# Update dependencies
+echo "Updating dependencies..."
+make dep
+
+# Commit changes to update branch
+git add -A
+git commit -m "Update servicepack framework to $LATEST_VERSION
+
+- Updated from: $CURRENT_VERSION
+- Updated to: $LATEST_VERSION
+- Branch: $UPDATE_BRANCH
+
+To review changes:
+  git diff $CURRENT_BRANCH..HEAD
+
+To apply update:
+  git checkout $CURRENT_BRANCH
+  git merge $UPDATE_BRANCH
+
+To revert:
+  git checkout $CURRENT_BRANCH
+  git branch -D $UPDATE_BRANCH"
+
 # Clean up
 rm -rf "$TEMP_DIR"
 
-echo "Framework updated successfully! Hopefully it didn't mess up your shit!"
+echo ""
+echo "Framework updated successfully in branch '$UPDATE_BRANCH'!"
+echo "You are now on the update branch to review changes."
 echo ""
 echo "Next steps:"
-echo "1. Run 'make dep' to update dependencies"
-echo "2. Run 'make service-registration' to regenerate service registration"
-echo "3. Run 'make test' to make sure everything still works"
-echo "4. Check the diff and commit your changes"
+echo "1. Review changes: git diff $CURRENT_BRANCH..HEAD"
+echo "2. Test the update: make dep && make service-registration && make test"
+echo "3. If satisfied: git checkout $CURRENT_BRANCH && git merge $UPDATE_BRANCH"
+echo "4. If not satisfied, revert: git checkout $CURRENT_BRANCH && git branch -D $UPDATE_BRANCH"
 echo ""
-echo "If you notice fucked up stuff, run 'make backup-restore' to go back to your backup."
+echo "Note: A backup was created before updating. Use 'make backup-restore' if needed."

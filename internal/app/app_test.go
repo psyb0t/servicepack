@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/psyb0t/servicepack/internal/pkg/services"
+	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -73,7 +73,7 @@ func (m *mockServiceWithError) Stop(_ context.Context) error {
 func createTestApp() *App {
 	app := &App{
 		doneCh:         make(chan struct{}),
-		serviceManager: services.GetServiceManagerInstance(),
+		serviceManager: servicemanager.GetInstance(),
 	}
 
 	// Parse empty config
@@ -168,7 +168,7 @@ func TestApp_Run(t *testing.T) {
 				// Create app with failing service
 				failingApp := &App{
 					doneCh:         make(chan struct{}),
-					serviceManager: services.GetServiceManagerInstance(),
+					serviceManager: servicemanager.GetInstance(),
 				}
 				cfg, _ := parseConfig()
 				failingApp.config = cfg
@@ -302,8 +302,8 @@ func TestApp_ServiceActivity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset and clear services before test
-			services.ResetServiceManagerInstance()
-			services.GetServiceManagerInstance().ClearServices()
+			servicemanager.ResetInstance()
+			servicemanager.GetInstance().ClearServices()
 
 			// Create mock services that track their activity
 			var mockServices []*mockServiceWithActivity
@@ -314,13 +314,13 @@ func TestApp_ServiceActivity(t *testing.T) {
 			// Create app manually and add mock services
 			app := &App{
 				doneCh:         make(chan struct{}),
-				serviceManager: services.GetServiceManagerInstance(),
+				serviceManager: servicemanager.GetInstance(),
 			}
 			cfg, _ := parseConfig()
 			app.config = cfg
 
 			// Convert to Service interface for Add method
-			var servicesForAdd []services.Service
+			var servicesForAdd []servicemanager.Service
 			for _, svc := range mockServices {
 				servicesForAdd = append(servicesForAdd, svc)
 			}

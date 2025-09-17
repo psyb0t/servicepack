@@ -2,6 +2,7 @@
 .log
 coverage.out
 coverage.html
+coverage.txt
 build
 __pycache__
 CLAUDE.md

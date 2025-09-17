@@ -6,6 +6,7 @@ import (
 	apprunner "github.com/psyb0t/common-go/app-runner"
 	_ "github.com/psyb0t/logrus-configurator"
 	"github.com/psyb0t/servicepack/internal/app"
+	_ "github.com/psyb0t/servicepack/internal/pkg/services" // Trigger service registration
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

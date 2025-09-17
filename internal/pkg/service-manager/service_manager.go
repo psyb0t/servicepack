@@ -1,4 +1,4 @@
-package services
+package servicemanager
 
 import (
 	"context"
@@ -29,27 +29,19 @@ type ServiceManager struct {
 	stopOnce             sync.Once
 }
 
-func GetServiceManagerInstance() *ServiceManager {
+func GetInstance() *ServiceManager {
 	serviceManagerOnce.Do(func() {
-		serviceManagerInstance = newServiceManager()
+		serviceManagerInstance = &ServiceManager{
+			services: make(map[string]Service),
+			doneCh:   make(chan struct{}),
+		}
 	})
 
 	return serviceManagerInstance
 }
 
-func NewServiceManager() *ServiceManager {
-	return GetServiceManagerInstance()
-}
-
-func newServiceManager() *ServiceManager {
-	return &ServiceManager{
-		services: make(map[string]Service),
-		doneCh:   make(chan struct{}),
-	}
-}
-
-// ResetServiceManagerInstance resets the singleton instance for testing purposes.
-func ResetServiceManagerInstance() {
+// ResetInstance resets the singleton instance for testing purposes.
+func ResetInstance() {
 	serviceManagerOnce = sync.Once{}
 	serviceManagerInstance = nil
 }
