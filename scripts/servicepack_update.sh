@@ -97,7 +97,7 @@ fi
 echo "Updating framework core files..."
 
 # Build exclude args - default excludes (protect user content)
-EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=README.md --exclude=LICENSE --exclude=.git* --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
+EXCLUDE_ARGS="--exclude=internal/pkg/services/* --exclude=README.md --exclude=LICENSE --exclude=.git --exclude=.gitignore --exclude=build/ --exclude=coverage.txt --exclude=vendor/"
 
 # Add excludes from .servicepackupdateignore if it exists
 if [ -f ".servicepackupdateignore" ]; then
@@ -113,10 +113,18 @@ fi
 # Update core framework files with exclusions
 eval "rsync -av $EXCLUDE_ARGS \"$TEMP_DIR/\" ./"
 
-# If user had a custom module name, restore it
+# If user had a custom module name, restore it everywhere
 if [ -n "$USER_MODULE" ]; then
     echo "Restoring user module name in go.mod..."
     sed -i "1s|.*|module $USER_MODULE|" go.mod
+
+    echo "Replacing module references in all files..."
+    # Get the original module name from the downloaded framework
+    FRAMEWORK_MODULE=$(head -n 1 "$TEMP_DIR/go.mod" | awk '{print $2}')
+
+    # Replace all references to framework module with user module
+    find . -type f -name "*.go" -not -path "./vendor/*" -exec sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" {} \;
+    find . -type f -name "*.mod" -not -path "./vendor/*" -exec sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" {} \;
 fi
 
 # Save the new version

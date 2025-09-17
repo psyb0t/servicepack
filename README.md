@@ -260,6 +260,7 @@ internal/pkg/service-manager/  # Framework files
 scripts/                       # Framework files
 Makefile                       # Framework files
 Dockerfile.dev                 # Framework files
+.github/                       # Framework files (CI/CD workflows)
 LICENSE                        # Your project license
 .golangci.yml                  # Framework files
 go.mod                         # Your module name preserved
