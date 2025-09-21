@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-
-
 // createTestApp creates an app with mock services instead of real ones.
 func createTestApp() *App {
 	// Reset and clear the service manager to avoid loading real services
@@ -123,7 +121,8 @@ func TestApp_Run(t *testing.T) {
 				failingApp.config = cfg
 
 				// Add a service that returns an error
-				failingSvc := servicemanager.NewMockService("failing").WithRunError(assert.AnError)
+				failingSvc := servicemanager.NewMockService("failing").
+					WithRunError(assert.AnError)
 				failingApp.serviceManager.Add(failingSvc)
 
 				err := failingApp.Run(ctx)
@@ -179,6 +178,7 @@ func TestApp_GetInstance(t *testing.T) {
 
 		// Manually set the singleton to test singleton behavior
 		instance = app
+
 		once.Do(func() {}) // Mark as initialized
 
 		// Test that subsequent calls return the same instance
@@ -332,4 +332,3 @@ func TestApp_ServiceActivity(t *testing.T) {
 		})
 	}
 }
-
