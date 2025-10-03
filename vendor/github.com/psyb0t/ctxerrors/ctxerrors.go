@@ -7,8 +7,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ErrorWithContext holds the wrapped error and additional context.
-type ErrorWithContext struct { //nolint:errname
+// CTXError holds the wrapped error and additional context.
+type CTXError struct {
 	err      error  // Original error
 	message  string // Additional context message
 	file     string // File where error occurred
@@ -23,7 +23,7 @@ func New(message string) error {
 
 	file, line, funcName := getCallerInfo(framesToSkip)
 
-	return &ErrorWithContext{
+	return &CTXError{
 		message:  message,
 		file:     file,
 		line:     line,
@@ -78,7 +78,7 @@ func wrap(err error, message string, skip int) error {
 
 	file, line, funcName := getCallerInfo(skip)
 
-	return &ErrorWithContext{
+	return &CTXError{
 		err:      err,
 		message:  message,
 		file:     file,
@@ -88,7 +88,7 @@ func wrap(err error, message string, skip int) error {
 }
 
 // Unwrap retrieves the underlying error, if any.
-func (e *ErrorWithContext) Unwrap() error {
+func (e *CTXError) Unwrap() error {
 	if e == nil {
 		return nil
 	}
@@ -97,7 +97,7 @@ func (e *ErrorWithContext) Unwrap() error {
 }
 
 // Error returns the formatted error message, including file and function details.
-func (e *ErrorWithContext) Error() string {
+func (e *CTXError) Error() string {
 	if e == nil {
 		return ""
 	}
