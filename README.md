@@ -1,3 +1,10 @@
+```
+___ ___ _____   _____ ___ ___ ___  _   ___ _  __
+/ __| __| _ \ \ / /_ _/ __| __| _ \/_\ / __| |/ /
+\__ \ _||   /\ V / | | (__| _||  _/ _ \ (__| ' <
+|___/___|_|_\ \_/ |___\___|___|_|/_/ \_\___|_|\_\
+```
+
 # servicepack
 
 A Go service framework that runs your shit concurrently without fucking around.
@@ -5,17 +12,20 @@ A Go service framework that runs your shit concurrently without fucking around.
 ## Table of Contents
 
 **Getting Started**
+
 - [What is this?](#what-is-this)
 - [Quick Start (Make It Your Own in 30 Seconds)](#quick-start-make-it-your-own-in-30-seconds)
 - [Just Want to Try It First?](#just-want-to-try-it-first)
 
 **Core Concepts**
+
 - [Creating Services](#creating-services)
 - [Service Interface](#service-interface)
 - [How Services Actually Work](#how-services-actually-work)
   - [Service Filtering](#service-filtering)
 
 **Essential Tools**
+
 - [The Makefile (Your New Best Friend)](#the-makefile-your-new-best-friend)
   - [Basic Commands](#basic-commands)
   - [Service Management](#service-management)
@@ -25,6 +35,7 @@ A Go service framework that runs your shit concurrently without fucking around.
   - [Script Customization](#script-customization)
 
 **System Details**
+
 - [Architecture](#architecture)
   - [Key Components](#key-components)
 - [Environment Variables](#environment-variables)
@@ -32,11 +43,13 @@ A Go service framework that runs your shit concurrently without fucking around.
   - [Build Process](#build-process)
 
 **Framework Management**
+
 - [Framework Updates](#framework-updates)
   - [Review and Apply Updates](#review-and-apply-updates)
   - [Customizing Updates with .servicepackupdateignore](#customizing-updates-with-servicepackupdateignore)
 
 **Advanced Topics**
+
 - [Pre-commit Hook](#pre-commit-hook)
 - [Testing](#testing)
   - [Test Isolation](#test-isolation)
@@ -44,6 +57,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 - [Error Handling](#error-handling)
 
 **Reference**
+
 - [Dependencies](#dependencies)
 - [Directory Structure](#directory-structure)
 - [Future Features (TODO)](#future-features-todo)
@@ -203,10 +217,12 @@ vim scripts/make/test.sh
 The Makefile checks for user scripts first (`scripts/make/`), then falls back to framework scripts (`scripts/make/servicepack/`). This lets you customize any build step while preserving the ability to update the framework without conflicts.
 
 **Framework scripts** (in `scripts/make/servicepack/`):
+
 - Get updated when you run `make servicepack-update`
 - Always preserved - your customizations won't get overwritten
 
 **User scripts** (in `scripts/make/`):
+
 - Take priority over framework scripts
 - Never touched by framework updates
 - Perfect for project-specific build customizations
@@ -227,6 +243,7 @@ deploy: ## Deploy to production
 ```
 
 **How it works:**
+
 - `Makefile.servicepack` - Contains all framework commands (updated by framework)
 - `Makefile` - Your file that includes servicepack + allows custom commands (never touched)
 - User commands override framework commands automatically
@@ -247,6 +264,7 @@ vim Dockerfile
 ```
 
 **How it works:**
+
 - `Dockerfile.servicepack.dev` - Framework development image (updated by framework)
 - `Dockerfile.dev` - Your custom development image (never touched)
 - `Dockerfile.servicepack` - Framework production image (updated by framework)
