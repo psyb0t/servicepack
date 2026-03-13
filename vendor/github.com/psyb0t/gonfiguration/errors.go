@@ -3,8 +3,11 @@ package gonfiguration
 import "errors"
 
 var (
-	ErrInvalidEnvVar        = errors.New("dafuq? we've got a shitty environment variable")
-	ErrTargetNotPointer     = errors.New("yo, the destination ain't a pointer")
-	ErrDestinationNotStruct = errors.New("what the hell? expected a struct, but this ain't one")
-	ErrUnsupportedFieldType = errors.New("wtf.. Unsupported field type")
+	ErrNilDestination       = errors.New("destination is nil")
+	ErrInvalidEnvVar        = errors.New("invalid environment variable")
+	ErrTargetNotPointer     = errors.New("destination must be a pointer")
+	ErrDestinationNotStruct = errors.New("destination must be a struct")
+	ErrUnsupportedFieldType = errors.New("unsupported field type")
+	ErrRequiredFieldNotSet  = errors.New("required field not set")
+	ErrDefaultTypeMismatch  = errors.New("default value type mismatch")
 )

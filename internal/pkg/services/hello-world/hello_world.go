@@ -2,9 +2,8 @@ package helloworld
 
 import (
 	"context"
+	"log/slog"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 const ServiceName = "hello-world"
@@ -20,7 +19,7 @@ func (h *HelloWorld) Name() string {
 }
 
 func (h *HelloWorld) Run(ctx context.Context) error {
-	logrus.Infof("Starting %s service", ServiceName)
+	slog.Info("starting service", "service", ServiceName)
 
 	ticker := time.NewTicker(5 * time.Second) //nolint:mnd
 	defer ticker.Stop()
@@ -28,17 +27,17 @@ func (h *HelloWorld) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			logrus.Infof("Context cancelled, stopping %s service", ServiceName)
+			slog.Info("context cancelled, stopping service", "service", ServiceName)
 
 			return nil
 		case <-ticker.C:
-			logrus.Info("Hello, World!")
+			slog.Info("Hello, World!")
 		}
 	}
 }
 
 func (h *HelloWorld) Stop(_ context.Context) error {
-	logrus.Infof("Stopping %s service", ServiceName)
+	slog.Info("stopping service", "service", ServiceName)
 
 	return nil
 }

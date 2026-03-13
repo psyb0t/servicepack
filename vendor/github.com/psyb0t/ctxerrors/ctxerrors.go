@@ -2,9 +2,8 @@ package ctxerrors
 
 import (
 	"fmt"
+	"log/slog"
 	"runtime"
-
-	"github.com/sirupsen/logrus"
 )
 
 // CTXError holds the wrapped error and additional context.
@@ -64,14 +63,14 @@ func wrap(err error, message string, skip int) error {
 		pc3, file3, line3, _ := runtime.Caller(debugFrame3)
 		funcName3 := runtime.FuncForPC(pc3).Name()
 
-		logrus.WithFields(logrus.Fields{
-			"sourceFile1": fmt.Sprintf("%s:%d", file, line),
-			"sourceFunc1": funcName,
-			"sourceFile2": fmt.Sprintf("%s:%d", file2, line2),
-			"sourceFunc2": funcName2,
-			"sourceFile3": fmt.Sprintf("%s:%d", file3, line3),
-			"sourceFunc3": funcName3,
-		}).Error("Trying to wrap a nil error")
+		slog.Error("Trying to wrap a nil error",
+			"sourceFile1", fmt.Sprintf("%s:%d", file, line),
+			"sourceFunc1", funcName,
+			"sourceFile2", fmt.Sprintf("%s:%d", file2, line2),
+			"sourceFunc2", funcName2,
+			"sourceFile3", fmt.Sprintf("%s:%d", file3, line3),
+			"sourceFunc3", funcName3,
+		)
 
 		return nil
 	}

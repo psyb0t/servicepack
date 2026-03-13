@@ -2,10 +2,10 @@ package servicemanager
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 
 	"github.com/psyb0t/ctxerrors"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -64,7 +64,7 @@ func (s *ServiceManager) Add(services ...Service) {
 }
 
 func (s *ServiceManager) Run(ctx context.Context) error {
-	logrus.Info("running services")
+	slog.Info("running services")
 
 	s.servicesMutex.RLock()
 	defer s.servicesMutex.RUnlock()
@@ -88,7 +88,7 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		logrus.Info("services run context done")
+		slog.Info("services run context done")
 
 		return nil
 	case err := <-errCh:
@@ -123,8 +123,8 @@ func (s *ServiceManager) runServices(
 
 func (s *ServiceManager) Stop(ctx context.Context) {
 	s.stopOnce.Do(func() {
-		logrus.Info("stopping services")
-		defer logrus.Info("stopped services")
+		slog.Info("stopping services")
+		defer slog.Info("stopped services")
 
 		close(s.doneCh)
 
@@ -139,8 +139,8 @@ func (s *ServiceManager) Stop(ctx context.Context) {
 				defer wg.Done()
 
 				if err := service.Stop(ctx); err != nil {
-					logrus.Errorf("failed to stop service %s: %v",
-						service.Name(), err)
+					slog.Error("failed to stop service",
+						"service", service.Name(), "error", err)
 				}
 			}(service)
 		}

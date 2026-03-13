@@ -2,13 +2,14 @@ package app
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"sync"
 
 	"github.com/psyb0t/common-go/env"
 	"github.com/psyb0t/ctxerrors"
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	"github.com/psyb0t/servicepack/internal/pkg/services"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -45,7 +46,8 @@ func newApp() *App {
 
 	app.config, err = parseConfig()
 	if err != nil {
-		logrus.Fatalf("failed to parse app config: %v", err)
+		slog.Error("failed to parse app config", "error", err)
+		os.Exit(1)
 	}
 
 	return app
@@ -60,11 +62,11 @@ func resetInstance() {
 }
 
 func (a *App) Run(ctx context.Context) error {
-	logrus.Infof("running app with ENV=%s", env.Get())
+	slog.Info("running app", "env", env.Get())
 
 	defer func() {
 		if err := a.Stop(ctx); err != nil {
-			logrus.Errorf("failed to stop app: %v", err)
+			slog.Error("failed to stop app", "error", err)
 		}
 	}()
 	defer a.wg.Wait()
@@ -97,8 +99,8 @@ func (a *App) Run(ctx context.Context) error {
 
 func (a *App) Stop(ctx context.Context) error {
 	a.stopOnce.Do(func() {
-		logrus.Info("stopping app")
-		defer logrus.Info("stopped app")
+		slog.Info("stopping app")
+		defer slog.Info("stopped app")
 
 		close(a.doneCh)
 		a.serviceManager.Stop(ctx)

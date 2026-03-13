@@ -42,9 +42,10 @@ package $PACKAGE_NAME
 import (
 	"context"
 
+	"log/slog"
+
 	"github.com/psyb0t/ctxerrors"
 	"github.com/psyb0t/gonfiguration"
-	"github.com/sirupsen/logrus"
 )
 
 const ServiceName = "$SERVICE_NAME"
@@ -78,12 +79,12 @@ func (s *$STRUCT_NAME) Name() string {
 }
 
 func (s *$STRUCT_NAME) Run(ctx context.Context) error {
-	logrus.Infof("Starting %s service", ServiceName)
+	slog.Info("starting service", "service", ServiceName)
 	panic("TODO: Implement $SERVICE_NAME service logic")
 }
 
 func (s *$STRUCT_NAME) Stop(_ context.Context) error {
-	logrus.Infof("Stopping %s service", ServiceName)
+	slog.Info("stopping service", "service", ServiceName)
 	return nil
 }
 EOF

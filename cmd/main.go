@@ -1,13 +1,13 @@
 package main
 
 import (
+	"log/slog"
 	"os"
 
 	apprunner "github.com/psyb0t/common-go/app-runner"
-	_ "github.com/psyb0t/logrus-configurator"
 	"github.com/psyb0t/servicepack/internal/app"
 	_ "github.com/psyb0t/servicepack/internal/pkg/services" // Trigger service registration
-	"github.com/sirupsen/logrus"
+	_ "github.com/psyb0t/slog-configurator"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +44,8 @@ func buildRunCommand(a *app.App) *cobra.Command {
 		Short: "Run the app",
 		Run: func(_ *cobra.Command, _ []string) {
 			if err := apprunner.Run(a); err != nil {
-				logrus.Fatalf("apprunner.Run error: %v", err)
+				slog.Error("apprunner.Run error", "error", err)
+				os.Exit(1)
 			}
 		},
 	}

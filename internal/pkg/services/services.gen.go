@@ -3,13 +3,13 @@
 package services
 
 import (
+	"log/slog"
 	"os"
 	"slices"
 	"strings"
 
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	helloworld "github.com/psyb0t/servicepack/internal/pkg/services/hello-world"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -26,8 +26,8 @@ func Init() {
 
 	if servicesEnabledEnv != "" {
 		allEnabled = false
-		parts := strings.Split(servicesEnabledEnv, ",")
-		for _, part := range parts {
+
+		for part := range strings.SplitSeq(servicesEnabledEnv, ",") {
 			enabledServices = append(enabledServices, strings.TrimSpace(part))
 		}
 	}
@@ -38,7 +38,8 @@ func Init() {
 	if slices.Contains(enabledServices, helloworld.ServiceName) || allEnabled {
 		service, err = helloworld.New()
 		if err != nil {
-			logrus.Fatalf("failed to create helloworld service: %v", err)
+			slog.Error("failed to create helloworld service", "error", err)
+			os.Exit(1)
 		}
 		sm.Add(service)
 	}

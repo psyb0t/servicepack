@@ -97,6 +97,7 @@ func TestServiceManager_Run(t *testing.T) {
 			services: []Service{NewMockService("test1")},
 			contextSetup: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
+
 				go func() {
 					time.Sleep(10 * time.Millisecond)
 					cancel()
@@ -112,6 +113,7 @@ func TestServiceManager_Run(t *testing.T) {
 			services: []Service{NewMockService("test1"), NewMockService("test2")},
 			contextSetup: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
+
 				go func() {
 					time.Sleep(10 * time.Millisecond)
 					cancel()
@@ -145,6 +147,7 @@ func TestServiceManager_Run(t *testing.T) {
 			services: []Service{},
 			contextSetup: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
+
 				go func() {
 					time.Sleep(10 * time.Millisecond)
 					cancel()

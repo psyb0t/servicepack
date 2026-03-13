@@ -2,7 +2,10 @@ package gonfiguration
 
 import "maps"
 
-func SetDefault(key string, val any) {
+func SetDefault(
+	key string,
+	val any,
+) {
 	gonfig.setDefault(key, val)
 }
 
@@ -14,7 +17,10 @@ func GetDefaults() map[string]any {
 	return gonfig.getDefaults()
 }
 
-func (g *gonfiguration) setDefault(key string, val any) {
+func (g *gonfiguration) setDefault(
+	key string,
+	val any,
+) {
 	g.Lock()
 	defer g.Unlock()
 

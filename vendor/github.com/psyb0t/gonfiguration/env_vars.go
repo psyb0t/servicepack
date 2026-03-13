@@ -1,11 +1,10 @@
 package gonfiguration
 
 import (
+	"fmt"
 	"maps"
 	"os"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -16,7 +15,7 @@ func GetEnvVars() map[string]string {
 	return gonfig.getEnvVars()
 }
 
-func (g *gonfiguration) setEnvVar(key string, val string) {
+func (g *gonfiguration) setEnvVar(key, val string) {
 	g.Lock()
 	defer g.Unlock()
 
@@ -46,7 +45,7 @@ func getEnvVars() (map[string]string, error) {
 	for _, rawVar := range rawVars {
 		parts := strings.SplitN(rawVar, "=", envVarNumParts)
 		if len(parts) != envVarNumParts {
-			return nil, errors.Wrap(ErrInvalidEnvVar, rawVar)
+			return nil, fmt.Errorf("%s: %w", rawVar, ErrInvalidEnvVar)
 		}
 
 		envVars[parts[0]] = parts[1]

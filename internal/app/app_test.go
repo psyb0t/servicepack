@@ -55,6 +55,7 @@ func TestApp_Run(t *testing.T) {
 			},
 			runFunc: func(t *testing.T, app *App, ctx context.Context) {
 				t.Helper()
+
 				err := app.Run(ctx)
 				assert.NoError(t, err)
 			},
@@ -69,6 +70,7 @@ func TestApp_Run(t *testing.T) {
 				t.Helper()
 				// Start app in goroutine
 				done := make(chan error, 1)
+
 				go func() {
 					done <- app.Run(ctx)
 				}()
@@ -97,6 +99,7 @@ func TestApp_Run(t *testing.T) {
 			},
 			runFunc: func(t *testing.T, app *App, ctx context.Context) {
 				t.Helper()
+
 				err := app.Run(ctx)
 				assert.NoError(t, err)
 			},
@@ -260,7 +263,7 @@ func TestApp_ServiceActivity(t *testing.T) {
 			servicemanager.GetInstance().ClearServices()
 
 			// Create mock services that track their activity
-			var mockServices []*servicemanager.MockService
+			mockServices := make([]*servicemanager.MockService, 0, len(tt.serviceNames))
 			for _, name := range tt.serviceNames {
 				mockServices = append(mockServices, servicemanager.NewMockService(name))
 			}
@@ -274,7 +277,7 @@ func TestApp_ServiceActivity(t *testing.T) {
 			app.config = cfg
 
 			// Convert to Service interface for Add method
-			var servicesForAdd []servicemanager.Service
+			servicesForAdd := make([]servicemanager.Service, 0, len(mockServices))
 			for _, svc := range mockServices {
 				servicesForAdd = append(servicesForAdd, svc)
 			}
