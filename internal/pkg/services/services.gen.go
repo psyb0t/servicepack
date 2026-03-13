@@ -3,12 +3,19 @@
 package services
 
 import (
-	"log/slog"
 	"os"
 	"slices"
 	"strings"
 
+	"log/slog"
+
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
+	exampleapi "github.com/psyb0t/servicepack/internal/pkg/services/example-api"
+	examplecrasher "github.com/psyb0t/servicepack/internal/pkg/services/example-crasher"
+	exampledatabase "github.com/psyb0t/servicepack/internal/pkg/services/example-database"
+	exampleflaky "github.com/psyb0t/servicepack/internal/pkg/services/example-flaky"
+	examplemigrator "github.com/psyb0t/servicepack/internal/pkg/services/example-migrator"
+	exampleoptional "github.com/psyb0t/servicepack/internal/pkg/services/example-optional"
 	helloworld "github.com/psyb0t/servicepack/internal/pkg/services/hello-world"
 )
 
@@ -30,10 +37,66 @@ func Init() {
 		for part := range strings.SplitSeq(servicesEnabledEnv, ",") {
 			enabledServices = append(enabledServices, strings.TrimSpace(part))
 		}
+
+		slog.Debug("service filter active", "enabled", enabledServices)
 	}
 
 	var service servicemanager.Service
 	var err error
+
+	if slices.Contains(enabledServices, exampleapi.ServiceName) || allEnabled {
+		service, err = exampleapi.New()
+		if err != nil {
+			slog.Error("failed to create exampleapi service", "error", err)
+			os.Exit(1)
+		}
+		sm.Add(service)
+	}
+
+	if slices.Contains(enabledServices, examplecrasher.ServiceName) || allEnabled {
+		service, err = examplecrasher.New()
+		if err != nil {
+			slog.Error("failed to create examplecrasher service", "error", err)
+			os.Exit(1)
+		}
+		sm.Add(service)
+	}
+
+	if slices.Contains(enabledServices, exampledatabase.ServiceName) || allEnabled {
+		service, err = exampledatabase.New()
+		if err != nil {
+			slog.Error("failed to create exampledatabase service", "error", err)
+			os.Exit(1)
+		}
+		sm.Add(service)
+	}
+
+	if slices.Contains(enabledServices, exampleflaky.ServiceName) || allEnabled {
+		service, err = exampleflaky.New()
+		if err != nil {
+			slog.Error("failed to create exampleflaky service", "error", err)
+			os.Exit(1)
+		}
+		sm.Add(service)
+	}
+
+	if slices.Contains(enabledServices, examplemigrator.ServiceName) || allEnabled {
+		service, err = examplemigrator.New()
+		if err != nil {
+			slog.Error("failed to create examplemigrator service", "error", err)
+			os.Exit(1)
+		}
+		sm.Add(service)
+	}
+
+	if slices.Contains(enabledServices, exampleoptional.ServiceName) || allEnabled {
+		service, err = exampleoptional.New()
+		if err != nil {
+			slog.Error("failed to create exampleoptional service", "error", err)
+			os.Exit(1)
+		}
+		sm.Add(service)
+	}
 
 	if slices.Contains(enabledServices, helloworld.ServiceName) || allEnabled {
 		service, err = helloworld.New()

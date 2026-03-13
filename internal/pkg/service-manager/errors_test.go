@@ -23,6 +23,26 @@ func TestErrorDefinitions(t *testing.T) {
 			err:         ErrServiceNotFound,
 			expectedMsg: "service not found",
 		},
+		{
+			name:        "ErrNoEnabledServices",
+			err:         ErrNoEnabledServices,
+			expectedMsg: "no enabled services",
+		},
+		{
+			name:        "ErrCyclicDependency",
+			err:         ErrCyclicDependency,
+			expectedMsg: "cyclic dependency detected",
+		},
+		{
+			name:        "ErrDependencyNotFound",
+			err:         ErrDependencyNotFound,
+			expectedMsg: "dependency not found",
+		},
+		{
+			name:        "ErrMaxRetriesReached",
+			err:         ErrMaxRetriesReached,
+			expectedMsg: "max retries reached",
+		},
 	}
 
 	for _, tt := range tests {

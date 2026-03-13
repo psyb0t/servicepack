@@ -71,6 +71,8 @@ EOF
     echo "		for part := range strings.SplitSeq(servicesEnabledEnv, \",\") {"
     echo "			enabledServices = append(enabledServices, strings.TrimSpace(part))"
     echo "		}"
+    echo ""
+    echo "		slog.Debug(\"service filter active\", \"enabled\", enabledServices)"
     echo "	}"
     echo ""
     echo "	var service servicemanager.Service"

@@ -1,5 +1,5 @@
 # Development Dockerfile
-FROM golang:1.24.6-alpine
+FROM golang:1.25-alpine
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -18,7 +18,7 @@ COPY . .
 ENV ENV=dev
 ENV LOG_LEVEL=debug
 ENV LOG_FORMAT=text
-ENV LOG_CALLER=true
+ENV LOG_ADD_SOURCE=true
 ENV SERVICES_ENABLED=
 
 # Default command - shows available make targets

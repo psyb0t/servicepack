@@ -39,6 +39,15 @@ success "Go version check passed!"
 
 section "Cleaning Project"
 
+# Remove example services (keep only hello-world)
+EXAMPLES="internal/pkg/services/example-database internal/pkg/services/example-migrator internal/pkg/services/example-api internal/pkg/services/example-crasher internal/pkg/services/example-flaky internal/pkg/services/example-optional"
+for dir in $EXAMPLES; do
+    if [ -d "$dir" ]; then
+        info "Removing example service: $dir"
+        rm -rf "$dir"
+    fi
+done
+
 # Remove .git directory
 if [ -d ".git" ]; then
     info "Removing .git directory..."
@@ -59,6 +68,12 @@ fi
 if [ -f "go.mod" ]; then
     info "Removing go.mod..."
     rm -f go.mod
+fi
+
+# Remove vendor directory
+if [ -d "vendor" ]; then
+    info "Removing vendor directory..."
+    rm -rf vendor
 fi
 
 section "Creating New Module"
@@ -118,6 +133,10 @@ go get -tool github.com/psyb0t/gofindimpl
 # Install goimports tool
 info "Installing goimports tool..."
 go get -tool golang.org/x/tools/cmd/goimports
+
+section "Regenerating Service Registration"
+info "Regenerating service registration without examples..."
+make service-registration
 
 section "Updating Dependencies"
 make dep

@@ -20,7 +20,8 @@ var (
 type App struct {
 	config         config
 	wg             sync.WaitGroup
-	doneCh         chan struct{}
+	cancel         context.CancelFunc
+	cancelMu       sync.Mutex
 	stopOnce       sync.Once
 	serviceManager *servicemanager.ServiceManager
 }
@@ -34,11 +35,11 @@ func GetInstance() *App {
 }
 
 func newApp() *App {
-	// Initialize services first
+	slog.Debug("initializing app")
+
 	services.Init()
 
 	app := &App{
-		doneCh:         make(chan struct{}),
 		serviceManager: servicemanager.GetInstance(),
 	}
 
@@ -64,6 +65,12 @@ func resetInstance() {
 func (a *App) Run(ctx context.Context) error {
 	slog.Info("running app", "env", env.Get())
 
+	ctx, cancel := context.WithCancel(ctx)
+
+	a.cancelMu.Lock()
+	a.cancel = cancel
+	a.cancelMu.Unlock()
+
 	defer func() {
 		if err := a.Stop(ctx); err != nil {
 			slog.Error("failed to stop app", "error", err)
@@ -74,35 +81,37 @@ func (a *App) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	defer close(errCh)
 
-	a.wg.Add(1)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go func() {
-		defer a.wg.Done()
-
+	a.wg.Go(func() {
 		if err := a.serviceManager.Run(ctx); err != nil {
 			errCh <- err
 		}
-	}()
+	})
 
 	select {
 	case <-ctx.Done():
+		slog.Debug("app context done")
+
 		return nil
 	case err := <-errCh:
+		slog.Error("app run error", "error", err)
+
 		return ctxerrors.Wrap(err, "failed to run app")
-	case <-a.doneCh:
-		return nil
 	}
 }
 
 func (a *App) Stop(ctx context.Context) error {
+	a.cancelMu.Lock()
+
+	if a.cancel != nil {
+		a.cancel()
+	}
+
+	a.cancelMu.Unlock()
+
 	a.stopOnce.Do(func() {
 		slog.Info("stopping app")
 		defer slog.Info("stopped app")
 
-		close(a.doneCh)
 		a.serviceManager.Stop(ctx)
 		a.wg.Wait()
 	})

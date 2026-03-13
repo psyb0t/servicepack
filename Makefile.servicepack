@@ -3,7 +3,7 @@
 # Users can override any of these commands in their main Makefile
 
 # Framework variables (can be overridden by user)
-MIN_TEST_COVERAGE ?= 85
+MIN_TEST_COVERAGE ?= 90
 
 # Framework constants (do not override)
 SCRIPTS_DIR := scripts

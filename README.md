@@ -21,6 +21,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 
 - [Creating Services](#creating-services)
 - [Service Interface](#service-interface)
+  - [Optional Interfaces](#optional-interfaces)
 - [How Services Actually Work](#how-services-actually-work)
   - [Service Filtering](#service-filtering)
 
@@ -60,6 +61,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 
 - [Dependencies](#dependencies)
 - [Directory Structure](#directory-structure)
+- [Example Services](#example-services)
 - [Future Features (TODO)](#future-features-todo)
 - [License](#license)
 
@@ -99,9 +101,10 @@ You'll see the hello-world service spamming "Hello, World!" every 5 seconds. Hit
 ```bash
 git clone https://github.com/psyb0t/servicepack
 cd servicepack
-make build
-./build/servicepack run
+make run-dev
 ```
+
+This builds a dev Docker image and runs it with debug logging. You'll see all the example services in action - retries, dependencies, allowed failures, one-shot jobs, and a crasher that takes everything down after ~30 seconds.
 
 ## Creating Services
 
@@ -139,6 +142,36 @@ The `Run()` method should:
 
 The `Stop()` method is for cleanup - it runs when the app is shutting down.
 
+### Optional Interfaces
+
+Services can opt into advanced behavior by implementing these:
+
+```go
+// Retryable - service gets restarted on failure
+type Retryable interface {
+    MaxRetries() int
+    RetryDelay() time.Duration  // e.g. 5*time.Second
+}
+
+// AllowedFailure - service can die without killing everything
+type AllowedFailure interface {
+    IsAllowedFailure() bool
+}
+
+// Dependent - service waits for other services to start first
+type Dependent interface {
+    Dependencies() []string  // service names
+}
+```
+
+**Retry**: When `Run()` returns an error, the service manager retries up to `MaxRetries()` times with `RetryDelay()` between attempts. If context is cancelled during the delay, it bails cleanly.
+
+**Allowed Failure**: When a service fails (even after retries), its error gets logged but doesn't propagate - other services keep running. Perfect for non-critical shit like cache warmers or metrics exporters.
+
+**Dependencies**: The service manager resolves a dependency graph using topological sort. Services with no deps start first, then their dependents, etc. Cyclic dependencies and missing deps are detected and rejected.
+
+You can combine them - a service can be retryable AND an allowed failure AND have dependencies.
+
 ## How Services Actually Work
 
 1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
@@ -166,7 +199,7 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 - `make build` - Build the binary using Docker (static linking)
 - `make dep` - Get dependencies with `go mod tidy` and `go mod vendor`
 - `make test` - Run all tests with race detection
-- `make test-coverage` - Run tests with 90% coverage requirement (excludes hello-world and cmd packages)
+- `make test-coverage` - Run tests with 90% coverage requirement (excludes example services and cmd packages)
 - `make lint` - Lint your code with comprehensive golangci-lint rules (80+ linters enabled)
 - `make lint-fix` - Lint and auto-fix issues
 - `make clean` - Clean build artifacts and coverage files
@@ -285,9 +318,14 @@ internal/pkg/
 │   └── *_test.go                   # Framework tests
 └── services/                       # User service space
     ├── services.gen.go             # Auto-generated services.Init() function
-    ├── hello-world/                # Example service
-    ├── my-cool-service/            # Your service (one dir per service)
-    └── another-service/            # Another service
+    ├── hello-world/                # Example: basic long-running service
+    ├── example-database/           # Example: retryable service
+    ├── example-api/                # Example: service with dependencies
+    ├── example-migrator/           # Example: one-shot with allowed failure
+    ├── example-optional/           # Example: allowed failure
+    ├── example-flaky/              # Example: fails then recovers
+    ├── example-crasher/            # Example: crashes and kills everything
+    └── your-service/               # Your services go here
 scripts/make/                        # Build script system
 ├── servicepack/                    # Framework scripts (updated by framework)
 │   ├── build.sh                   # Docker build script
@@ -299,7 +337,7 @@ scripts/make/                        # Build script system
 
 ### Key Components
 
-**ServiceManager**: Runs your services concurrently, handles shutdown, routes errors. It's a singleton because globals are fine when you know what you're doing.
+**ServiceManager**: Runs your services concurrently with dependency ordering, automatic retries, and allowed failures. Handles shutdown and error propagation. It's a singleton because globals are fine when you know what you're doing.
 
 **Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations and generates a `services.Init()` function. No manual registration bullshit.
 
@@ -310,10 +348,10 @@ scripts/make/                        # Build script system
 The framework uses these:
 
 ```bash
-# Logging (via logrus-configurator)
-LOG_LEVEL=debug          # trace, debug, info, warn, error
+# Logging (via slog-configurator)
+LOG_LEVEL=debug          # debug, info, warn, error
 LOG_FORMAT=json          # json, text
-LOG_CALLER=true          # show file:line in logs
+LOG_ADD_SOURCE=true      # show file:line in logs
 
 # Service filtering
 SERVICES_ENABLED=service1,service2   # comma-separated, empty = all
@@ -336,7 +374,7 @@ The build system is dynamic as fuck:
 APP_NAME := $(shell head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')
 
 build:
-    docker run --rm -v $(PWD):/app -w /app golang:1.24.6-alpine \
+    docker run --rm -v $(PWD):/app -w /app golang:1.25-alpine \
         sh -c "apk add --no-cache gcc musl-dev && \
                CGO_ENABLED=0 go build -a \
                -ldflags '-extldflags \"-static\" -X main.appName=$(APP_NAME)' \
@@ -432,11 +470,12 @@ There's a `pre-commit.sh` script that runs `make lint && make test-coverage`. Yo
 Tests are structured per component:
 
 - `internal/app/app_test.go` - Application tests with mock services
-- `internal/pkg/services/service_manager_test.go` - Service manager tests with concurrency testing
-- `internal/pkg/services/errors_test.go` - Error definition and matching tests
+- `internal/pkg/service-manager/service_manager_test.go` - Unit tests for retry, allowed failure, dependencies, concurrency
+- `internal/pkg/service-manager/service_manager_integration_test.go` - Integration tests combining all features end-to-end
+- `internal/pkg/service-manager/errors_test.go` - Error definition and matching tests
 - Each service should have its own `*_test.go` files
 
-90% test coverage is required by default (excludes hello-world service). The coverage check runs with race detection and fails if below threshold.
+90% test coverage is required by default (excludes example services and cmd packages). The coverage check runs with race detection and fails if below threshold.
 
 ### Test Isolation
 
@@ -450,22 +489,29 @@ Tests are structured per component:
 - Each service runs in its own goroutine
 - ServiceManager uses sync.WaitGroup for coordination
 - Context cancellation for clean shutdown
-- Services can fail independently (one failure stops all)
-- Graceful shutdown with configurable timeout
+- Services are started in dependency order (topological sort)
+- Services in the same dependency group start concurrently
+- Retryable services get restarted automatically on failure
+- Allowed-failure services can die without killing everything
+- Graceful shutdown cancels context and calls Stop() on all services
 
 ## Error Handling
 
 - Service errors bubble up through the ServiceManager
-- First error stops all services
+- First non-allowed-failure error stops all services
+- Allowed failures are logged but don't propagate
+- Retryable services exhaust retries before propagating
 - Context errors (cancellation) are treated as clean shutdown
 - All errors use [`ctxerrors`](https://github.com/psyb0t/ctxerrors) for context preservation
-- `ErrNoEnabledServices` is returned when no services are registered (empty service list)
+- `ErrNoEnabledServices` - no services registered
+- `ErrCyclicDependency` - circular dependency detected
+- `ErrDependencyNotFound` - service depends on unknown service
 
 ## Dependencies
 
 Core dependencies:
 
-- [`github.com/sirupsen/logrus`](https://github.com/sirupsen/logrus) - Logging
+- `log/slog` with [`slog-configurator`](https://github.com/psyb0t/slog-configurator) - Logging
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
 - [`github.com/psyb0t/gonfiguration`](https://github.com/psyb0t/gonfiguration) - Config parsing
 - [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
@@ -499,11 +545,26 @@ Development dependencies:
 └── servicepack.version             # Framework version tracking
 ```
 
+## Example Services
+
+The framework ships with example services that demonstrate every lifecycle pattern:
+
+| Service | Pattern |
+|---|---|
+| `hello-world` | Long-running, no deps, basic service |
+| `example-database` | Long-running, retryable (2 retries, 2s delay) |
+| `example-api` | Long-running, depends on database + flaky |
+| `example-migrator` | One-shot, depends on database, allowed failure |
+| `example-optional` | Allowed failure, fails immediately but app keeps running |
+| `example-flaky` | Retryable (2 retries, 1s delay), fails twice then recovers |
+| `example-crasher` | Retryable (2 retries, 3s delay), fails all retries and kills everything |
+
+Run them all: `go run ./cmd run` or `make run-dev`
+
+These get removed when you run `make own`.
+
 ## Future Features (TODO)
 
-- **Service Retry**: When a service shits itself, check retry count and restart the fucker if it hasn't hit the limit yet
-- **Allowed Failures**: Let some services die without killing everything - useful for one-shot jobs like migrators that run once and fuck off
-- **Service Dependencies**: Let services say "I need this other shit to start first" so database comes up before API and shit
 - **Health Checks**: Built-in endpoints to check if services are alive or dead with timeouts and failure limits
 - **Management API**: HTTP endpoint to see what's running and control the bastards (start/stop/restart individual services)
 - **Metrics**: Track startup times, failure counts, restart counts and optionally export to Prometheus

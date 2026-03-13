@@ -16,7 +16,6 @@ func createTestApp() *App {
 	servicemanager.GetInstance().ClearServices()
 
 	app := &App{
-		doneCh:         make(chan struct{}),
 		serviceManager: servicemanager.GetInstance(),
 	}
 
@@ -117,7 +116,6 @@ func TestApp_Run(t *testing.T) {
 				servicemanager.GetInstance().ClearServices()
 
 				failingApp := &App{
-					doneCh:         make(chan struct{}),
 					serviceManager: servicemanager.GetInstance(),
 				}
 				cfg, _ := parseConfig()
@@ -177,7 +175,7 @@ func TestApp_GetInstance(t *testing.T) {
 		app := createTestApp()
 		assert.NotNil(t, app)
 		assert.NotNil(t, app.serviceManager)
-		assert.NotNil(t, app.doneCh)
+		assert.NotNil(t, app.serviceManager)
 
 		// Manually set the singleton to test singleton behavior
 		instance = app
@@ -270,7 +268,6 @@ func TestApp_ServiceActivity(t *testing.T) {
 
 			// Create app manually and add mock services
 			app := &App{
-				doneCh:         make(chan struct{}),
 				serviceManager: servicemanager.GetInstance(),
 			}
 			cfg, _ := parseConfig()

@@ -23,7 +23,7 @@ func TestGetInstance(t *testing.T) {
 	sm1 := GetInstance()
 	assert.NotNil(t, sm1)
 	assert.NotNil(t, sm1.services)
-	assert.NotNil(t, sm1.doneCh)
+	assert.NotNil(t, sm1.services)
 	assert.Equal(t, 0, len(sm1.services))
 
 	// Test that subsequent calls return the same instance
@@ -351,4 +351,456 @@ func TestServiceManager_Concurrency(t *testing.T) {
 		err := sm.Run(ctx)
 		assert.NoError(t, err)
 	})
+}
+
+func TestResolveOrder(t *testing.T) {
+	tests := []struct {
+		name        string
+		services    map[string]Service
+		expectError error
+		groupCount  int
+	}{
+		{
+			name: "no dependencies - single group",
+			services: map[string]Service{
+				"a": NewTestService("a"),
+				"b": NewTestService("b"),
+			},
+			groupCount: 1,
+		},
+		{
+			name: "linear chain a->b->c",
+			services: map[string]Service{
+				"c": NewTestService("c"),
+				"b": NewDependentMockService("b", "c"),
+				"a": NewDependentMockService("a", "b"),
+			},
+			groupCount: 3,
+		},
+		{
+			name: "diamond a->b,c b->d c->d",
+			services: map[string]Service{
+				"d": NewTestService("d"),
+				"b": NewDependentMockService("b", "d"),
+				"c": NewDependentMockService("c", "d"),
+				"a": NewFullMockService("a").
+					WithDependencies("b", "c"),
+			},
+			groupCount: 3,
+		},
+		{
+			name: "cycle a->b b->a",
+			services: map[string]Service{
+				"a": NewDependentMockService("a", "b"),
+				"b": NewDependentMockService("b", "a"),
+			},
+			expectError: ErrCyclicDependency,
+		},
+		{
+			name: "self dependency",
+			services: map[string]Service{
+				"a": NewDependentMockService("a", "a"),
+			},
+			expectError: ErrCyclicDependency,
+		},
+		{
+			name: "missing dependency",
+			services: map[string]Service{
+				"a": NewDependentMockService(
+					"a", "nonexistent",
+				),
+			},
+			expectError: ErrDependencyNotFound,
+		},
+		{
+			name: "mixed deps and no deps",
+			services: map[string]Service{
+				"db":  NewTestService("db"),
+				"api": NewDependentMockService("api", "db"),
+				"log": NewTestService("log"),
+			},
+			groupCount: 2,
+		},
+		{
+			name: "single service no deps",
+			services: map[string]Service{
+				"solo": NewTestService("solo"),
+			},
+			groupCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			groups, err := resolveOrder(tt.services)
+
+			if tt.expectError != nil {
+				assert.ErrorIs(t, err, tt.expectError)
+
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Len(t, groups, tt.groupCount)
+
+			// Verify all services are present
+			total := 0
+			for _, g := range groups {
+				total += len(g)
+			}
+
+			assert.Equal(t, len(tt.services), total)
+		})
+	}
+}
+
+func TestServiceManager_RunWithRetries(t *testing.T) {
+	tests := []struct {
+		name         string
+		setupService func() Service
+		expectError  bool
+		expectedRuns int
+		cancelAfter  time.Duration
+	}{
+		{
+			name: "service succeeds first try",
+			setupService: func() Service {
+				svc := NewRetryableMockService("ok", 2)
+				// No errors - will block on ctx
+				return svc
+			},
+			expectError:  false,
+			expectedRuns: 1,
+			cancelAfter:  20 * time.Millisecond,
+		},
+		{
+			name: "service fails all retries",
+			setupService: func() Service {
+				svc := NewRetryableMockService("fail", 2)
+				svc.WithRunError(errTestService)
+
+				return svc
+			},
+			expectError:  true,
+			expectedRuns: 3, // 1 + 2 retries
+		},
+		{
+			name: "service fails then succeeds",
+			setupService: func() Service {
+				svc := NewRetryableMockService("retry", 2)
+				svc.WithRunErrors(
+					errTestService,
+					errTestService,
+					nil, // third attempt succeeds
+				)
+
+				return svc
+			},
+			expectError:  false,
+			expectedRuns: 3,
+			cancelAfter:  50 * time.Millisecond,
+		},
+		{
+			name: "context cancelled during retry",
+			setupService: func() Service {
+				svc := NewRetryableMockService(
+					"ctxcancel", 10,
+				)
+				svc.WithRunError(errTestService)
+				svc.WithRunDelay(
+					50 * time.Millisecond,
+				)
+
+				return svc
+			},
+			expectError:  false,
+			expectedRuns: -1,
+			cancelAfter:  30 * time.Millisecond,
+		},
+		{
+			name: "retry with delay",
+			setupService: func() Service {
+				svc := NewRetryableMockService(
+					"delayed", 1,
+				)
+				svc.WithRetryDelay(
+					10 * time.Millisecond,
+				)
+				svc.WithRunErrors(
+					errTestService, nil,
+				)
+
+				return svc
+			},
+			expectError:  false,
+			expectedRuns: 2,
+			cancelAfter:  200 * time.Millisecond,
+		},
+		{
+			name: "ctx cancelled during retry delay",
+			setupService: func() Service {
+				svc := NewRetryableMockService(
+					"delaycancel", 10,
+				)
+				svc.WithRetryDelay(time.Second)
+				svc.WithRunError(errTestService)
+
+				return svc
+			},
+			expectError:  false,
+			expectedRuns: -1,
+			cancelAfter:  50 * time.Millisecond,
+		},
+		{
+			name: "non-retryable service fails",
+			setupService: func() Service {
+				return NewMockService("norety").
+					WithRunError(errTestService)
+			},
+			expectError:  true,
+			expectedRuns: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			svc := tt.setupService()
+			sm.Add(svc)
+
+			ctx, cancel := context.WithCancel(
+				context.Background(),
+			)
+			defer cancel()
+
+			if tt.cancelAfter > 0 {
+				go func() {
+					time.Sleep(tt.cancelAfter)
+					cancel()
+				}()
+			}
+
+			runDone := make(chan error, 1)
+
+			go func() {
+				runDone <- sm.Run(ctx)
+			}()
+
+			select {
+			case err := <-runDone:
+				if tt.expectError {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out")
+			}
+
+			if tt.expectedRuns < 0 {
+				return
+			}
+
+			switch s := svc.(type) {
+			case *RetryableMockService:
+				assert.Equal(
+					t, tt.expectedRuns, s.RunCount(),
+				)
+			case *MockService:
+				assert.Equal(
+					t, tt.expectedRuns, s.RunCount(),
+				)
+			}
+		})
+	}
+}
+
+func TestServiceManager_RunWithAllowedFailure(t *testing.T) {
+	tests := []struct {
+		name        string
+		services    []Service
+		expectError bool
+		cancelAfter time.Duration
+	}{
+		{
+			name: "allowed failure does not kill manager",
+			services: []Service{
+				func() Service {
+					s := NewAllowedFailureMockService(
+						"fail-ok",
+					)
+					s.WithRunError(errTestService)
+
+					return s
+				}(),
+				NewMockService("healthy"),
+			},
+			expectError: false,
+			cancelAfter: 50 * time.Millisecond,
+		},
+		{
+			name: "non-allowed failure kills manager",
+			services: []Service{
+				NewMockService("fail-bad").
+					WithRunError(errTestService),
+				NewMockService("healthy2"),
+			},
+			expectError: true,
+		},
+		{
+			name: "allowed failure with retries exhausted",
+			services: []Service{
+				func() Service {
+					s := NewFullMockService("retry-fail")
+					s.WithMaxRetries(1)
+					s.WithAllowFailure(true)
+					s.WithRunError(
+						errTestService,
+					)
+
+					return s
+				}(),
+				NewMockService("healthy3"),
+			},
+			expectError: false,
+			cancelAfter: 50 * time.Millisecond,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			sm.Add(tt.services...)
+
+			ctx, cancel := context.WithCancel(
+				context.Background(),
+			)
+			defer cancel()
+
+			if tt.cancelAfter > 0 {
+				go func() {
+					time.Sleep(tt.cancelAfter)
+					cancel()
+				}()
+			}
+
+			runDone := make(chan error, 1)
+
+			go func() {
+				runDone <- sm.Run(ctx)
+			}()
+
+			select {
+			case err := <-runDone:
+				if tt.expectError {
+					assert.Error(t, err)
+
+					return
+				}
+
+				assert.NoError(t, err)
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out")
+			}
+		})
+	}
+}
+
+func TestServiceManager_RunWithDependencies(t *testing.T) {
+	tests := []struct {
+		name        string
+		services    []Service
+		expectError bool
+		errorIs     error
+		cancelAfter time.Duration
+	}{
+		{
+			name: "dependent starts after dependency",
+			services: []Service{
+				NewTestService("db"),
+				NewDependentMockService("api", "db"),
+			},
+			expectError: false,
+			cancelAfter: 50 * time.Millisecond,
+		},
+		{
+			name: "cyclic dependency error",
+			services: []Service{
+				NewDependentMockService("a", "b"),
+				NewDependentMockService("b", "a"),
+			},
+			expectError: true,
+			errorIs:     ErrCyclicDependency,
+		},
+		{
+			name: "missing dependency error",
+			services: []Service{
+				NewDependentMockService(
+					"api", "nonexistent",
+				),
+			},
+			expectError: true,
+			errorIs:     ErrDependencyNotFound,
+		},
+		{
+			name: "no deps backward compat",
+			services: []Service{
+				NewTestService("a"),
+				NewTestService("b"),
+				NewTestService("c"),
+			},
+			expectError: false,
+			cancelAfter: 20 * time.Millisecond,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			sm.Add(tt.services...)
+
+			ctx, cancel := context.WithCancel(
+				context.Background(),
+			)
+			defer cancel()
+
+			if tt.cancelAfter > 0 {
+				go func() {
+					time.Sleep(tt.cancelAfter)
+					cancel()
+				}()
+			}
+
+			runDone := make(chan error, 1)
+
+			go func() {
+				runDone <- sm.Run(ctx)
+			}()
+
+			select {
+			case err := <-runDone:
+				if tt.expectError {
+					assert.Error(t, err)
+
+					if tt.errorIs != nil {
+						assert.ErrorIs(
+							t, err, tt.errorIs,
+						)
+					}
+
+					return
+				}
+
+				assert.NoError(t, err)
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out")
+			}
+		})
+	}
 }
