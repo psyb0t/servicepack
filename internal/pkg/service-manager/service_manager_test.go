@@ -406,13 +406,13 @@ func TestResolveOrder(t *testing.T) {
 			expectError: ErrCyclicDependency,
 		},
 		{
-			name: "missing dependency",
+			name: "missing dep skipped (external)",
 			services: map[string]Service{
 				"a": NewDependentMockService(
 					"a", "nonexistent",
 				),
 			},
-			expectError: ErrDependencyNotFound,
+			groupCount: 1,
 		},
 		{
 			name: "mixed deps and no deps",
@@ -739,14 +739,14 @@ func TestServiceManager_RunWithDependencies(t *testing.T) {
 			errorIs:     ErrCyclicDependency,
 		},
 		{
-			name: "missing dependency error",
+			name: "missing dep runs anyway (external)",
 			services: []Service{
 				NewDependentMockService(
 					"api", "nonexistent",
 				),
 			},
-			expectError: true,
-			errorIs:     ErrDependencyNotFound,
+			expectError: false,
+			cancelAfter: 20 * time.Millisecond,
 		},
 		{
 			name: "no deps backward compat",

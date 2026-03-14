@@ -168,7 +168,7 @@ type Dependent interface {
 
 **Allowed Failure**: When a service fails (even after retries), its error gets logged but doesn't propagate - other services keep running. Perfect for non-critical shit like cache warmers or metrics exporters.
 
-**Dependencies**: The service manager resolves a dependency graph using topological sort. Services with no deps start first, then their dependents, etc. Cyclic dependencies and missing deps are detected and rejected.
+**Dependencies**: The service manager resolves a dependency graph using topological sort. Services with no deps start first, then their dependents, etc. Cyclic dependencies are detected and rejected. Dependencies on services not in the current process (external databases, services on other servers) are skipped with a debug log.
 
 You can combine them - a service can be retryable AND an allowed failure AND have dependencies.
 
@@ -513,7 +513,9 @@ Tests are structured per component:
 - Services in the same dependency group start concurrently
 - Retryable services get restarted automatically on failure
 - Allowed-failure services can die without killing everything
-- Graceful shutdown cancels context and calls Stop() on all services
+- Graceful shutdown cancels context and calls Stop() in reverse dependency order
+- Per-service stop timeout (30s default) prevents hung shutdowns
+- Panics in services are recovered and treated as errors
 
 ## Error Handling
 
@@ -525,7 +527,8 @@ Tests are structured per component:
 - All errors use [`ctxerrors`](https://github.com/psyb0t/ctxerrors) for context preservation
 - `ErrNoEnabledServices` - no services registered
 - `ErrCyclicDependency` - circular dependency detected
-- `ErrDependencyNotFound` - service depends on unknown service
+- `ErrServicePanic` - service panicked (recovered, treated as error)
+- `ErrStopTimeout` - service didn't stop within timeout
 
 ## Dependencies
 
@@ -547,7 +550,10 @@ Development dependencies:
 
 ```
 .
-├── cmd/main.go                     # Entry point
+├── cmd/
+│   ├── main.go                    # Entry point
+│   └── init.go                    # Your custom init hooks
+├── pkg/runner/                     # App lifecycle runner
 ├── internal/
 │   ├── app/                        # Application layer
 │   └── pkg/services/               # Services

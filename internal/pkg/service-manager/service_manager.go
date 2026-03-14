@@ -408,17 +408,14 @@ func (s *ServiceManager) stopServiceWithTimeout(
 func resolveOrder(
 	services map[string]Service,
 ) ([]serviceGroup, error) {
-	inDegree, dependents, err := buildDepGraph(services)
-	if err != nil {
-		return nil, err
-	}
+	inDegree, dependents := buildDepGraph(services)
 
 	return topoSort(services, inDegree, dependents)
 }
 
 func buildDepGraph(
 	services map[string]Service,
-) (map[string]int, map[string][]string, error) {
+) (map[string]int, map[string][]string) {
 	inDegree := make(map[string]int, len(services))
 	dependents := make(
 		map[string][]string, len(services),
@@ -436,12 +433,13 @@ func buildDepGraph(
 
 		for _, depName := range dep.Dependencies() {
 			if _, exists := services[depName]; !exists {
-				return nil, nil, ctxerrors.Wrapf(
-					ErrDependencyNotFound,
-					"service %q depends on %q",
-					name,
-					depName,
+				slog.Warn(
+					"dependency not in process, skipping",
+					"service", name,
+					"dependency", depName,
 				)
+
+				continue
 			}
 
 			inDegree[name]++
@@ -452,7 +450,7 @@ func buildDepGraph(
 		}
 	}
 
-	return inDegree, dependents, nil
+	return inDegree, dependents
 }
 
 func topoSort(
