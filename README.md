@@ -50,13 +50,13 @@ A Go service framework that runs your shit concurrently without fucking around.
   - [Review and Apply Updates](#review-and-apply-updates)
   - [Customizing Updates with .servicepackupdateignore](#customizing-updates-with-servicepackupdateignore)
 
-**Advanced Topics**
+**Internals**
 
-- [Pre-commit Hook](#pre-commit-hook)
-- [Testing](#testing)
-  - [Test Isolation](#test-isolation)
 - [Concurrency Model](#concurrency-model)
 - [Error Handling](#error-handling)
+- [Testing](#testing)
+  - [Test Isolation](#test-isolation)
+- [Pre-commit Hook](#pre-commit-hook)
 
 **Reference**
 
