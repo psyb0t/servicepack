@@ -38,7 +38,7 @@ func (a *App) setupTestServices() {
 
 func TestApp_Run(t *testing.T) {
 	// Reset singleton before each test
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		setupFunc   func() (context.Context, context.CancelFunc)
 		runFunc     func(t *testing.T, app *App, ctx context.Context)
@@ -134,16 +134,16 @@ func TestApp_Run(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			resetInstance()
 
 			app := createTestApp()
 
-			ctx, cancel := tt.setupFunc()
+			ctx, cancel := tc.setupFunc()
 			defer cancel()
 
-			tt.runFunc(t, app, ctx)
+			tc.runFunc(t, app, ctx)
 		})
 	}
 }
@@ -222,7 +222,7 @@ func TestApp_RunAndStop_Integration(t *testing.T) {
 }
 
 func TestApp_ServiceActivity(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name         string
 		serviceNames []string
 		stopMethod   string // "app_stop" or "context_cancel"
@@ -254,15 +254,15 @@ func TestApp_ServiceActivity(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			// Reset and clear services before test
 			servicemanager.ResetInstance()
 			servicemanager.GetInstance().ClearServices()
 
 			// Create mock services that track their activity
-			mockServices := make([]*servicemanager.MockService, 0, len(tt.serviceNames))
-			for _, name := range tt.serviceNames {
+			mockServices := make([]*servicemanager.MockService, 0, len(tc.serviceNames))
+			for _, name := range tc.serviceNames {
 				mockServices = append(mockServices, servicemanager.NewMockService(name))
 			}
 
@@ -303,21 +303,21 @@ func TestApp_ServiceActivity(t *testing.T) {
 			// Stop using specified method
 			var stopErr error
 
-			switch tt.stopMethod {
+			switch tc.stopMethod {
 			case "app_stop":
 				stopErr = app.Stop(ctx)
 			case "context_cancel":
 				cancel()
 			}
 
-			if !tt.expectError {
+			if !tc.expectError {
 				assert.NoError(t, stopErr)
 			}
 
 			// Wait for run to complete
 			select {
 			case err := <-done:
-				if !tt.expectError {
+				if !tc.expectError {
 					assert.NoError(t, err)
 				}
 			case <-time.After(time.Second):

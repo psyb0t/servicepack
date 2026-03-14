@@ -3,11 +3,12 @@ package exampleflaky
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/psyb0t/ctxerrors"
 )
 
 const ServiceName = "example-flaky"
@@ -63,9 +64,10 @@ func (f *ExampleFlaky) Run(
 			"attempt", attempt,
 		)
 
-		return fmt.Errorf(
-			"attempt %d/%d: %w",
-			attempt, maxRetries+1, errFlaky,
+		return ctxerrors.Wrapf(
+			errFlaky,
+			"attempt %d/%d",
+			attempt, maxRetries+1,
 		)
 	}
 

@@ -303,7 +303,7 @@ func TestIntegration_FullStack(t *testing.T) {
 func TestIntegration_BackwardCompatibility(
 	t *testing.T,
 ) {
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		services    []Service
 		expectError bool
@@ -330,21 +330,21 @@ func TestIntegration_BackwardCompatibility(
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			sm.Add(tt.services...)
+			sm.Add(tc.services...)
 
 			ctx, cancel := context.WithCancel(
 				context.Background(),
 			)
 			defer cancel()
 
-			if tt.cancelAfter > 0 {
+			if tc.cancelAfter > 0 {
 				go func() {
-					time.Sleep(tt.cancelAfter)
+					time.Sleep(tc.cancelAfter)
 					cancel()
 				}()
 			}
@@ -357,7 +357,7 @@ func TestIntegration_BackwardCompatibility(
 
 			select {
 			case err := <-done:
-				if tt.expectError {
+				if tc.expectError {
 					assert.Error(t, err)
 
 					return

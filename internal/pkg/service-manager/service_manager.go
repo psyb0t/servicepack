@@ -2,7 +2,6 @@ package servicemanager
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -51,21 +50,25 @@ type Dependent interface {
 // Groups are ordered: group 0 starts first, then group 1, etc.
 type serviceGroup []Service
 
+const defaultStopTimeout = 30 * time.Second
+
 type ServiceManager struct {
-	services             map[string]Service
-	servicesMutex        sync.RWMutex
-	runningServices      []Service
-	runningServicesMutex sync.RWMutex
-	wg                   sync.WaitGroup
-	cancel               context.CancelFunc
-	cancelMu             sync.Mutex
-	stopOnce             sync.Once
+	services      map[string]Service
+	servicesMutex sync.RWMutex
+	startGroups   []serviceGroup
+	startGroupsMu sync.RWMutex
+	wg            sync.WaitGroup
+	cancel        context.CancelFunc
+	cancelMu      sync.Mutex
+	stopOnce      sync.Once
+	stopTimeout   time.Duration
 }
 
 func GetInstance() *ServiceManager {
 	serviceManagerOnce.Do(func() {
 		serviceManagerInstance = &ServiceManager{
-			services: make(map[string]Service),
+			services:    make(map[string]Service),
+			stopTimeout: defaultStopTimeout,
 		}
 	})
 
@@ -148,8 +151,8 @@ func (s *ServiceManager) runServiceGroups(
 	groups []serviceGroup,
 	errCh chan<- error,
 ) {
-	s.runningServicesMutex.Lock()
-	defer s.runningServicesMutex.Unlock()
+	s.startGroupsMu.Lock()
+	defer s.startGroupsMu.Unlock()
 
 	for i, group := range groups {
 		names := make([]string, 0, len(group))
@@ -174,15 +177,13 @@ func (s *ServiceManager) runServiceGroups(
 
 				s.runService(ctx, svc, errCh)
 			}(service)
-
-			s.runningServices = append(
-				s.runningServices, service,
-			)
 		}
 
 		for range len(group) {
 			<-readyCh
 		}
+
+		s.startGroups = append(s.startGroups, group)
 	}
 }
 
@@ -206,7 +207,7 @@ func (s *ServiceManager) runService(
 			"attempt", attempt+1,
 		)
 
-		lastErr = service.Run(ctx)
+		lastErr = s.safeRun(ctx, service)
 		if lastErr == nil {
 			slog.Info("service exited cleanly",
 				"service", service.Name(),
@@ -300,6 +301,29 @@ func (s *ServiceManager) handleServiceError(
 	errCh <- err
 }
 
+func (s *ServiceManager) safeRun(
+	ctx context.Context,
+	service Service,
+) (err error) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+
+		slog.Error("service panicked",
+			"service", service.Name(),
+			"panic", r,
+		)
+
+		err = ctxerrors.Wrapf(
+			ErrServicePanic, "%v", r,
+		)
+	}()
+
+	return service.Run(ctx) //nolint:wrapcheck
+}
+
 func (s *ServiceManager) Stop(ctx context.Context) {
 	s.cancelMu.Lock()
 
@@ -313,32 +337,72 @@ func (s *ServiceManager) Stop(ctx context.Context) {
 		slog.Info("stopping services")
 		defer slog.Info("stopped services")
 
-		s.runningServicesMutex.RLock()
-		defer s.runningServicesMutex.RUnlock()
+		s.startGroupsMu.RLock()
+		defer s.startGroupsMu.RUnlock()
 
-		var wg sync.WaitGroup
-		for _, service := range s.runningServices {
-			wg.Add(1)
-
-			go func(service Service) {
-				defer wg.Done()
-
-				slog.Debug("stopping service",
-					"service", service.Name(),
-				)
-
-				if err := service.Stop(ctx); err != nil {
-					slog.Error(
-						"failed to stop service",
-						"service", service.Name(),
-						"error", err,
-					)
-				}
-			}(service)
+		for i := len(s.startGroups) - 1; i >= 0; i-- {
+			s.stopGroup(ctx, s.startGroups[i])
 		}
-
-		wg.Wait()
 	})
+}
+
+func (s *ServiceManager) stopGroup(
+	ctx context.Context,
+	group serviceGroup,
+) {
+	var wg sync.WaitGroup
+
+	for _, service := range group {
+		wg.Add(1)
+
+		go func(svc Service) {
+			defer wg.Done()
+
+			slog.Debug("stopping service",
+				"service", svc.Name(),
+			)
+
+			s.stopServiceWithTimeout(ctx, svc)
+		}(service)
+	}
+
+	wg.Wait()
+}
+
+func (s *ServiceManager) stopServiceWithTimeout(
+	ctx context.Context,
+	service Service,
+) {
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		ctx, cancel := context.WithTimeout(
+			ctx, s.stopTimeout,
+		)
+		defer cancel()
+
+		if err := service.Stop(ctx); err != nil {
+			slog.Error(
+				"failed to stop service",
+				"service", service.Name(),
+				"error", err,
+			)
+		}
+	}()
+
+	timer := time.NewTimer(s.stopTimeout)
+	defer timer.Stop()
+
+	select {
+	case <-done:
+	case <-timer.C:
+		slog.Error("service stop timed out",
+			"service", service.Name(),
+			"timeout", s.stopTimeout,
+		)
+	}
 }
 
 func resolveOrder(
@@ -372,9 +436,9 @@ func buildDepGraph(
 
 		for _, depName := range dep.Dependencies() {
 			if _, exists := services[depName]; !exists {
-				return nil, nil, fmt.Errorf(
-					"%w: service %q depends on %q",
+				return nil, nil, ctxerrors.Wrapf(
 					ErrDependencyNotFound,
+					"service %q depends on %q",
 					name,
 					depName,
 				)

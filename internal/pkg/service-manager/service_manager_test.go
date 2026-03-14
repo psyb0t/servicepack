@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -36,7 +38,7 @@ func TestGetInstance(t *testing.T) {
 }
 
 func TestServiceManager_Add(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name     string
 		services []Service
 		expected int
@@ -63,19 +65,19 @@ func TestServiceManager_Add(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			sm.Add(tt.services...)
+			sm.Add(tc.services...)
 
-			assert.Equal(t, tt.expected, len(sm.services))
+			assert.Equal(t, tc.expected, len(sm.services))
 
 			// Verify all services are accessible by name
-			for _, svc := range tt.services {
+			for _, svc := range tc.services {
 				storedSvc, exists := sm.services[svc.Name()]
-				if tt.expected > 0 {
+				if tc.expected > 0 {
 					assert.True(t, exists)
 					assert.Equal(t, svc.Name(), storedSvc.Name())
 				}
@@ -85,7 +87,7 @@ func TestServiceManager_Add(t *testing.T) {
 }
 
 func TestServiceManager_Run(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name         string
 		services     []Service
 		contextSetup func() (context.Context, context.CancelFunc)
@@ -160,14 +162,14 @@ func TestServiceManager_Run(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			sm.Add(tt.services...)
+			sm.Add(tc.services...)
 
-			ctx, cancel := tt.contextSetup()
+			ctx, cancel := tc.contextSetup()
 			defer cancel()
 
 			runDone := make(chan error, 1)
@@ -180,8 +182,8 @@ func TestServiceManager_Run(t *testing.T) {
 			time.Sleep(5 * time.Millisecond)
 
 			// Verify services started (for non-error cases)
-			if !tt.expectError && len(tt.services) > 0 {
-				for _, svc := range tt.services {
+			if !tc.expectError && len(tc.services) > 0 {
+				for _, svc := range tc.services {
 					if mockSvc, ok := svc.(*MockService); ok {
 						assert.True(t, mockSvc.WasRunCalled(),
 							"Service %s should have Run called", mockSvc.name)
@@ -190,7 +192,7 @@ func TestServiceManager_Run(t *testing.T) {
 			}
 
 			// Execute stop method
-			switch tt.stopMethod {
+			switch tc.stopMethod {
 			case "stop_method":
 				sm.Stop(ctx)
 			case "context":
@@ -202,7 +204,7 @@ func TestServiceManager_Run(t *testing.T) {
 			// Wait for Run to complete
 			select {
 			case err := <-runDone:
-				if tt.expectError {
+				if tc.expectError {
 					assert.Error(t, err)
 				} else {
 					assert.NoError(t, err)
@@ -215,7 +217,7 @@ func TestServiceManager_Run(t *testing.T) {
 }
 
 func TestServiceManager_Stop(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name             string
 		services         []Service
 		stopTwice        bool
@@ -249,18 +251,18 @@ func TestServiceManager_Stop(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			sm.Add(tt.services...)
+			sm.Add(tc.services...)
 
 			ctx := context.Background()
 
 			// First run the services if there are any
 			// (so they get added to runningServices)
-			if len(tt.services) > 0 {
+			if len(tc.services) > 0 {
 				runCtx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
 				defer cancel()
 
@@ -285,8 +287,8 @@ func TestServiceManager_Stop(t *testing.T) {
 			}
 
 			// Verify all services had Stop called (only for non-empty services)
-			if len(tt.services) > 0 {
-				for _, svc := range tt.services {
+			if len(tc.services) > 0 {
+				for _, svc := range tc.services {
 					if mockSvc, ok := svc.(*MockService); ok {
 						assert.True(t, mockSvc.WasStopCalled(),
 							"Service %s should have Stop called", mockSvc.name)
@@ -295,9 +297,9 @@ func TestServiceManager_Stop(t *testing.T) {
 			}
 
 			// Second stop (if testing sync.Once)
-			if tt.stopTwice {
+			if tc.stopTwice {
 				// Reset the stop called flag for testing
-				for _, svc := range tt.services {
+				for _, svc := range tc.services {
 					if mockSvc, ok := svc.(*MockService); ok {
 						atomic.StoreInt32(&mockSvc.stopCalled, 0)
 					}
@@ -307,7 +309,7 @@ func TestServiceManager_Stop(t *testing.T) {
 				sm.Stop(ctx)
 
 				// Services should NOT be stopped again due to sync.Once
-				for _, svc := range tt.services {
+				for _, svc := range tc.services {
 					if mockSvc, ok := svc.(*MockService); ok {
 						assert.False(t, mockSvc.WasStopCalled(),
 							"Service %s should NOT have Stop called again", mockSvc.name)
@@ -354,7 +356,7 @@ func TestServiceManager_Concurrency(t *testing.T) {
 }
 
 func TestResolveOrder(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		services    map[string]Service
 		expectError error
@@ -430,18 +432,18 @@ func TestResolveOrder(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			groups, err := resolveOrder(tt.services)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			groups, err := resolveOrder(tc.services)
 
-			if tt.expectError != nil {
-				assert.ErrorIs(t, err, tt.expectError)
+			if tc.expectError != nil {
+				assert.ErrorIs(t, err, tc.expectError)
 
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.Len(t, groups, tt.groupCount)
+			assert.Len(t, groups, tc.groupCount)
 
 			// Verify all services are present
 			total := 0
@@ -449,13 +451,13 @@ func TestResolveOrder(t *testing.T) {
 				total += len(g)
 			}
 
-			assert.Equal(t, len(tt.services), total)
+			assert.Equal(t, len(tc.services), total)
 		})
 	}
 }
 
 func TestServiceManager_RunWithRetries(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name         string
 		setupService func() Service
 		expectError  bool
@@ -562,12 +564,12 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			svc := tt.setupService()
+			svc := tc.setupService()
 			sm.Add(svc)
 
 			ctx, cancel := context.WithCancel(
@@ -575,9 +577,9 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 			)
 			defer cancel()
 
-			if tt.cancelAfter > 0 {
+			if tc.cancelAfter > 0 {
 				go func() {
-					time.Sleep(tt.cancelAfter)
+					time.Sleep(tc.cancelAfter)
 					cancel()
 				}()
 			}
@@ -590,7 +592,7 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 
 			select {
 			case err := <-runDone:
-				if tt.expectError {
+				if tc.expectError {
 					assert.Error(t, err)
 				} else {
 					assert.NoError(t, err)
@@ -599,18 +601,18 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 				t.Fatal("timed out")
 			}
 
-			if tt.expectedRuns < 0 {
+			if tc.expectedRuns < 0 {
 				return
 			}
 
 			switch s := svc.(type) {
 			case *RetryableMockService:
 				assert.Equal(
-					t, tt.expectedRuns, s.RunCount(),
+					t, tc.expectedRuns, s.RunCount(),
 				)
 			case *MockService:
 				assert.Equal(
-					t, tt.expectedRuns, s.RunCount(),
+					t, tc.expectedRuns, s.RunCount(),
 				)
 			}
 		})
@@ -618,7 +620,7 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 }
 
 func TestServiceManager_RunWithAllowedFailure(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		services    []Service
 		expectError bool
@@ -669,21 +671,21 @@ func TestServiceManager_RunWithAllowedFailure(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			sm.Add(tt.services...)
+			sm.Add(tc.services...)
 
 			ctx, cancel := context.WithCancel(
 				context.Background(),
 			)
 			defer cancel()
 
-			if tt.cancelAfter > 0 {
+			if tc.cancelAfter > 0 {
 				go func() {
-					time.Sleep(tt.cancelAfter)
+					time.Sleep(tc.cancelAfter)
 					cancel()
 				}()
 			}
@@ -696,7 +698,7 @@ func TestServiceManager_RunWithAllowedFailure(t *testing.T) {
 
 			select {
 			case err := <-runDone:
-				if tt.expectError {
+				if tc.expectError {
 					assert.Error(t, err)
 
 					return
@@ -711,7 +713,7 @@ func TestServiceManager_RunWithAllowedFailure(t *testing.T) {
 }
 
 func TestServiceManager_RunWithDependencies(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		services    []Service
 		expectError bool
@@ -758,21 +760,21 @@ func TestServiceManager_RunWithDependencies(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			sm.Add(tt.services...)
+			sm.Add(tc.services...)
 
 			ctx, cancel := context.WithCancel(
 				context.Background(),
 			)
 			defer cancel()
 
-			if tt.cancelAfter > 0 {
+			if tc.cancelAfter > 0 {
 				go func() {
-					time.Sleep(tt.cancelAfter)
+					time.Sleep(tc.cancelAfter)
 					cancel()
 				}()
 			}
@@ -785,12 +787,12 @@ func TestServiceManager_RunWithDependencies(t *testing.T) {
 
 			select {
 			case err := <-runDone:
-				if tt.expectError {
+				if tc.expectError {
 					assert.Error(t, err)
 
-					if tt.errorIs != nil {
+					if tc.errorIs != nil {
 						assert.ErrorIs(
-							t, err, tt.errorIs,
+							t, err, tc.errorIs,
 						)
 					}
 
@@ -803,4 +805,141 @@ func TestServiceManager_RunWithDependencies(t *testing.T) {
 			}
 		})
 	}
+}
+
+type panicService struct {
+	name  string
+	value any
+}
+
+func (p *panicService) Name() string { return p.name }
+
+func (p *panicService) Run(
+	_ context.Context,
+) error {
+	panic(p.value)
+}
+
+func (p *panicService) Stop(
+	_ context.Context,
+) error {
+	return nil
+}
+
+type stopTrackingService struct {
+	Service
+	onStop func()
+}
+
+func (s *stopTrackingService) Stop(
+	ctx context.Context,
+) error {
+	s.onStop()
+
+	return s.Service.Stop(ctx)
+}
+
+type dependentStopTrackingService struct {
+	stopTrackingService
+	deps []string
+}
+
+func (d *dependentStopTrackingService) Dependencies() []string {
+	return d.deps
+}
+
+func TestServiceManager_PanicRecovery(t *testing.T) {
+	testCases := []struct {
+		name       string
+		panicValue any
+	}{
+		{"string panic", "oh no"},
+		{"error panic", errTestService},
+		{"int panic", 42},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			sm.Add(&panicService{
+				name:  "panicker",
+				value: tc.panicValue,
+			})
+
+			ctx := t.Context()
+
+			done := make(chan error, 1)
+
+			go func() {
+				done <- sm.Run(ctx)
+			}()
+
+			select {
+			case err := <-done:
+				assert.Error(t, err)
+				assert.ErrorIs(t, err, ErrServicePanic)
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out")
+			}
+		})
+	}
+}
+
+func TestServiceManager_ReverseOrderShutdown(
+	t *testing.T,
+) {
+	ResetInstance()
+
+	sm := GetInstance()
+
+	var (
+		stopOrder []string
+		mu        sync.Mutex
+	)
+
+	recordStop := func(name string) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		stopOrder = append(stopOrder, name)
+	}
+
+	db := &stopTrackingService{
+		Service: NewTestService("db"),
+		onStop:  func() { recordStop("db") },
+	}
+
+	api := &dependentStopTrackingService{
+		stopTrackingService: stopTrackingService{
+			Service: NewTestService("api"),
+			onStop:  func() { recordStop("api") },
+		},
+		deps: []string{"db"},
+	}
+
+	sm.Add(db, api)
+
+	ctx, cancel := context.WithCancel(
+		context.Background(),
+	)
+	defer cancel()
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	err := sm.Run(ctx)
+	assert.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	require.Len(t, stopOrder, 2)
+	assert.Equal(t, "api", stopOrder[0],
+		"api should stop before db")
+	assert.Equal(t, "db", stopOrder[1],
+		"db should stop after api")
 }

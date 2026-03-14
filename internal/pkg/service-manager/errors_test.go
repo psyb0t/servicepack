@@ -13,7 +13,7 @@ var (
 )
 
 func TestErrorDefinitions(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name        string
 		err         error
 		expectedMsg string
@@ -45,17 +45,17 @@ func TestErrorDefinitions(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Error(t, tt.err)
-			assert.Equal(t, tt.expectedMsg, tt.err.Error())
-			assert.True(t, errors.Is(tt.err, tt.err))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Error(t, tc.err)
+			assert.Equal(t, tc.expectedMsg, tc.err.Error())
+			assert.True(t, errors.Is(tc.err, tc.err))
 		})
 	}
 }
 
 func TestErrorMatching(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name     string
 		err      error
 		target   error
@@ -81,10 +81,10 @@ func TestErrorMatching(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := errors.Is(tt.err, tt.target)
-			assert.Equal(t, tt.expected, result)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := errors.Is(tc.err, tc.target)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
