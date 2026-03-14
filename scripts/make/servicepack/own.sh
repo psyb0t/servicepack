@@ -40,8 +40,7 @@ success "Go version check passed!"
 section "Cleaning Project"
 
 # Remove example services (keep only hello-world)
-EXAMPLES="internal/pkg/services/example-database internal/pkg/services/example-migrator internal/pkg/services/example-api internal/pkg/services/example-crasher internal/pkg/services/example-flaky internal/pkg/services/example-optional"
-for dir in $EXAMPLES; do
+for dir in internal/pkg/services/example-*; do
     if [ -d "$dir" ]; then
         info "Removing example service: $dir"
         rm -rf "$dir"

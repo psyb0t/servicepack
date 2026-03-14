@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -56,6 +57,13 @@ type ReadyNotifier interface {
 	Ready() <-chan struct{}
 }
 
+// Commander is optionally implemented by services that expose
+// CLI subcommands. The returned commands are added under the
+// service name: ./app <servicename> <subcommand>.
+type Commander interface {
+	Commands() []*cobra.Command
+}
+
 // serviceGroup is a set of services that can start concurrently.
 // Groups are ordered: group 0 starts first, then group 1, etc.
 type serviceGroup []Service
@@ -88,6 +96,30 @@ func GetInstance() *ServiceManager {
 func ResetInstance() {
 	serviceManagerOnce = sync.Once{}
 	serviceManagerInstance = nil
+}
+
+func (s *ServiceManager) Commands() []*cobra.Command {
+	s.servicesMutex.RLock()
+	defer s.servicesMutex.RUnlock()
+
+	var cmds []*cobra.Command
+
+	for _, svc := range s.services {
+		cmdr, ok := svc.(Commander)
+		if !ok {
+			continue
+		}
+
+		parent := &cobra.Command{
+			Use:   svc.Name(),
+			Short: svc.Name() + " commands",
+		}
+
+		parent.AddCommand(cmdr.Commands()...)
+		cmds = append(cmds, parent)
+	}
+
+	return cmds
 }
 
 func (s *ServiceManager) ClearServices() {

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/psyb0t/servicepack/internal/app"
+	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	_ "github.com/psyb0t/servicepack/internal/pkg/services" // Trigger service registration
 	"github.com/psyb0t/servicepack/pkg/runner"
 	_ "github.com/psyb0t/slog-configurator"
@@ -34,6 +35,12 @@ func buildRootCommand(a *app.App) *cobra.Command {
 	rootCmd.AddCommand(
 		buildRunCommand(a),
 	)
+
+	rootCmd.AddCommand(
+		servicemanager.GetInstance().Commands()...,
+	)
+
+	rootCmd.AddCommand(commands()...)
 
 	return rootCmd
 }

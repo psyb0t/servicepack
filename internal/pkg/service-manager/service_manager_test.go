@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1030,4 +1031,72 @@ func TestServiceManager_ReadyNotifierNotImplemented(
 
 	err := sm.Run(ctx)
 	assert.NoError(t, err)
+}
+
+type commanderService struct {
+	*MockService
+}
+
+func (c *commanderService) Commands() []*cobra.Command {
+	return []*cobra.Command{
+		{
+			Use:   "do-stuff",
+			Short: "does stuff",
+		},
+	}
+}
+
+func TestServiceManager_Commands(t *testing.T) {
+	testCases := []struct {
+		name     string
+		services []Service
+		expected int
+	}{
+		{
+			name: "service with commands",
+			services: []Service{
+				&commanderService{
+					MockService: NewMockService("svc"),
+				},
+			},
+			expected: 1,
+		},
+		{
+			name: "service without commands",
+			services: []Service{
+				NewTestService("plain"),
+			},
+			expected: 0,
+		},
+		{
+			name: "mixed",
+			services: []Service{
+				&commanderService{
+					MockService: NewMockService("cmd1"),
+				},
+				NewTestService("plain"),
+				&commanderService{
+					MockService: NewMockService("cmd2"),
+				},
+			},
+			expected: 2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			sm.Add(tc.services...)
+
+			cmds := sm.Commands()
+			assert.Len(t, cmds, tc.expected)
+
+			for _, cmd := range cmds {
+				assert.NotEmpty(t, cmd.Use)
+				assert.True(t, cmd.HasSubCommands())
+			}
+		})
+	}
 }

@@ -22,6 +22,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 - [Creating Services](#creating-services)
 - [Service Interface](#service-interface)
   - [Optional Interfaces](#optional-interfaces)
+  - [Custom CLI Commands](#custom-cli-commands)
   - [Custom Initialization](#custom-initialization)
 - [How Services Actually Work](#how-services-actually-work)
   - [Service Filtering](#service-filtering)
@@ -167,6 +168,11 @@ type Dependent interface {
 type ReadyNotifier interface {
     Ready() <-chan struct{}
 }
+
+// Commander - expose CLI subcommands
+type Commander interface {
+    Commands() []*cobra.Command
+}
 ```
 
 **Retry**: When `Run()` returns an error, the service manager retries up to `MaxRetries()` times with `RetryDelay()` between attempts. If context is cancelled during the delay, it bails cleanly.
@@ -177,7 +183,34 @@ type ReadyNotifier interface {
 
 **Ready Notification**: Services that implement `ReadyNotifier` signal when they're actually ready (listening, connected, etc.). The service manager waits for the Ready channel before starting dependent services. Services without it are considered ready as soon as their goroutine launches.
 
-You can combine them - a service can be retryable AND an allowed failure AND have dependencies AND signal readiness.
+**CLI Commands**: Services that implement `Commander` get their own CLI namespace: `./app <servicename> <subcommand>`. Returns standard cobra commands so you get flags, args, help, everything for free.
+
+You can combine them - a service can be retryable AND an allowed failure AND have dependencies AND signal readiness AND expose CLI commands.
+
+### Custom CLI Commands
+
+`cmd/commands.go` is your hook to add CLI commands. It's never touched by framework updates:
+
+```go
+// cmd/commands.go
+package main
+
+import "github.com/spf13/cobra"
+
+func commands() []*cobra.Command {
+    return []*cobra.Command{
+        {
+            Use:   "seed",
+            Short: "Seed the database",
+            Run: func(_ *cobra.Command, _ []string) {
+                // your logic
+            },
+        },
+    }
+}
+```
+
+Then `./app seed` just works. These are standalone commands separate from service commands.
 
 ### Custom Initialization
 
@@ -585,9 +618,9 @@ The framework ships with example services that demonstrate every lifecycle patte
 | Service | Pattern |
 |---|---|
 | `hello-world` | Long-running, no deps, basic service |
-| `example-database` | Long-running, retryable (2 retries, 2s delay) |
+| `example-database` | Long-running, retryable (2 retries, 2s delay), signals ready after startup |
 | `example-api` | Long-running, depends on database + flaky |
-| `example-migrator` | One-shot, depends on database, allowed failure |
+| `example-migrator` | One-shot, depends on database, allowed failure, CLI commands (up/down/status) |
 | `example-optional` | Allowed failure, fails immediately but app keeps running |
 | `example-flaky` | Retryable (2 retries, 1s delay), fails twice then recovers |
 | `example-crasher` | Retryable (2 retries, 3s delay), fails all retries and kills everything |
