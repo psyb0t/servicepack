@@ -16,4 +16,7 @@
 # .env*
 # config/local.yml
 
+# User initialization - never overwritten by framework updates
+cmd/init.go
+
 # Note: internal/pkg/services/* is always excluded - your services are never touched

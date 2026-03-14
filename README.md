@@ -22,6 +22,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 - [Creating Services](#creating-services)
 - [Service Interface](#service-interface)
   - [Optional Interfaces](#optional-interfaces)
+  - [Custom Initialization](#custom-initialization)
 - [How Services Actually Work](#how-services-actually-work)
   - [Service Filtering](#service-filtering)
 
@@ -62,7 +63,6 @@ A Go service framework that runs your shit concurrently without fucking around.
 - [Dependencies](#dependencies)
 - [Directory Structure](#directory-structure)
 - [Example Services](#example-services)
-- [Future Features (TODO)](#future-features-todo)
 - [License](#license)
 
 ## What is this?
@@ -171,6 +171,23 @@ type Dependent interface {
 **Dependencies**: The service manager resolves a dependency graph using topological sort. Services with no deps start first, then their dependents, etc. Cyclic dependencies and missing deps are detected and rejected.
 
 You can combine them - a service can be retryable AND an allowed failure AND have dependencies.
+
+### Custom Initialization
+
+`cmd/init.go` is your hook to run shit before the app starts. It's never touched by framework updates. Use it to add custom slog handlers, set up global config, or anything else:
+
+```go
+// cmd/init.go
+package main
+
+import slogconfigurator "github.com/psyb0t/slog-configurator"
+
+func init() {
+    slogconfigurator.AddHandler(myLokiHandler)
+}
+```
+
+Every `slog.Info/Error/etc` call across the entire app - framework, services, everything - goes to all registered handlers. Want Loki? Datadog? Elasticsearch? Just write a `slog.Handler` and plug it in here.
 
 ## How Services Actually Work
 
@@ -565,13 +582,6 @@ The framework ships with example services that demonstrate every lifecycle patte
 Run them all: `go run ./cmd run` or `make run-dev`
 
 These get removed when you run `make own`.
-
-## Future Features (TODO)
-
-- **Health Checks**: Built-in endpoints to check if services are alive or dead with timeouts and failure limits
-- **Management API**: HTTP endpoint to see what's running and control the bastards (start/stop/restart individual services)
-- **Metrics**: Track startup times, failure counts, restart counts and optionally export to Prometheus
-- **Service Communication**: Built-in message passing so services can talk to each other instead of figuring that shit out themselves
 
 ## License
 
