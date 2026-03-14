@@ -280,3 +280,32 @@ func (f *FullMockService) IsAllowedFailure() bool {
 func (f *FullMockService) Dependencies() []string {
 	return f.dependencies
 }
+
+type ReadyMockService struct {
+	*MockService
+	readyCh chan struct{}
+	deps    []string
+}
+
+func NewReadyMockService(
+	name string,
+	deps ...string,
+) *ReadyMockService {
+	return &ReadyMockService{
+		MockService: NewMockService(name),
+		readyCh:     make(chan struct{}),
+		deps:        deps,
+	}
+}
+
+func (r *ReadyMockService) Ready() <-chan struct{} {
+	return r.readyCh
+}
+
+func (r *ReadyMockService) SignalReady() {
+	close(r.readyCh)
+}
+
+func (r *ReadyMockService) Dependencies() []string {
+	return r.deps
+}

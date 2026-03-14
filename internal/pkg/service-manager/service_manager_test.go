@@ -943,3 +943,91 @@ func TestServiceManager_ReverseOrderShutdown(
 	assert.Equal(t, "db", stopOrder[1],
 		"db should stop after api")
 }
+
+func TestServiceManager_ReadyNotifier(t *testing.T) {
+	ResetInstance()
+
+	sm := GetInstance()
+
+	var (
+		startOrder []string
+		mu         sync.Mutex
+	)
+
+	record := func(name string) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		startOrder = append(startOrder, name)
+	}
+
+	// db: signals ready after 50ms
+	db := NewReadyMockService("db")
+	db.WithOnRun(func() {
+		record("db")
+
+		// Simulate startup delay then signal ready
+		go func() {
+			time.Sleep(50 * time.Millisecond)
+			db.SignalReady()
+		}()
+	})
+
+	// api: depends on db, should not start
+	// until db signals ready
+	api := NewReadyMockService("api", "db")
+	api.WithOnRun(func() {
+		record("api")
+		api.SignalReady()
+	})
+
+	sm.Add(db, api)
+
+	ctx, cancel := context.WithCancel(
+		context.Background(),
+	)
+	defer cancel()
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		cancel()
+	}()
+
+	err := sm.Run(ctx)
+	assert.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	require.Len(t, startOrder, 2)
+	assert.Equal(t, "db", startOrder[0])
+	assert.Equal(t, "api", startOrder[1])
+}
+
+func TestServiceManager_ReadyNotifierNotImplemented(
+	t *testing.T,
+) {
+	ResetInstance()
+
+	sm := GetInstance()
+
+	// Plain services without ReadyNotifier
+	// should start immediately
+	a := NewTestService("a")
+	b := NewTestService("b")
+
+	sm.Add(a, b)
+
+	ctx, cancel := context.WithCancel(
+		context.Background(),
+	)
+	defer cancel()
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		cancel()
+	}()
+
+	err := sm.Run(ctx)
+	assert.NoError(t, err)
+}

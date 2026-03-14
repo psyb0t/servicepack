@@ -46,6 +46,16 @@ type Dependent interface {
 	Dependencies() []string
 }
 
+// ReadyNotifier is optionally implemented by services that
+// need to signal when they're actually ready to serve.
+// The service manager waits for the Ready channel to close
+// before starting dependent services. Services that don't
+// implement this are considered ready immediately after
+// their goroutine is launched.
+type ReadyNotifier interface {
+	Ready() <-chan struct{}
+}
+
 // serviceGroup is a set of services that can start concurrently.
 // Groups are ordered: group 0 starts first, then group 1, etc.
 type serviceGroup []Service
@@ -165,7 +175,7 @@ func (s *ServiceManager) runServiceGroups(
 			"services", names,
 		)
 
-		readyCh := make(chan struct{}, len(group))
+		launchedCh := make(chan struct{}, len(group))
 
 		for _, service := range group {
 			s.wg.Add(1)
@@ -173,17 +183,43 @@ func (s *ServiceManager) runServiceGroups(
 			go func(svc Service) {
 				defer s.wg.Done()
 
-				readyCh <- struct{}{}
+				launchedCh <- struct{}{}
 
 				s.runService(ctx, svc, errCh)
 			}(service)
 		}
 
 		for range len(group) {
-			<-readyCh
+			<-launchedCh
 		}
 
+		s.waitGroupReady(ctx, group)
 		s.startGroups = append(s.startGroups, group)
+	}
+}
+
+func (s *ServiceManager) waitGroupReady(
+	ctx context.Context,
+	group serviceGroup,
+) {
+	for _, svc := range group {
+		rn, ok := svc.(ReadyNotifier)
+		if !ok {
+			continue
+		}
+
+		slog.Debug("waiting for service ready",
+			"service", svc.Name(),
+		)
+
+		select {
+		case <-rn.Ready():
+			slog.Debug("service ready",
+				"service", svc.Name(),
+			)
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 

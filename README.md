@@ -162,6 +162,11 @@ type AllowedFailure interface {
 type Dependent interface {
     Dependencies() []string  // service names
 }
+
+// ReadyNotifier - signal when actually ready to serve
+type ReadyNotifier interface {
+    Ready() <-chan struct{}
+}
 ```
 
 **Retry**: When `Run()` returns an error, the service manager retries up to `MaxRetries()` times with `RetryDelay()` between attempts. If context is cancelled during the delay, it bails cleanly.
@@ -170,7 +175,9 @@ type Dependent interface {
 
 **Dependencies**: The service manager resolves a dependency graph using topological sort. Services with no deps start first, then their dependents, etc. Cyclic dependencies are detected and rejected. Dependencies on services not in the current process (external databases, services on other servers) are skipped with a debug log.
 
-You can combine them - a service can be retryable AND an allowed failure AND have dependencies.
+**Ready Notification**: Services that implement `ReadyNotifier` signal when they're actually ready (listening, connected, etc.). The service manager waits for the Ready channel before starting dependent services. Services without it are considered ready as soon as their goroutine launches.
+
+You can combine them - a service can be retryable AND an allowed failure AND have dependencies AND signal readiness.
 
 ### Custom Initialization
 
