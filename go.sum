@@ -486,10 +486,10 @@ github.com/prometheus/procfs v0.1.3/go.mod h1:lV6e/gmhEcM9IjHGsFOCxxuZ+z1YqCvr4O
 github.com/prometheus/procfs v0.6.0/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1xBZuNvfVA=
 github.com/prometheus/procfs v0.7.3 h1:4jVXhlkAyzOScmCkXBTOLRLTz8EeU+eyjrwB/EPq0VU=
 github.com/prometheus/procfs v0.7.3/go.mod h1:cz+aTbrPOrUb4q7XlbU9ygM+/jj0fzG6c1xBZuNvfVA=
-github.com/psyb0t/common-go v0.0.0-20251123182222-51ec2c088103 h1:vZ72U5J2ZAlUuus4Ges0AFxU1xnfhayp+WRfvpYJzQE=
-github.com/psyb0t/common-go v0.0.0-20251123182222-51ec2c088103/go.mod h1:maibL2s0Z45LBYwBzw47bigfOGLNdYDEesWntJ6T518=
 github.com/psyb0t/ctxerrors v0.2.3 h1:R4J6a/1bbM6WrBB6lo9ym0ZMSeCqQSKRdpRO3AXZjkA=
 github.com/psyb0t/ctxerrors v0.2.3/go.mod h1:LR4o9chgpVM7+jNHQ5L2jgyZ6FHLtP280KF9k0T9oQE=
+github.com/psyb0t/goenv v1.0.0 h1:euJDnSQRy2WOy2XVfX1KeVXIrREjqQ2S3AMlvP/HyVg=
+github.com/psyb0t/goenv v1.0.0/go.mod h1:bhHp+KXm9qjKdaypOkcxsqEQ5UWcOaJZQtFP3aYls8A=
 github.com/psyb0t/gofindimpl v1.0.0 h1:XKbrpeqoRbFwaFtmBrbBd14KmHWyOQyuexFyGy8NMHc=
 github.com/psyb0t/gofindimpl v1.0.0/go.mod h1:PLf52u0l4lSP+jX9LoZP/UuhQascr2STEyI1Ua9Gy9Y=
 github.com/psyb0t/gonfiguration v1.5.0 h1:B+OrSE060/vgonFI8HKzchradwnEAGvgrNT5KKVXhdU=

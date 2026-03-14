@@ -6,8 +6,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/psyb0t/common-go/env"
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/goenv"
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	"github.com/psyb0t/servicepack/internal/pkg/services"
 )
@@ -63,7 +63,7 @@ func resetInstance() {
 }
 
 func (a *App) Run(ctx context.Context) error {
-	slog.Info("running app", "env", env.Get())
+	slog.Info("running app", "env", goenv.Get())
 
 	ctx, cancel := context.WithCancel(ctx)
 

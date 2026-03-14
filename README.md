@@ -353,6 +353,9 @@ LOG_LEVEL=debug          # debug, info, warn, error
 LOG_FORMAT=json          # json, text
 LOG_ADD_SOURCE=true      # show file:line in logs
 
+# Environment (via goenv)
+ENV=dev                  # dev, prod (default: prod)
+
 # Service filtering
 SERVICES_ENABLED=service1,service2   # comma-separated, empty = all
 
@@ -515,7 +518,7 @@ Core dependencies:
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
 - [`github.com/psyb0t/gonfiguration`](https://github.com/psyb0t/gonfiguration) - Config parsing
 - [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
-- [`github.com/psyb0t/common-go`](https://github.com/psyb0t/common-go)/app-runner - App lifecycle
+- [`github.com/psyb0t/goenv`](https://github.com/psyb0t/goenv) - Environment detection (prod/dev)
 
 Development dependencies:
 

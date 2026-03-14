@@ -3,8 +3,8 @@ module github.com/psyb0t/servicepack
 go 1.25.0
 
 require (
-	github.com/psyb0t/common-go v0.0.0-20251123182222-51ec2c088103
 	github.com/psyb0t/ctxerrors v0.2.3
+	github.com/psyb0t/goenv v1.0.0
 	github.com/psyb0t/gonfiguration v1.5.0
 	github.com/psyb0t/slog-configurator v1.0.0
 	github.com/spf13/cobra v1.10.2

@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"os"
 
-	apprunner "github.com/psyb0t/common-go/app-runner"
 	"github.com/psyb0t/servicepack/internal/app"
 	_ "github.com/psyb0t/servicepack/internal/pkg/services" // Trigger service registration
+	"github.com/psyb0t/servicepack/pkg/runner"
 	_ "github.com/psyb0t/slog-configurator"
 	"github.com/spf13/cobra"
 )
@@ -43,8 +43,8 @@ func buildRunCommand(a *app.App) *cobra.Command {
 		Use:   "run",
 		Short: "Run the app",
 		Run: func(_ *cobra.Command, _ []string) {
-			if err := apprunner.Run(a); err != nil {
-				slog.Error("apprunner.Run error", "error", err)
+			if err := runner.Run(a); err != nil {
+				slog.Error("runner.Run error", "error", err)
 				os.Exit(1)
 			}
 		},
