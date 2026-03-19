@@ -19,10 +19,6 @@ func createTestApp() *App {
 		serviceManager: servicemanager.GetInstance(),
 	}
 
-	// Parse empty config
-	cfg, _ := parseConfig()
-	app.config = cfg
-
 	app.setupTestServices()
 
 	return app
@@ -118,9 +114,6 @@ func TestApp_Run(t *testing.T) {
 				failingApp := &App{
 					serviceManager: servicemanager.GetInstance(),
 				}
-				cfg, _ := parseConfig()
-				failingApp.config = cfg
-
 				// Add a service that returns an error
 				failingSvc := servicemanager.NewMockService("failing").
 					WithRunError(assert.AnError)
@@ -270,9 +263,6 @@ func TestApp_ServiceActivity(t *testing.T) {
 			app := &App{
 				serviceManager: servicemanager.GetInstance(),
 			}
-			cfg, _ := parseConfig()
-			app.config = cfg
-
 			// Convert to Service interface for Add method
 			servicesForAdd := make([]servicemanager.Service, 0, len(mockServices))
 			for _, svc := range mockServices {

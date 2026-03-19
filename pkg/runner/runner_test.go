@@ -63,12 +63,12 @@ func TestGetConfig(t *testing.T) {
 	cfg, err := getConfig()
 	require.NoError(t, err)
 	assert.Equal(
-		t, defaultShutdownTimeout, cfg.ShutdownTimeout,
+		t, 10*time.Second, cfg.ShutdownTimeout,
 	)
 }
 
 func TestGetConfig_Custom(t *testing.T) {
-	t.Setenv(envVarNameShutdownTimeout, "5s")
+	t.Setenv("RUNNER_SHUTDOWNTIMEOUT", "5s")
 
 	cfg, err := getConfig()
 	require.NoError(t, err)

@@ -16,18 +16,13 @@ import (
 
 var ErrShutdownTimeout = errors.New("shutdown timeout")
 
-const (
-	envVarNameShutdownTimeout = "APPRUNNER_SHUTDOWNTIMEOUT"
-	defaultShutdownTimeout    = 10 * time.Second
-)
-
 type Runnable interface {
 	Run(ctx context.Context) error
 	Stop(ctx context.Context) error
 }
 
 type config struct {
-	ShutdownTimeout time.Duration `env:"APPRUNNER_SHUTDOWNTIMEOUT"`
+	ShutdownTimeout time.Duration `default:"10s" env:"RUNNER_SHUTDOWNTIMEOUT"`
 }
 
 func Run(runnable Runnable) error {
@@ -55,13 +50,9 @@ type appRunner struct {
 func getConfig() (*config, error) {
 	cfg := &config{}
 
-	gonfiguration.SetDefaults(map[string]any{
-		envVarNameShutdownTimeout: defaultShutdownTimeout,
-	})
-
 	if err := gonfiguration.Parse(cfg); err != nil {
 		return nil, ctxerrors.Wrap(
-			err, "failed to parse app runner config",
+			err, "failed to parse runner config",
 		)
 	}
 

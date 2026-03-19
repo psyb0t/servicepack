@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"log/slog"
-	"os"
 	"sync"
 
 	"github.com/psyb0t/ctxerrors"
@@ -18,7 +17,6 @@ var (
 )
 
 type App struct {
-	config         config
 	wg             sync.WaitGroup
 	cancel         context.CancelFunc
 	cancelMu       sync.Mutex
@@ -39,19 +37,9 @@ func newApp() *App {
 
 	services.Init()
 
-	app := &App{
+	return &App{
 		serviceManager: servicemanager.GetInstance(),
 	}
-
-	var err error
-
-	app.config, err = parseConfig()
-	if err != nil {
-		slog.Error("failed to parse app config", "error", err)
-		os.Exit(1)
-	}
-
-	return app
 }
 
 // resetInstance resets the singleton instance for testing purposes.
