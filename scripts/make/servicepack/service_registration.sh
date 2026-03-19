@@ -11,6 +11,7 @@ REGISTRATION_FILE="internal/pkg/services/services.gen.go"
 SERVICE_IF_FILE="internal/pkg/service-manager/service_manager.go"
 SERVICE_IF_NAME="Service"
 SERVICES_DIR="internal/pkg/services"
+MODULE_NAME=$(head -n 1 go.mod | awk '{print $2}')
 
 # Use gofindimpl to discover all service implementations
 SERVICES_JSON=$(go tool gofindimpl \
@@ -44,7 +45,7 @@ EOF
 # Parse JSON and add imports, init function with factory registration
 {
     echo "import ("
-    echo "	servicemanager \"github.com/psyb0t/servicepack/internal/pkg/service-manager\""
+    echo "	servicemanager \"${MODULE_NAME}/internal/pkg/service-manager\""
     echo "$SERVICES_JSON" | jq -r '.[] | "\t" + .package + " \"" + .packagePath + "\""'
     echo ")"
     echo ""
