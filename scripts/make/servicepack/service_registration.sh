@@ -41,44 +41,17 @@ package services
 
 EOF
 
-# Parse JSON and add imports, init function, and add services
+# Parse JSON and add imports, init function with factory registration
 {
     echo "import ("
-    echo "	\"os\""
-    echo "	\"slices\""
-    echo "	\"strings\""
-    echo ""
-    echo "	\"github.com/psyb0t/servicepack/internal/pkg/service-manager\""
+    echo "	servicemanager \"github.com/psyb0t/servicepack/internal/pkg/service-manager\""
     echo "$SERVICES_JSON" | jq -r '.[] | "\t" + .package + " \"" + .packagePath + "\""'
-    echo "	\"log/slog\""
-    echo ")"
-    echo ""
-    echo "const ("
-    echo "	envVarNameServicesEnabled = \"SERVICES_ENABLED\""
     echo ")"
     echo ""
     echo "func Init() {"
     echo "	sm := servicemanager.GetInstance()"
     echo ""
-    echo "	// Parse SERVICES_ENABLED env var"
-    echo "	servicesEnabledEnv := os.Getenv(envVarNameServicesEnabled)"
-    echo "	var enabledServices []string"
-    echo "	allEnabled := true"
-    echo ""
-    echo "	if servicesEnabledEnv != \"\" {"
-    echo "		allEnabled = false"
-    echo ""
-    echo "		for part := range strings.SplitSeq(servicesEnabledEnv, \",\") {"
-    echo "			enabledServices = append(enabledServices, strings.TrimSpace(part))"
-    echo "		}"
-    echo ""
-    echo "		slog.Debug(\"service filter active\", \"enabled\", enabledServices)"
-    echo "	}"
-    echo ""
-    echo "	var service servicemanager.Service"
-    echo "	var err error"
-    echo ""
-    echo "$SERVICES_JSON" | jq -r '.[] | "\tif slices.Contains(enabledServices, " + .package + ".ServiceName) || allEnabled {\n\t\tservice, err = " + .package + ".New()\n\t\tif err != nil {\n\t\t\tslog.Error(\"failed to create " + .package + " service\", \"error\", err)\n\t\t\tos.Exit(1)\n\t\t}\n\t\tsm.Add(service)\n\t}\n"'
+    echo "$SERVICES_JSON" | jq -r '.[] | "\tsm.Register(" + .package + ".ServiceName, func() (servicemanager.Service, error) {\n\t\treturn " + .package + ".New()\n\t})\n"'
     echo "}"
 } >> "$REGISTRATION_FILE"
 

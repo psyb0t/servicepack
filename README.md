@@ -183,7 +183,7 @@ type Commander interface {
 
 **Ready Notification**: Services that implement `ReadyNotifier` signal when they're actually ready (listening, connected, etc.). The service manager waits for the Ready channel before starting dependent services. Services without it are considered ready as soon as their goroutine launches.
 
-**CLI Commands**: Services that implement `Commander` get their own CLI namespace: `./app <servicename> <subcommand>`. Returns standard cobra commands so you get flags, args, help, everything for free.
+**CLI Commands**: Services that implement `Commander` get their own CLI namespace: `./app <servicename> <subcommand>`. Only that service gets instantiated - no other services are touched. Returns standard cobra commands so you get flags, args, help, everything for free.
 
 You can combine them - a service can be retryable AND an allowed failure AND have dependencies AND signal readiness AND expose CLI commands.
 
@@ -234,8 +234,8 @@ Every `slog.Info/Error/etc` call across the entire app - framework, services, ev
 1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
 2. The `scripts/make/service_registration.sh` script finds all Service implementations
 3. It generates `internal/pkg/services/services.gen.go` with a `services.Init()` function
-4. The `services.Init()` function is called when the app starts to register all services
-5. Services get filtered based on the `SERVICES_ENABLED` environment variable
+4. `services.Init()` registers service factories (cheap, no connections) at startup
+5. Factories are only called when actually needed: `./app run` instantiates all (filtered by `SERVICES_ENABLED`), `./app <service> <subcommand>` instantiates only that service
 
 ### Service Filtering
 
@@ -367,7 +367,6 @@ vim Dockerfile
 cmd/main.go                          # Entry point, CLI setup
 internal/app/                        # Application layer
 ├── app.go                          # Main app orchestration
-├── config.go                       # Configuration parsing
 internal/pkg/
 ├── service-manager/                 # Framework service orchestration
 │   ├── service_manager.go          # Concurrent service runner
@@ -396,7 +395,7 @@ scripts/make/                        # Build script system
 
 **ServiceManager**: Runs your services concurrently with dependency ordering, automatic retries, and allowed failures. Handles shutdown and error propagation. It's a singleton because globals are fine when you know what you're doing.
 
-**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations and generates a `services.Init()` function. No manual registration bullshit.
+**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations and generates a `services.Init()` function that registers factories. No manual registration bullshit. Services are only instantiated when needed - `run` creates all, CLI commands create only the one they need.
 
 **App**: Wrapper that runs the ServiceManager and handles the lifecycle shit.
 
@@ -412,6 +411,9 @@ LOG_ADD_SOURCE=true      # show file:line in logs
 
 # Environment (via goenv)
 ENV=dev                  # dev, prod (default: prod)
+
+# Runner
+RUNNER_SHUTDOWNTIMEOUT=10s   # graceful shutdown timeout (default: 10s)
 
 # Service filtering
 SERVICES_ENABLED=service1,service2   # comma-separated, empty = all
@@ -576,7 +578,6 @@ Core dependencies:
 
 - `log/slog` with [`slog-configurator`](https://github.com/psyb0t/slog-configurator) - Logging
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
-- [`github.com/psyb0t/gonfiguration`](https://github.com/psyb0t/gonfiguration) - Config parsing
 - [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
 - [`github.com/psyb0t/goenv`](https://github.com/psyb0t/goenv) - Environment detection (prod/dev)
 

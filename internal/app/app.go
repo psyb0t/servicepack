@@ -8,7 +8,6 @@ import (
 	"github.com/psyb0t/ctxerrors"
 	"github.com/psyb0t/goenv"
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
-	"github.com/psyb0t/servicepack/internal/pkg/services"
 )
 
 var (
@@ -34,8 +33,6 @@ func GetInstance() *App {
 
 func newApp() *App {
 	slog.Debug("initializing app")
-
-	services.Init()
 
 	return &App{
 		serviceManager: servicemanager.GetInstance(),

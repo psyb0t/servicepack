@@ -3,6 +3,9 @@ package servicemanager
 import (
 	"context"
 	"log/slog"
+	"os"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -64,13 +67,21 @@ type Commander interface {
 	Commands() []*cobra.Command
 }
 
+// ServiceFactory is a function that creates a service instance.
+type ServiceFactory func() (Service, error)
+
 // serviceGroup is a set of services that can start concurrently.
 // Groups are ordered: group 0 starts first, then group 1, etc.
 type serviceGroup []Service
 
-const defaultStopTimeout = 30 * time.Second
+const (
+	defaultStopTimeout        = 30 * time.Second
+	envVarNameServicesEnabled = "SERVICES_ENABLED"
+)
 
 type ServiceManager struct {
+	factories     map[string]ServiceFactory
+	factoriesMu   sync.RWMutex
 	services      map[string]Service
 	servicesMutex sync.RWMutex
 	startGroups   []serviceGroup
@@ -85,6 +96,7 @@ type ServiceManager struct {
 func GetInstance() *ServiceManager {
 	serviceManagerOnce.Do(func() {
 		serviceManagerInstance = &ServiceManager{
+			factories:   make(map[string]ServiceFactory),
 			services:    make(map[string]Service),
 			stopTimeout: defaultStopTimeout,
 		}
@@ -98,28 +110,164 @@ func ResetInstance() {
 	serviceManagerInstance = nil
 }
 
-func (s *ServiceManager) Commands() []*cobra.Command {
-	s.servicesMutex.RLock()
-	defer s.servicesMutex.RUnlock()
+// Register stores a service factory for lazy instantiation.
+// The factory is only called when the service is actually
+// needed (during Run or when a Commander command is invoked).
+func (s *ServiceManager) Register(
+	name string,
+	factory ServiceFactory,
+) {
+	s.factoriesMu.Lock()
+	defer s.factoriesMu.Unlock()
 
-	var cmds []*cobra.Command
+	slog.Debug("registering service factory",
+		"service", name,
+	)
 
-	for _, svc := range s.services {
-		cmdr, ok := svc.(Commander)
-		if !ok {
+	s.factories[name] = factory
+}
+
+// RegisteredNames returns the names of all registered
+// service factories.
+func (s *ServiceManager) RegisteredNames() []string {
+	s.factoriesMu.RLock()
+	defer s.factoriesMu.RUnlock()
+
+	names := make([]string, 0, len(s.factories))
+	for name := range s.factories {
+		names = append(names, name)
+	}
+
+	return names
+}
+
+// Instantiate creates a single service by calling its factory.
+// Used for Commander commands that need only one service.
+//
+//nolint:ireturn
+func (s *ServiceManager) Instantiate(
+	name string,
+) (Service, error) {
+	s.factoriesMu.RLock()
+	factory, ok := s.factories[name]
+	s.factoriesMu.RUnlock()
+
+	if !ok {
+		return nil, ctxerrors.Wrapf(
+			ErrServiceNotFound, "%s", name,
+		)
+	}
+
+	return factory()
+}
+
+// instantiateAll calls all factories (filtered by
+// SERVICES_ENABLED) and adds them to the services map.
+func (s *ServiceManager) instantiateAll() error {
+	s.factoriesMu.RLock()
+	defer s.factoriesMu.RUnlock()
+
+	enabledServices, allEnabled := parseEnabledServices()
+
+	for name, factory := range s.factories {
+		if !allEnabled &&
+			!slices.Contains(enabledServices, name) {
+			slog.Debug("service disabled, skipping",
+				"service", name,
+			)
+
 			continue
 		}
 
-		parent := &cobra.Command{
-			Use:   svc.Name(),
-			Short: svc.Name() + " commands",
+		svc, err := factory()
+		if err != nil {
+			return ctxerrors.Wrapf(
+				err, "failed to create service %s", name,
+			)
 		}
 
-		parent.AddCommand(cmdr.Commands()...)
-		cmds = append(cmds, parent)
+		s.Add(svc)
+	}
+
+	return nil
+}
+
+func parseEnabledServices() ([]string, bool) {
+	env := os.Getenv(envVarNameServicesEnabled)
+	if env == "" {
+		return nil, true
+	}
+
+	var enabled []string
+
+	for part := range strings.SplitSeq(env, ",") {
+		enabled = append(
+			enabled, strings.TrimSpace(part),
+		)
+	}
+
+	slog.Debug("service filter active",
+		"enabled", enabled,
+	)
+
+	return enabled, false
+}
+
+// Commands returns lazy cobra commands for each registered
+// service factory. Each parent command instantiates only its
+// own service when invoked, so ./app <service> <subcommand>
+// doesn't trigger initialization of all services.
+func (s *ServiceManager) Commands() []*cobra.Command {
+	s.factoriesMu.RLock()
+	defer s.factoriesMu.RUnlock()
+
+	cmds := make([]*cobra.Command, 0, len(s.factories))
+
+	for name := range s.factories {
+		cmds = append(cmds, s.buildServiceCommand(name))
 	}
 
 	return cmds
+}
+
+func (s *ServiceManager) buildServiceCommand(
+	name string,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:                name,
+		Short:              name + " service commands",
+		DisableFlagParsing: true,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		RunE: func(_ *cobra.Command, args []string) error {
+			svc, err := s.Instantiate(name)
+			if err != nil {
+				slog.Error("failed to instantiate service",
+					"service", name,
+					"error", err,
+				)
+
+				return err
+			}
+
+			cmdr, ok := svc.(Commander)
+			if !ok {
+				slog.Error("service has no commands",
+					"service", name,
+				)
+
+				return ctxerrors.Wrapf(
+					ErrNoCommands, "%s", name,
+				)
+			}
+
+			sub := &cobra.Command{Use: name}
+			sub.AddCommand(cmdr.Commands()...)
+			sub.SetArgs(args)
+
+			return sub.Execute()
+		},
+	}
 }
 
 func (s *ServiceManager) ClearServices() {
@@ -144,6 +292,12 @@ func (s *ServiceManager) Add(services ...Service) {
 
 func (s *ServiceManager) Run(ctx context.Context) error {
 	slog.Info("running services")
+
+	if err := s.instantiateAll(); err != nil {
+		return ctxerrors.Wrap(
+			err, "failed to instantiate services",
+		)
+	}
 
 	ctx, cancel := context.WithCancel(ctx)
 

@@ -3,12 +3,6 @@
 package services
 
 import (
-	"os"
-	"slices"
-	"strings"
-
-	"log/slog"
-
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	exampleapi "github.com/psyb0t/servicepack/internal/pkg/services/example-api"
 	examplecrasher "github.com/psyb0t/servicepack/internal/pkg/services/example-crasher"
@@ -19,92 +13,35 @@ import (
 	helloworld "github.com/psyb0t/servicepack/internal/pkg/services/hello-world"
 )
 
-const (
-	envVarNameServicesEnabled = "SERVICES_ENABLED"
-)
-
 func Init() {
 	sm := servicemanager.GetInstance()
 
-	// Parse SERVICES_ENABLED env var
-	servicesEnabledEnv := os.Getenv(envVarNameServicesEnabled)
-	var enabledServices []string
-	allEnabled := true
+	sm.Register(exampleapi.ServiceName, func() (servicemanager.Service, error) {
+		return exampleapi.New()
+	})
 
-	if servicesEnabledEnv != "" {
-		allEnabled = false
+	sm.Register(examplecrasher.ServiceName, func() (servicemanager.Service, error) {
+		return examplecrasher.New()
+	})
 
-		for part := range strings.SplitSeq(servicesEnabledEnv, ",") {
-			enabledServices = append(enabledServices, strings.TrimSpace(part))
-		}
+	sm.Register(exampledatabase.ServiceName, func() (servicemanager.Service, error) {
+		return exampledatabase.New()
+	})
 
-		slog.Debug("service filter active", "enabled", enabledServices)
-	}
+	sm.Register(exampleflaky.ServiceName, func() (servicemanager.Service, error) {
+		return exampleflaky.New()
+	})
 
-	var service servicemanager.Service
-	var err error
+	sm.Register(examplemigrator.ServiceName, func() (servicemanager.Service, error) {
+		return examplemigrator.New()
+	})
 
-	if slices.Contains(enabledServices, exampleapi.ServiceName) || allEnabled {
-		service, err = exampleapi.New()
-		if err != nil {
-			slog.Error("failed to create exampleapi service", "error", err)
-			os.Exit(1)
-		}
-		sm.Add(service)
-	}
+	sm.Register(exampleoptional.ServiceName, func() (servicemanager.Service, error) {
+		return exampleoptional.New()
+	})
 
-	if slices.Contains(enabledServices, examplecrasher.ServiceName) || allEnabled {
-		service, err = examplecrasher.New()
-		if err != nil {
-			slog.Error("failed to create examplecrasher service", "error", err)
-			os.Exit(1)
-		}
-		sm.Add(service)
-	}
-
-	if slices.Contains(enabledServices, exampledatabase.ServiceName) || allEnabled {
-		service, err = exampledatabase.New()
-		if err != nil {
-			slog.Error("failed to create exampledatabase service", "error", err)
-			os.Exit(1)
-		}
-		sm.Add(service)
-	}
-
-	if slices.Contains(enabledServices, exampleflaky.ServiceName) || allEnabled {
-		service, err = exampleflaky.New()
-		if err != nil {
-			slog.Error("failed to create exampleflaky service", "error", err)
-			os.Exit(1)
-		}
-		sm.Add(service)
-	}
-
-	if slices.Contains(enabledServices, examplemigrator.ServiceName) || allEnabled {
-		service, err = examplemigrator.New()
-		if err != nil {
-			slog.Error("failed to create examplemigrator service", "error", err)
-			os.Exit(1)
-		}
-		sm.Add(service)
-	}
-
-	if slices.Contains(enabledServices, exampleoptional.ServiceName) || allEnabled {
-		service, err = exampleoptional.New()
-		if err != nil {
-			slog.Error("failed to create exampleoptional service", "error", err)
-			os.Exit(1)
-		}
-		sm.Add(service)
-	}
-
-	if slices.Contains(enabledServices, helloworld.ServiceName) || allEnabled {
-		service, err = helloworld.New()
-		if err != nil {
-			slog.Error("failed to create helloworld service", "error", err)
-			os.Exit(1)
-		}
-		sm.Add(service)
-	}
+	sm.Register(helloworld.ServiceName, func() (servicemanager.Service, error) {
+		return helloworld.New()
+	})
 
 }

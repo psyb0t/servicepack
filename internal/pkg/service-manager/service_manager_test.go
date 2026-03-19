@@ -1048,38 +1048,48 @@ func (c *commanderService) Commands() []*cobra.Command {
 
 func TestServiceManager_Commands(t *testing.T) {
 	testCases := []struct {
-		name     string
-		services []Service
-		expected int
+		name      string
+		factories map[string]ServiceFactory
+		expected  int
 	}{
 		{
 			name: "service with commands",
-			services: []Service{
-				&commanderService{
-					MockService: NewMockService("svc"),
+			factories: map[string]ServiceFactory{
+				"svc": func() (Service, error) {
+					return &commanderService{
+						MockService: NewMockService("svc"),
+					}, nil
 				},
 			},
 			expected: 1,
 		},
 		{
 			name: "service without commands",
-			services: []Service{
-				NewTestService("plain"),
+			factories: map[string]ServiceFactory{
+				"plain": func() (Service, error) {
+					return NewTestService("plain"), nil
+				},
 			},
-			expected: 0,
+			expected: 1,
 		},
 		{
 			name: "mixed",
-			services: []Service{
-				&commanderService{
-					MockService: NewMockService("cmd1"),
+			factories: map[string]ServiceFactory{
+				"cmd1": func() (Service, error) {
+					return &commanderService{
+						MockService: NewMockService("cmd1"),
+					}, nil
 				},
-				NewTestService("plain"),
-				&commanderService{
-					MockService: NewMockService("cmd2"),
+				"plain": func() (Service, error) {
+					return NewTestService("plain"), nil
+				},
+				"cmd2": func() (Service, error) {
+					return &commanderService{
+						MockService: NewMockService("cmd2"),
+					}, nil
 				},
 			},
-			expected: 2,
+			expected: 3,
 		},
 	}
 
@@ -1088,15 +1098,252 @@ func TestServiceManager_Commands(t *testing.T) {
 			ResetInstance()
 
 			sm := GetInstance()
-			sm.Add(tc.services...)
+			for name, factory := range tc.factories {
+				sm.Register(name, factory)
+			}
 
 			cmds := sm.Commands()
 			assert.Len(t, cmds, tc.expected)
 
 			for _, cmd := range cmds {
 				assert.NotEmpty(t, cmd.Use)
-				assert.True(t, cmd.HasSubCommands())
 			}
+		})
+	}
+}
+
+func TestServiceManager_Register(t *testing.T) {
+	ResetInstance()
+
+	sm := GetInstance()
+	sm.Register("svc1", func() (Service, error) {
+		return NewTestService("svc1"), nil
+	})
+	sm.Register("svc2", func() (Service, error) {
+		return NewTestService("svc2"), nil
+	})
+
+	names := sm.RegisteredNames()
+	assert.Len(t, names, 2)
+	assert.Contains(t, names, "svc1")
+	assert.Contains(t, names, "svc2")
+}
+
+func TestServiceManager_Instantiate(t *testing.T) {
+	testCases := []struct {
+		name        string
+		factories   map[string]ServiceFactory
+		target      string
+		expectName  string
+		expectError error
+	}{
+		{
+			name: "success",
+			factories: map[string]ServiceFactory{
+				"svc": func() (Service, error) {
+					return NewTestService("svc"), nil
+				},
+			},
+			target:     "svc",
+			expectName: "svc",
+		},
+		{
+			name:        "not found",
+			factories:   map[string]ServiceFactory{},
+			target:      "nope",
+			expectError: ErrServiceNotFound,
+		},
+		{
+			name: "factory error",
+			factories: map[string]ServiceFactory{
+				"bad": func() (Service, error) {
+					return nil, errTestService
+				},
+			},
+			target:      "bad",
+			expectError: errTestService,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			for name, factory := range tc.factories {
+				sm.Register(name, factory)
+			}
+
+			svc, err := sm.Instantiate(tc.target)
+			if tc.expectError != nil {
+				assert.ErrorIs(t, err, tc.expectError)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.expectName, svc.Name())
+		})
+	}
+}
+
+func TestServiceManager_InstantiateAll(t *testing.T) {
+	testCases := []struct {
+		name            string
+		servicesEnabled string
+		factories       map[string]ServiceFactory
+		expectCount     int
+		expectError     bool
+	}{
+		{
+			name: "all enabled",
+			factories: map[string]ServiceFactory{
+				"a": func() (Service, error) {
+					return NewTestService("a"), nil
+				},
+				"b": func() (Service, error) {
+					return NewTestService("b"), nil
+				},
+			},
+			expectCount: 2,
+		},
+		{
+			name:            "filtered",
+			servicesEnabled: "a",
+			factories: map[string]ServiceFactory{
+				"a": func() (Service, error) {
+					return NewTestService("a"), nil
+				},
+				"b": func() (Service, error) {
+					return NewTestService("b"), nil
+				},
+			},
+			expectCount: 1,
+		},
+		{
+			name: "factory error",
+			factories: map[string]ServiceFactory{
+				"bad": func() (Service, error) {
+					return nil, errTestService
+				},
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ResetInstance()
+
+			if tc.servicesEnabled != "" {
+				t.Setenv("SERVICES_ENABLED", tc.servicesEnabled)
+			}
+
+			sm := GetInstance()
+			for name, factory := range tc.factories {
+				sm.Register(name, factory)
+			}
+
+			err := sm.instantiateAll()
+			if tc.expectError {
+				assert.Error(t, err)
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			sm.servicesMutex.RLock()
+			assert.Len(t, sm.services, tc.expectCount)
+			sm.servicesMutex.RUnlock()
+		})
+	}
+}
+
+func TestServiceManager_BuildServiceCommand(t *testing.T) {
+	testCases := []struct {
+		name        string
+		svcName     string
+		factory     ServiceFactory
+		args        []string
+		expectError error
+	}{
+		{
+			name:    "with commander",
+			svcName: "cmdr",
+			factory: func() (Service, error) {
+				return &commanderService{
+					MockService: NewMockService("cmdr"),
+				}, nil
+			},
+			args: []string{"do-stuff"},
+		},
+		{
+			name:    "without commander",
+			svcName: "plain",
+			factory: func() (Service, error) {
+				return NewTestService("plain"), nil
+			},
+			expectError: ErrNoCommands,
+		},
+		{
+			name:    "instantiate error",
+			svcName: "bad",
+			factory: func() (Service, error) {
+				return nil, errTestService
+			},
+			expectError: errTestService,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			sm.Register(tc.svcName, tc.factory)
+
+			cmd := sm.buildServiceCommand(tc.svcName)
+			assert.Equal(t, tc.svcName, cmd.Use)
+
+			err := cmd.RunE(cmd, tc.args)
+			if tc.expectError != nil {
+				assert.ErrorIs(t, err, tc.expectError)
+
+				return
+			}
+
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestParseEnabledServices(t *testing.T) {
+	testCases := []struct {
+		name      string
+		envValue  string
+		expectAll bool
+		expected  []string
+	}{
+		{
+			name:      "empty",
+			envValue:  "",
+			expectAll: true,
+		},
+		{
+			name:     "with values",
+			envValue: "a, b ,c",
+			expected: []string{"a", "b", "c"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("SERVICES_ENABLED", tc.envValue)
+
+			enabled, all := parseEnabledServices()
+			assert.Equal(t, tc.expectAll, all)
+			assert.Equal(t, tc.expected, enabled)
 		})
 	}
 }
