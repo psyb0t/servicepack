@@ -210,6 +210,7 @@ require (
 	golang.org/x/telemetry v0.0.0-20251203150158-8fff8a5912fc // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.40.0 // indirect
+	golang.org/x/tools/gopls v0.21.1 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	honnef.co/go/tools v0.7.0-0.dev.0.20251022135355-8273271481d0 // indirect
@@ -221,4 +222,5 @@ tool (
 	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 	github.com/psyb0t/gofindimpl
 	golang.org/x/tools/cmd/goimports
+	golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize
 )
