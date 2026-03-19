@@ -11,7 +11,7 @@ APP_NAME := $(shell head -n 1 go.mod | awk '{print $$2}' | awk -F'/' '{print $$N
 
 # Function to find script: check user scripts first, then fall back to servicepack
 define find_script
-$(shell if [ -f "./$(SCRIPTS_DIR)/make/$(1)" ]; then \
+bash $(shell if [ -f "./$(SCRIPTS_DIR)/make/$(1)" ]; then \
 	echo "./$(SCRIPTS_DIR)/make/$(1)"; \
 else \
 	echo "./$(SCRIPTS_DIR)/make/servicepack/$(1)"; \
