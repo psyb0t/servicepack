@@ -625,6 +625,10 @@ The framework ships with example services that demonstrate every lifecycle patte
 | `example-optional` | Allowed failure, fails immediately but app keeps running |
 | `example-flaky` | Retryable (2 retries, 1s delay), fails twice then recovers |
 | `example-crasher` | Retryable (2 retries, 3s delay), fails all retries and kills everything |
+| `example-nested/http` | Nested directory, shares package name `server` with grpc sibling |
+| `example-nested/grpc` | Nested directory, shares package name `server` with http sibling |
+
+Services can live in nested directories under `internal/pkg/services/`. The codegen derives unique import aliases from the directory path, so `example-nested/http` and `example-nested/grpc` both use `package server` but get aliases `examplenestedhttp` and `examplenestedgrpc` - no collisions.
 
 Run them all: `go run ./cmd run` or `make run-dev`
 

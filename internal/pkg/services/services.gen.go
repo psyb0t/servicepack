@@ -9,6 +9,8 @@ import (
 	exampledatabase "github.com/psyb0t/servicepack/internal/pkg/services/example-database"
 	exampleflaky "github.com/psyb0t/servicepack/internal/pkg/services/example-flaky"
 	examplemigrator "github.com/psyb0t/servicepack/internal/pkg/services/example-migrator"
+	examplenestedgrpc "github.com/psyb0t/servicepack/internal/pkg/services/example-nested/grpc"
+	examplenestedhttp "github.com/psyb0t/servicepack/internal/pkg/services/example-nested/http"
 	exampleoptional "github.com/psyb0t/servicepack/internal/pkg/services/example-optional"
 	helloworld "github.com/psyb0t/servicepack/internal/pkg/services/hello-world"
 )
@@ -34,6 +36,14 @@ func Init() {
 
 	sm.Register(examplemigrator.ServiceName, func() (servicemanager.Service, error) {
 		return examplemigrator.New()
+	})
+
+	sm.Register(examplenestedgrpc.ServiceName, func() (servicemanager.Service, error) {
+		return examplenestedgrpc.New()
+	})
+
+	sm.Register(examplenestedhttp.ServiceName, func() (servicemanager.Service, error) {
+		return examplenestedhttp.New()
 	})
 
 	sm.Register(exampleoptional.ServiceName, func() (servicemanager.Service, error) {

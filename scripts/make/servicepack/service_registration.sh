@@ -42,17 +42,25 @@ package services
 
 EOF
 
+# Compute unique import aliases from path (handles duplicate package names)
+# e.g. services/http/api -> httpapi, services/hello-world -> helloworld
+SERVICES_JSON=$(echo "$SERVICES_JSON" | jq --arg sdir "${SERVICES_DIR}/" '
+    [.[] | . + {
+        alias: (.packagePath | split($sdir)[1] | gsub("[/-]"; ""))
+    }]
+')
+
 # Parse JSON and add imports, init function with factory registration
 {
     echo "import ("
     echo "	servicemanager \"${MODULE_NAME}/internal/pkg/service-manager\""
-    echo "$SERVICES_JSON" | jq -r '.[] | "\t" + .package + " \"" + .packagePath + "\""'
+    echo "$SERVICES_JSON" | jq -r '.[] | "\t" + .alias + " \"" + .packagePath + "\""'
     echo ")"
     echo ""
     echo "func Init() {"
     echo "	sm := servicemanager.GetInstance()"
     echo ""
-    echo "$SERVICES_JSON" | jq -r '.[] | "\tsm.Register(" + .package + ".ServiceName, func() (servicemanager.Service, error) {\n\t\treturn " + .package + ".New()\n\t})\n"'
+    echo "$SERVICES_JSON" | jq -r '.[] | "\tsm.Register(" + .alias + ".ServiceName, func() (servicemanager.Service, error) {\n\t\treturn " + .alias + ".New()\n\t})\n"'
     echo "}"
 } >> "$REGISTRATION_FILE"
 
