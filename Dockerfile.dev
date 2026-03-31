@@ -2,7 +2,7 @@
 # This file demonstrates how to override the framework development image
 # Delete this file to use the default framework image (Dockerfile.servicepack.dev)
 
-FROM golang:1.25-alpine
+FROM golang:1.26-alpine
 
 # Install build dependencies
 RUN apk add --no-cache \

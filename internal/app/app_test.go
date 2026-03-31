@@ -322,3 +322,95 @@ func TestApp_ServiceActivity(t *testing.T) {
 		})
 	}
 }
+
+// runAppBriefly starts the app, waits briefly, cancels, and
+// waits for Run to return.
+func runAppBriefly(t *testing.T, a *App) {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+
+	go func() { done <- a.Run(ctx) }()
+
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("timeout")
+	}
+}
+
+func TestApp_PreRunHooks(t *testing.T) {
+	t.Run("hooks run in order before services", func(t *testing.T) {
+		resetInstance()
+
+		a := createTestApp()
+
+		var order []string
+
+		a.OnPreRun(func(_ context.Context) {
+			order = append(order, "hook1")
+		})
+		a.OnPreRun(func(_ context.Context) {
+			order = append(order, "hook2")
+		})
+
+		runAppBriefly(t, a)
+
+		assert.Equal(t, []string{"hook1", "hook2"}, order)
+	})
+
+	t.Run("no hooks is fine", func(t *testing.T) {
+		resetInstance()
+
+		a := createTestApp()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		err := a.Run(ctx)
+		assert.NoError(t, err)
+	})
+}
+
+func TestApp_PostStopHooks(t *testing.T) {
+	t.Run("single hook runs after stop", func(t *testing.T) {
+		resetInstance()
+
+		a := createTestApp()
+
+		var called bool
+
+		a.OnPostStop(func(_ context.Context) {
+			called = true
+		})
+
+		runAppBriefly(t, a)
+
+		assert.True(t, called)
+	})
+
+	t.Run("multiple hooks run in order after stop", func(t *testing.T) {
+		resetInstance()
+
+		a := createTestApp()
+
+		var order []string
+
+		a.OnPostStop(func(_ context.Context) {
+			order = append(order, "cleanup1")
+		})
+		a.OnPostStop(func(_ context.Context) {
+			order = append(order, "cleanup2")
+		})
+
+		runAppBriefly(t, a)
+
+		assert.Equal(t, []string{"cleanup1", "cleanup2"}, order)
+	})
+}

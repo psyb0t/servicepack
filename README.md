@@ -24,6 +24,7 @@ A Go service framework that runs your shit concurrently without fucking around.
   - [Optional Interfaces](#optional-interfaces)
   - [Custom CLI Commands](#custom-cli-commands)
   - [Custom Initialization](#custom-initialization)
+  - [Lifecycle Hooks](#lifecycle-hooks)
 - [How Services Actually Work](#how-services-actually-work)
   - [Service Filtering](#service-filtering)
 
@@ -229,6 +230,38 @@ func init() {
 
 Every `slog.Info/Error/etc` call across the entire app - framework, services, everything - goes to all registered handlers. Want Loki? Datadog? Elasticsearch? Just write a `slog.Handler` and plug it in here.
 
+### Lifecycle Hooks
+
+The `App` exposes hooks so you can run custom logic at specific points in the lifecycle without touching framework files:
+
+```go
+// cmd/init.go
+package main
+
+import (
+    "context"
+
+    "github.com/yourname/yourproject/internal/app"
+    "github.com/yourname/yourproject/internal/pkg/metrics"
+)
+
+func init() {
+    // Runs before any service starts — use it to launch background
+    // goroutines, set up metrics pushers, warm caches, etc.
+    app.GetInstance().OnPreRun(func(ctx context.Context) {
+        go metrics.StartPush(ctx, "myapp")
+    })
+
+    // Runs after all services have stopped — use it for final
+    // cleanup, flushing buffers, closing connections, etc.
+    app.GetInstance().OnPostStop(func(ctx context.Context) {
+        metrics.Flush()
+    })
+}
+```
+
+Hooks execute sequentially in registration order. Pre-run hooks receive the app context so spawned goroutines respect the app lifecycle. Multiple hooks can be registered — they all run.
+
 ## How Services Actually Work
 
 1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
@@ -257,8 +290,8 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 - `make dep` - Get dependencies with `go mod tidy` and `go mod vendor`
 - `make test` - Run all tests with race detection
 - `make test-coverage` - Run tests with 90% coverage requirement (excludes example services and cmd packages)
-- `make lint` - Lint your code with comprehensive golangci-lint rules (80+ linters enabled)
-- `make lint-fix` - Lint and auto-fix issues
+- `make lint` - Lint with `go fix` (diff-only) + golangci-lint (80+ linters)
+- `make lint-fix` - Apply `go fix` modernizations + golangci-lint auto-fixes
 - `make clean` - Clean build artifacts and coverage files
 
 ### Service Management
@@ -397,7 +430,7 @@ scripts/make/                        # Build script system
 
 **Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations and generates a `services.Init()` function that registers factories. No manual registration bullshit. Services are only instantiated when needed - `run` creates all, CLI commands create only the one they need.
 
-**App**: Wrapper that runs the ServiceManager and handles the lifecycle shit.
+**App**: Wrapper that runs the ServiceManager and handles the lifecycle shit. Exposes `OnPreRun` and `OnPostStop` hooks so downstream projects can inject custom logic without modifying framework files.
 
 ## Environment Variables
 
@@ -436,7 +469,7 @@ The build system is dynamic as fuck:
 APP_NAME := $(shell head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')
 
 build:
-    docker run --rm -v $(PWD):/app -w /app golang:1.25-alpine \
+    docker run --rm -v $(PWD):/app -w /app golang:1.26-alpine \
         sh -c "apk add --no-cache gcc musl-dev && \
                CGO_ENABLED=0 go build -a \
                -ldflags '-extldflags \"-static\" -X main.appName=$(APP_NAME)' \

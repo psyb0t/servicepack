@@ -15,12 +15,18 @@ var (
 	once     sync.Once //nolint:gochecknoglobals
 )
 
+// HookFunc is a callback invoked during the app lifecycle.
+// Hooks receive the app context and can launch goroutines from it.
+type HookFunc func(ctx context.Context)
+
 type App struct {
 	wg             sync.WaitGroup
 	cancel         context.CancelFunc
 	cancelMu       sync.Mutex
 	stopOnce       sync.Once
 	serviceManager *servicemanager.ServiceManager
+	preRunHooks    []HookFunc
+	postStopHooks  []HookFunc
 }
 
 func GetInstance() *App {
@@ -47,6 +53,18 @@ func resetInstance() {
 	servicemanager.ResetInstance()
 }
 
+// OnPreRun registers a function that runs before services start.
+// Hooks execute sequentially in registration order.
+func (a *App) OnPreRun(fn HookFunc) {
+	a.preRunHooks = append(a.preRunHooks, fn)
+}
+
+// OnPostStop registers a function that runs after all services stop.
+// Hooks execute sequentially in registration order.
+func (a *App) OnPostStop(fn HookFunc) {
+	a.postStopHooks = append(a.postStopHooks, fn)
+}
+
 func (a *App) Run(ctx context.Context) error {
 	slog.Info("running app", "env", goenv.Get())
 
@@ -62,6 +80,10 @@ func (a *App) Run(ctx context.Context) error {
 		}
 	}()
 	defer a.wg.Wait()
+
+	for _, hook := range a.preRunHooks {
+		hook(ctx)
+	}
 
 	errCh := make(chan error, 1)
 	defer close(errCh)
@@ -99,6 +121,10 @@ func (a *App) Stop(ctx context.Context) error {
 
 		a.serviceManager.Stop(ctx)
 		a.wg.Wait()
+
+		for _, hook := range a.postStopHooks {
+			hook(ctx)
+		}
 	})
 
 	return nil
