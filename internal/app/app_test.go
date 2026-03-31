@@ -90,7 +90,9 @@ func TestApp_Run(t *testing.T) {
 		{
 			name: "timeout context",
 			setupFunc: func() (context.Context, context.CancelFunc) {
-				return context.WithTimeout(context.Background(), 50*time.Millisecond)
+				return context.WithTimeout(
+					context.Background(), 50*time.Millisecond,
+				)
 			},
 			runFunc: func(t *testing.T, app *App, ctx context.Context) {
 				t.Helper()
@@ -240,10 +242,12 @@ func TestApp_ServiceActivity(t *testing.T) {
 			expectError:  false,
 		},
 		{
-			name:         "many services run and stop correctly",
-			serviceNames: []string{"Service1", "Service2", "Service3", "Service4"},
-			stopMethod:   "app_stop",
-			expectError:  false,
+			name: "many services run and stop correctly",
+			serviceNames: []string{
+				"Service1", "Service2", "Service3", "Service4",
+			},
+			stopMethod:  "app_stop",
+			expectError: false,
 		},
 	}
 
@@ -254,9 +258,13 @@ func TestApp_ServiceActivity(t *testing.T) {
 			servicemanager.GetInstance().ClearServices()
 
 			// Create mock services that track their activity
-			mockServices := make([]*servicemanager.MockService, 0, len(tc.serviceNames))
+			mockServices := make(
+				[]*servicemanager.MockService, 0, len(tc.serviceNames),
+			)
 			for _, name := range tc.serviceNames {
-				mockServices = append(mockServices, servicemanager.NewMockService(name))
+				mockServices = append(
+					mockServices, servicemanager.NewMockService(name),
+				)
 			}
 
 			// Create app manually and add mock services
@@ -264,7 +272,9 @@ func TestApp_ServiceActivity(t *testing.T) {
 				serviceManager: servicemanager.GetInstance(),
 			}
 			// Convert to Service interface for Add method
-			servicesForAdd := make([]servicemanager.Service, 0, len(mockServices))
+			servicesForAdd := make(
+				[]servicemanager.Service, 0, len(mockServices),
+			)
 			for _, svc := range mockServices {
 				servicesForAdd = append(servicesForAdd, svc)
 			}

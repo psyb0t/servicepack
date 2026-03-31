@@ -50,13 +50,17 @@ func TestServiceManager_Add(t *testing.T) {
 			expected: 1,
 		},
 		{
-			name:     "add multiple services",
-			services: []Service{NewMockService("test1"), NewMockService("test2")},
+			name: "add multiple services",
+			services: []Service{
+				NewMockService("test1"), NewMockService("test2"),
+			},
 			expected: 2,
 		},
 		{
-			name:     "add services with duplicate names overwrites",
-			services: []Service{NewMockService("test1"), NewMockService("test1")},
+			name: "add services with duplicate names overwrites",
+			services: []Service{
+				NewMockService("test1"), NewMockService("test1"),
+			},
 			expected: 1,
 		},
 		{
@@ -112,8 +116,10 @@ func TestServiceManager_Run(t *testing.T) {
 			stopMethod:  "context",
 		},
 		{
-			name:     "run multiple services with context cancellation",
-			services: []Service{NewMockService("test1"), NewMockService("test2")},
+			name: "run multiple services with context cancellation",
+			services: []Service{
+				NewMockService("test1"), NewMockService("test2"),
+			},
 			contextSetup: func() (context.Context, context.CancelFunc) {
 				ctx, cancel := context.WithCancel(context.Background())
 
@@ -128,8 +134,10 @@ func TestServiceManager_Run(t *testing.T) {
 			stopMethod:  "context",
 		},
 		{
-			name:     "run service with error",
-			services: []Service{NewMockService("failing").WithRunError(errTestService)},
+			name: "run service with error",
+			services: []Service{
+				NewMockService("failing").WithRunError(errTestService),
+			},
 			contextSetup: func() (context.Context, context.CancelFunc) {
 				return context.WithCancel(context.Background())
 			},
@@ -230,8 +238,10 @@ func TestServiceManager_Stop(t *testing.T) {
 			stopTwice: false,
 		},
 		{
-			name:      "stop multiple services",
-			services:  []Service{NewMockService("test1"), NewMockService("test2")},
+			name: "stop multiple services",
+			services: []Service{
+				NewMockService("test1"), NewMockService("test2"),
+			},
 			stopTwice: false,
 		},
 		{
@@ -313,7 +323,8 @@ func TestServiceManager_Stop(t *testing.T) {
 				for _, svc := range tc.services {
 					if mockSvc, ok := svc.(*MockService); ok {
 						assert.False(t, mockSvc.WasStopCalled(),
-							"Service %s should NOT have Stop called again", mockSvc.name)
+							"Service %s should NOT have Stop called again",
+							mockSvc.name)
 					}
 				}
 			}
@@ -348,7 +359,9 @@ func TestServiceManager_Concurrency(t *testing.T) {
 		assert.Equal(t, 10, len(sm.services))
 
 		// Run the manager
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, cancel := context.WithTimeout(
+			context.Background(), 100*time.Millisecond,
+		)
 		defer cancel()
 
 		err := sm.Run(ctx)

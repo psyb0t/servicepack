@@ -27,7 +27,9 @@ func (h *HelloWorld) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("context cancelled, stopping service", "service", ServiceName)
+			slog.Info("context cancelled, stopping service",
+				"service", ServiceName,
+			)
 
 			return nil
 		case <-ticker.C:
