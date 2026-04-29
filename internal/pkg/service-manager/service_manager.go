@@ -300,6 +300,7 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	s.cancelMu.Lock()
 	s.cancel = cancel

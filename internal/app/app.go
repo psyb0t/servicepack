@@ -69,6 +69,7 @@ func (a *App) Run(ctx context.Context) error {
 	slog.Info("running app", "env", goenv.Get())
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	a.cancelMu.Lock()
 	a.cancel = cancel
