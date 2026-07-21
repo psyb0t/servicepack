@@ -4,6 +4,23 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.6 — 2026-07-21
+
+Make the self-updating updater future-proof: the newest update logic always
+drives the update.
+
+- `make servicepack-update` is a self-updating updater — the script that
+  performs the update is itself one of the files being updated, so any policy
+  baked into it (rsync excludes, dependency merge) could never protect the very
+  update that installs the fix. `scripts/make/servicepack/servicepack_update.sh`
+  is now a thin, stable bootstrap: it only verifies preconditions, fetches the
+  latest framework, and hands off to `scripts/make/servicepack/do_update.sh`
+  **from the freshly downloaded copy**.
+- New `scripts/make/servicepack/do_update.sh` carries all the update policy
+  (rsync exclude list, `go.mod` upgrade-only dependency merge, branch/commit
+  flow) and always runs from the fresh download. Future policy changes now take
+  effect on the first update that ships them — no manual bootstrap needed.
+
 ## v1.2.5 — 2026-07-21
 
 Make `make servicepack-update` safe: never downgrade or drop the downstream

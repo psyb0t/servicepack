@@ -1,0 +1,127 @@
+#!/bin/bash
+
+# Servicepack update — apply phase.
+#
+# This script carries ALL the update POLICY (rsync exclude list, dependency
+# merge, branch/commit dance) and is ALWAYS executed from the freshly
+# downloaded framework copy, handed off to by the thin bootstrap
+# servicepack_update.sh. A running updater cannot swap its own logic mid-run,
+# so the policy lives here and runs from the download — the newest policy
+# always drives the sync, on the very first update that ships it. Never move
+# policy back into the bootstrap.
+#
+# Args (all passed by servicepack_update.sh):
+#   $1 REPO_ROOT        - the downstream project's checkout (the repo to update)
+#   $2 TEMP_DIR         - the freshly cloned latest framework
+#   $3 CURRENT_VERSION  - the downstream's servicepack.version before this update
+#   $4 LATEST_VERSION   - the framework version being installed
+
+set -e
+
+REPO_ROOT="$1"
+TEMP_DIR="$2"
+CURRENT_VERSION="$3"
+LATEST_VERSION="$4"
+
+# common.sh from the freshly downloaded framework (this script's own dir), so
+# even the helper functions are the latest.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
+# All git + file operations run against the downstream project.
+cd "$REPO_ROOT"
+
+CURRENT_BRANCH=$(git branch --show-current)
+
+section "Preparing Update"
+warning "Update available! Creating backup before proceeding..."
+
+# Create backup before updating
+if ! make backup; then
+    error "Failed to create backup. Update cancelled."
+    exit 1
+fi
+
+section "Creating Update Branch"
+
+UPDATE_BRANCH="servicepack_update_to_${LATEST_VERSION}"
+info "Creating update branch: $UPDATE_BRANCH"
+
+if git show-ref --verify --quiet "refs/heads/$UPDATE_BRANCH"; then
+    error "Branch $UPDATE_BRANCH already exists."
+    warning "Delete it first with: git branch -D $UPDATE_BRANCH"
+    exit 1
+fi
+
+git checkout -b "$UPDATE_BRANCH"
+
+# Backup user's go.mod module name
+USER_MODULE=""
+if [ -f "go.mod" ]; then
+    USER_MODULE=$(head -n 1 go.mod | awk '{print $2}')
+    info "Preserving user module name: $USER_MODULE"
+fi
+
+section "Updating Framework Files"
+
+# Build exclude args - default excludes (protect user content).
+#
+# CHANGELOG.md is per-project (documents the DOWNSTREAM app's releases, not
+# servicepack's) so the framework never owns it.
+#
+# go.mod / go.sum are NOT copied by rsync because rsync has no merge semantics:
+# a wholesale replace would drop every `require` line for the downstream's own
+# deps, and the following `go mod tidy` would then re-resolve them DOWN to the
+# lowest version MVS allows (a silent, dangerous downgrade). Instead the
+# framework's dependency bumps are merged into the downstream's existing go.mod
+# UPGRADE-ONLY in _post_update.sh (see merge_framework_deps). This keeps the
+# downstream's own, possibly-newer deps intact while still pulling servicepack's
+# framework-dep floors forward so the freshly-synced framework code compiles.
+#
+# Everything else the framework owns and overwrites (incl. .golangci.yml). A
+# downstream that has genuinely customized a framework-owned file lists it in
+# ITS OWN .servicepackupdateignore -- that is the intended opt-out, not a
+# blanket exclude baked into the framework.
+EXCLUDE_ARGS="--exclude=internal/pkg/services/* \
+    --exclude=README.md \
+    --exclude=LICENSE \
+    --exclude=CHANGELOG.md \
+    --exclude=.git \
+    --exclude=.gitignore \
+    --exclude=.servicepackupdateignore \
+    --exclude=Makefile \
+    --exclude=Dockerfile \
+    --exclude=Dockerfile.dev \
+    --exclude=build/ \
+    --exclude=coverage.txt \
+    --exclude=vendor/ \
+    --exclude=go.mod \
+    --exclude=go.sum"
+
+# Add excludes from .servicepackupdateignore if it exists
+if [ -f ".servicepackupdateignore" ]; then
+    info "Using .servicepackupdateignore exclusions..."
+    while IFS= read -r line; do
+        # Skip comments (lines starting with #) and empty lines
+        [[ "$line" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "${line// }" ]] && continue
+        EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude=$line"
+    done < .servicepackupdateignore
+fi
+
+# Update core framework files with exclusions
+eval "rsync -av $EXCLUDE_ARGS \"$TEMP_DIR/\" ./"
+
+section "Running Post-Update Script"
+info "Executing post-update logic with latest framework code..."
+
+# Call the post-update script FROM THE FRESH DOWNLOAD (this script's dir), so
+# the merge/commit logic is the latest too — not whatever the downstream had
+# before this update.
+bash "$SCRIPT_DIR/_post_update.sh" \
+    "$CURRENT_BRANCH" \
+    "$UPDATE_BRANCH" \
+    "$CURRENT_VERSION" \
+    "$LATEST_VERSION" \
+    "$USER_MODULE" \
+    "$TEMP_DIR"

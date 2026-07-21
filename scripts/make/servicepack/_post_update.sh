@@ -39,7 +39,7 @@ success "Updated servicepack.version to: $LATEST_VERSION"
 
 section "Merging Framework Dependencies (upgrade-only)"
 
-# go.mod / go.sum are intentionally NOT copied by rsync (see servicepack_update.sh):
+# go.mod / go.sum are intentionally NOT copied by rsync (see do_update.sh):
 # a wholesale replace drops every `require` for the downstream's own deps, and the
 # following `go mod tidy` would re-resolve them DOWN to the lowest version MVS
 # allows -- a silent, dangerous downgrade (go mod tidy only grabs *latest* for a

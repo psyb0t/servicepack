@@ -487,18 +487,32 @@ Keep your servicepack framework up to date:
 make servicepack-update
 ```
 
-This script:
+This runs a thin bootstrap (`servicepack_update.sh`) that:
 
 1. Checks for uncommitted changes (fails if found)
 2. Compares current version with latest
-3. Creates backup if update is needed
-4. Creates update branch `servicepack_update_to_VERSION`
-5. Downloads latest framework and applies changes
-6. Merges the framework's `go.mod` dependencies into yours **upgrade-only** —
+3. Downloads the latest framework
+4. Hands off to `do_update.sh` **from the freshly downloaded copy** — so the
+   newest update logic always drives the update, even when it's the update
+   logic itself that changed (see note below)
+
+`do_update.sh` then:
+
+5. Creates a backup
+6. Creates update branch `servicepack_update_to_VERSION`
+7. Syncs framework files
+8. Merges the framework's `go.mod` dependencies into yours **upgrade-only** —
    your own deps and `CHANGELOG.md` are never overwritten or downgraded (see
    below)
-7. Commits changes to update branch for review
-8. Leaves you on update branch to review and test
+9. Commits changes to update branch for review
+10. Leaves you on update branch to review and test
+
+> **Why the split?** The updater updates itself. If all the logic lived in the
+> installed `servicepack_update.sh`, a fix to that logic could never protect the
+> update that installs it — you'd always run one-version-old update logic. By
+> keeping `servicepack_update.sh` a minimal bootstrap and running the real work
+> from the freshly downloaded `do_update.sh`, every future change to update
+> behavior takes effect on the first update that ships it.
 
 ### Review and Apply Updates
 
