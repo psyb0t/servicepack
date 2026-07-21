@@ -215,15 +215,34 @@ func TestIntegration_FullStack(t *testing.T) {
 	sm := GetInstance()
 	tracker := &startTracker{}
 
+	// db and cache have no dependencies, so the manager launches
+	// them as concurrent goroutines within the same start group -
+	// there is no ordering guarantee between the two of THEM.
+	// group0Started only orders group 0 (db, cache) as a whole
+	// before group 1 (migrator, api), by waiting for both to
+	// actually fire onRun at least once (not just be scheduled).
+	// db retries (onRun fires per attempt), so each service's
+	// Done() is guarded to fire only on its FIRST onRun call.
+	var group0Started sync.WaitGroup
+	group0Started.Add(2)
+
+	var dbStarted, cacheStarted sync.Once
+
 	// db: retryable, fails once then succeeds
 	db := NewRetryableMockService("db", 1)
 	db.WithRunErrors(errIntegration, nil)
-	db.WithOnRun(tracker.makeCallback("db"))
+	db.WithOnRun(func() {
+		tracker.record("db")
+		dbStarted.Do(group0Started.Done)
+	})
 
 	// cache: allowed failure, fails immediately
 	cache := NewAllowedFailureMockService("cache")
 	cache.WithRunError(errIntegration)
-	cache.WithOnRun(tracker.makeCallback("cache"))
+	cache.WithOnRun(func() {
+		tracker.record("cache")
+		cacheStarted.Do(group0Started.Done)
+	})
 
 	// migrator: depends on db, allowed failure,
 	// succeeds then exits (returns nil immediately)
@@ -231,14 +250,18 @@ func TestIntegration_FullStack(t *testing.T) {
 	migrator.WithDependencies("db")
 	migrator.WithAllowFailure(true)
 	migrator.WithRunErrors(nil)
-	migrator.WithOnRun(
-		tracker.makeCallback("migrator"),
-	)
+	migrator.WithOnRun(func() {
+		group0Started.Wait()
+		tracker.record("migrator")
+	})
 
 	// api: depends on db and migrator
 	api := NewFullMockService("api")
 	api.WithDependencies("db", "migrator")
-	api.WithOnRun(tracker.makeCallback("api"))
+	api.WithOnRun(func() {
+		group0Started.Wait()
+		tracker.record("api")
+	})
 
 	sm.Add(db, cache, migrator, api)
 

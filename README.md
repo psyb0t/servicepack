@@ -65,6 +65,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 - [Dependencies](#dependencies)
 - [Directory Structure](#directory-structure)
 - [Example Services](#example-services)
+- [Changelog](#changelog)
 - [License](#license)
 
 ## What is this?
@@ -666,6 +667,10 @@ Services can live in nested directories under `internal/pkg/services/`. The code
 Run them all: `go run ./cmd run` or `make run-dev`
 
 These get removed when you run `make own`.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 

@@ -1,0 +1,149 @@
+# Changelog
+
+All notable changes per release. Versions follow [semver](https://semver.org)
+pre-1.0 conventions: minor bumps may include breaking REST changes (called
+out explicitly), patch bumps are docs / build / fixes only.
+
+## v1.2.4 — 2026-07-21
+
+Fix a flaky integration test in the service manager.
+
+- `TestIntegration_FullStack` asserted that same-group services (`db`, `cache`)
+  record their start before the next dependency group (`migrator`, `api`),
+  but same-group services are launched as concurrent goroutines with no
+  ordering guarantee between them. The test now waits for both group-0
+  services to actually invoke their run callback (via `sync.WaitGroup`)
+  before the next group's services record their start, removing the
+  scheduler race. No production code changed.
+
+## v1.2.3 — 2026-04-29
+
+Fix a context leak on the app and service-manager run paths.
+
+- `App.Run` and `ServiceManager.Run` now `defer cancel()` on the
+  `context.WithCancel` they create, so the cancel func is always called
+  even on early-return paths.
+- Added a CI workflow restricting certain automation to repo collaborators.
+
+## v1.2.2 — 2026-04-01
+
+Lint fixes only, no functional changes. Retagged the same commit as v1.2.1.
+
+## v1.2.1 — 2026-04-01
+
+Fix `lll` tab-width and line-length lint issues across `app_test.go`,
+`service_manager_test.go`, and the `hello-world` example service.
+
+- Adjusted `.golangci.yml` line-length handling.
+
+## v1.2.0 — 2026-03-31
+
+Add lifecycle hooks to `App`.
+
+- `App` gains `OnPreRun` and `OnPostStop` hooks, run immediately before
+  `Run` starts and immediately after it returns, respectively.
+
+## v1.1.3 — 2026-03-31
+
+Same content as v1.2.0 (lifecycle hooks) plus build/CI housekeeping.
+
+- Added `internal/app/app_test.go` coverage for the new hooks.
+- Dockerfile and CI pipeline touch-ups; `go.mod` bump.
+- README updates.
+
+## v1.1.2 — 2026-03-22
+
+Derive service import aliases from directory path instead of package name.
+
+- Fixes an import alias collision when nested service directories share a
+  package name.
+- Added `example-nested/http` and `example-nested/grpc` — two example
+  services with a shared package name (`server`) in different directories,
+  demonstrating the fix.
+
+## v1.1.1 — 2026-03-20
+
+Read the module path from `go.mod` in service registration instead of
+hardcoding `servicepack`.
+
+- Fixes broken `service-manager` imports in projects generated via
+  `make own` (renamed module path).
+
+## v1.1.0 — 2026-03-20
+
+Lazy service initialization via factory-based registration.
+
+- `services.Init()` now registers factories instead of eagerly calling
+  `New()` on every service.
+- `./app run` instantiates all enabled services (filtered by
+  `SERVICES_ENABLED`).
+- `./app <service> <subcommand>` instantiates only that one service.
+- Standalone CLI commands (`cmd/commands.go`) no longer touch any service.
+- Docs updated to match.
+
+## v1.0.7 — 2026-03-20
+
+Remove app-level config, simplify runner config.
+
+- Removed the now-dead `internal/app/config.go` and its `gonfiguration`
+  usage.
+- Renamed the `APPRUNNER_` env prefix to `RUNNER_`.
+- Runner config now uses a struct `default` tag instead of a separate
+  `SetDefaults` method / const block.
+
+## v1.0.6 — 2026-03-19
+
+Prevent `go tool modernize -fix` from mutating generated files.
+
+- `lint_fix.sh` now runs `git checkout` on generated files after the
+  `modernize -fix` pass, so codegen output isn't silently rewritten by the
+  linter.
+
+## v1.0.5 — 2026-03-19
+
+Run Makefile scripts via `bash` explicitly.
+
+- The `find_script` macro now prepends `bash`, so script file permissions
+  no longer matter for `make` targets to work.
+
+## v1.0.4 — 2026-03-19
+
+Add `modernize` as a vendored Go tool; exclude generated files from its
+output.
+
+- Added `golang.org/x/tools/gopls/internal/analysis/modernize` as a
+  `go tool` dependency (vendored) instead of `go run @latest`.
+- Lint scripts invoke it via `go tool modernize`.
+- `.gen.go` files are filtered out of modernize's suggestions.
+
+## v1.0.3 — 2026-03-14
+
+Add a `cmd/commands.go` extension point for custom CLI commands, plus
+service-manager command wiring.
+
+- `cmd/commands.go` is a user-owned file (never overwritten by framework
+  updates) for defining project-specific `cobra.Command`s.
+- `cmd/main.go` registers both the service manager's generated commands and
+  the user's custom commands on the root CLI.
+- `scripts/make/servicepack/own.sh` and `.servicepackupdateignore` updated
+  to keep `commands.go` out of framework-update overwrites.
+
+## v1.0.2 — 2026-03-14
+
+Add `ReadyNotifier` — optional service readiness signalling.
+
+- A service can implement `Ready() <-chan struct{}` to signal the service
+  manager it has finished starting up before the manager launches the next
+  dependency group.
+- The service manager waits on `Ready()` (via `waitGroupReady`) before
+  proceeding.
+
+## v1.0.1 — 2026-03-14
+
+Fix the release pipeline workflow.
+
+## v1.0.0 — 2026-03-14
+
+Initial public release of servicepack: a Go service-manager framework with
+dependency-ordered startup, retries, allowed-failure services, and a
+generated CLI.
