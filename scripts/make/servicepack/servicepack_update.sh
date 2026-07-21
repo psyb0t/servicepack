@@ -101,10 +101,28 @@ fi
 
 section "Updating Framework Files"
 
-# Build exclude args - default excludes (protect user content)
+# Build exclude args - default excludes (protect user content).
+#
+# CHANGELOG.md is per-project (documents the DOWNSTREAM app's releases, not
+# servicepack's) so the framework never owns it.
+#
+# go.mod / go.sum are NOT copied by rsync because rsync has no merge semantics:
+# a wholesale replace would drop every `require` line for the downstream's own
+# deps, and the following `go mod tidy` would then re-resolve them DOWN to the
+# lowest version MVS allows (a silent, dangerous downgrade). Instead the
+# framework's dependency bumps are merged into the downstream's existing go.mod
+# UPGRADE-ONLY in _post_update.sh (see merge_framework_deps). This keeps the
+# downstream's own, possibly-newer deps intact while still pulling servicepack's
+# framework-dep floors forward so the freshly-synced framework code compiles.
+#
+# Everything else the framework owns and overwrites (incl. .golangci.yml). A
+# downstream that has genuinely customized a framework-owned file lists it in
+# ITS OWN .servicepackupdateignore -- that is the intended opt-out, not a
+# blanket exclude baked into the framework.
 EXCLUDE_ARGS="--exclude=internal/pkg/services/* \
     --exclude=README.md \
     --exclude=LICENSE \
+    --exclude=CHANGELOG.md \
     --exclude=.git \
     --exclude=.gitignore \
     --exclude=.servicepackupdateignore \
@@ -113,7 +131,9 @@ EXCLUDE_ARGS="--exclude=internal/pkg/services/* \
     --exclude=Dockerfile.dev \
     --exclude=build/ \
     --exclude=coverage.txt \
-    --exclude=vendor/"
+    --exclude=vendor/ \
+    --exclude=go.mod \
+    --exclude=go.sum"
 
 # Add excludes from .servicepackupdateignore if it exists
 if [ -f ".servicepackupdateignore" ]; then

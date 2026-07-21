@@ -37,6 +37,75 @@ fi
 printf "%s" "$LATEST_VERSION" > servicepack.version
 success "Updated servicepack.version to: $LATEST_VERSION"
 
+section "Merging Framework Dependencies (upgrade-only)"
+
+# go.mod / go.sum are intentionally NOT copied by rsync (see servicepack_update.sh):
+# a wholesale replace drops every `require` for the downstream's own deps, and the
+# following `go mod tidy` would re-resolve them DOWN to the lowest version MVS
+# allows -- a silent, dangerous downgrade (go mod tidy only grabs *latest* for a
+# dep referenced NOWHERE in the graph; a dep that survives only as a transitive
+# requirement resolves to that low floor instead).
+#
+# Instead, merge the freshly-downloaded framework's direct requires + tool
+# directives into the downstream's existing go.mod UPGRADE-ONLY: add what's
+# missing, bump what the framework raised, and NEVER touch a dep the downstream
+# already pins at an equal-or-higher version. `go mod tidy` then computes the MVS
+# max over the union, so the framework's bumps land while the downstream's own
+# (possibly-newer) deps stay intact.
+merge_framework_deps() {
+    local framework_gomod="$TEMP_DIR/go.mod"
+    if [ ! -f "$framework_gomod" ] || [ ! -f "go.mod" ]; then
+        warning "Missing go.mod (framework or local); skipping dependency merge."
+        return 0
+    fi
+
+    # Highest of two semver strings ("" counts as lowest so a missing local dep
+    # always takes the framework version).
+    _semver_max() {
+        if [ -z "$1" ]; then
+            printf '%s' "$2"
+            return
+        fi
+        printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1
+    }
+
+    # Direct (non-indirect) requires from the framework. Indirect deps are left
+    # to `go mod tidy` -- pinning them here would fight MVS.
+    local path version current desired
+    while IFS=' ' read -r path version; do
+        [ -z "$path" ] && continue
+        current=$(go mod edit -json | \
+            jq -r --arg p "$path" '(.Require // [])[] | select(.Path==$p) | .Version' | head -n1)
+        desired=$(_semver_max "$current" "$version")
+
+        if [ "$current" = "$desired" ]; then
+            continue  # downstream already at >= framework version; leave it
+        fi
+
+        if [ -z "$current" ]; then
+            info "add framework dep $path@$version"
+        else
+            info "bump framework dep $path $current -> $desired"
+        fi
+        go mod edit -require="${path}@${desired}"
+    done < <(go mod edit -json "$framework_gomod" | \
+        jq -r '(.Require // [])[] | select(.Indirect|not) | "\(.Path) \(.Version)"')
+
+    # Tool directives the framework declares but the downstream is missing
+    # (e.g. the linter / codegen tools). Adding a tool never downgrades anything.
+    local tool
+    while IFS= read -r tool; do
+        [ -z "$tool" ] && continue
+        if go mod edit -json | jq -e --arg t "$tool" '(.Tool // []) | any(.Path==$t)' >/dev/null; then
+            continue
+        fi
+        info "add framework tool $tool"
+        go mod edit -tool="$tool"
+    done < <(go mod edit -json "$framework_gomod" | jq -r '(.Tool // [])[].Path')
+}
+
+merge_framework_deps
+
 section "Updating Dependencies"
 make dep
 

@@ -4,6 +4,29 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.5 — 2026-07-21
+
+Make `make servicepack-update` safe: never downgrade or drop the downstream
+project's own dependencies.
+
+- `scripts/make/servicepack/servicepack_update.sh` now excludes `go.mod`,
+  `go.sum`, and `CHANGELOG.md` from the rsync sync. Previously rsync copied
+  servicepack's own `go.mod` over the downstream project's, dropping every
+  `require` line for the project's own deps; the subsequent `go mod tidy`
+  then re-resolved those deps DOWN to the lowest version MVS allowed — a
+  silent downgrade (e.g. a direct dep pinned at v3.44.0 fell to v3.8.1 via a
+  leftover transitive floor). `CHANGELOG.md` documents the downstream
+  project's releases, not servicepack's, so it is no longer overwritten.
+- `scripts/make/servicepack/_post_update.sh` now merges the framework's
+  direct `require` entries and `tool` directives into the downstream's
+  existing `go.mod` UPGRADE-ONLY before running `make dep`: it adds what's
+  missing, bumps what the framework raised, and never touches a dep the
+  project already pins at an equal-or-higher version. Framework dependency
+  bumps still land while the project's own deps stay intact.
+- `.golangci.yml` is still framework-owned and overwritten on update; a
+  project that has customized it opts out via its own
+  `.servicepackupdateignore`, as before.
+
 ## v1.2.4 — 2026-07-21
 
 Fix a flaky integration test in the service manager.
