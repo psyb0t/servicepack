@@ -11,3 +11,12 @@ jobs:
       lint_command: "make lint"
       test_command: "make test-coverage"
       is_vendored: true
+
+  # Publish the skill (.agents/skills/) to ClawHub. Tag pushes ONLY, after the
+  # Go lint/test/release workflow has succeeded.
+  publish-to-clawhub:
+    needs: [call-go-workflow]
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: psyb0t/reusable-github-workflows/.github/workflows/clawhub-publish.yml@master
+    secrets:
+      clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}
