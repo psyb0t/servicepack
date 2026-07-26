@@ -11,6 +11,10 @@ jobs:
       lint_command: "make lint"
       test_command: "make test-coverage"
       is_vendored: true
+      codecov_enabled: true
+      coverage_file: "coverage_filtered.txt"
+    secrets:
+      codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
   # Publish the skill (.agents/skills/) to ClawHub. Tag pushes ONLY, after the
   # Go lint/test/release workflow has succeeded.

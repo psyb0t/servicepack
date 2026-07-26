@@ -11,8 +11,8 @@ MIN_TEST_COVERAGE=${MIN_TEST_COVERAGE:-90}
 section "Running Tests with Coverage Check"
 info "Running tests with coverage analysis..."
 
-# Ensure cleanup on exit
-trap 'rm -f coverage.txt coverage_filtered.txt' EXIT
+# coverage.txt / coverage_filtered.txt are left in place (gitignored) so CI can
+# upload the profile to Codecov. `make clean` removes them for local runs.
 
 # Run tests with coverage
 # Run tests with coverage - need to use array for proper word splitting

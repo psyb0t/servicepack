@@ -4,6 +4,26 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.8 — 2026-07-26
+
+Coverage reporting to Codecov + README badges.
+
+- **CI uploads coverage to Codecov.** `scripts/make/servicepack/test_coverage.sh`
+  no longer deletes `coverage.txt` / `coverage_filtered.txt` on exit, so the
+  pipeline can upload the mocks-filtered profile; `pipeline.yml` enables the
+  reusable workflow's Codecov step pointed at `coverage_filtered.txt`. `make
+  clean` still removes the files locally.
+- **README badges.** Added pkg.go.dev reference + GitHub Actions CI status
+  badges. No framework code changed.
+
+## v1.2.7 — 2026-07-25
+
+ClawHub agent skill + publish wiring.
+
+- Added the ClawHub agent skill under `.agents/skills/` and a tag-gated
+  `publish-to-clawhub` job in `pipeline.yml` that publishes it on release tags.
+  No framework code changed.
+
 ## v1.2.6 — 2026-07-21
 
 Make the self-updating updater future-proof: the newest update logic always
