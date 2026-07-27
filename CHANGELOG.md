@@ -4,6 +4,20 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.9 — 2026-07-27
+
+Deflake the service-manager integration tests.
+
+- **Fixed flaky integration tests.** Several `service-manager` integration tests
+  cancelled the run after a fixed `time.Sleep` (100–200ms) and then asserted that
+  the async startup sequence (retry, dependency-gated start, ordering) had
+  finished within that window. On slow or loaded CI runners under `-race` the
+  window was occasionally too short, so `TestIntegration_RetryWithDependencies`
+  and its siblings flaked. They now wait for the expected end-state via a
+  `waitThenCancel` helper that polls a condition (with a safety timeout) before
+  cancelling — deterministic, no wall-clock assumption. Test-only; no framework
+  code changed.
+
 ## v1.2.8 — 2026-07-26
 
 README badges.

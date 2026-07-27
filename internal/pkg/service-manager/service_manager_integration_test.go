@@ -3,8 +3,8 @@ package servicemanager
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -44,6 +44,46 @@ func (t *startTracker) makeCallback(
 	}
 }
 
+func (t *startTracker) has(name string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return slices.Contains(t.order, name)
+}
+
+// waitThenCancel cancels once cond holds, or after a generous safety timeout.
+// It replaces fixed time.Sleep-based cancellation, which flakes on slow or
+// loaded CI runners where the async startup sequence does not finish within
+// the sleep window. The safety timeout still cancels so a genuinely broken run
+// cannot hang -- the assertions below then report the real failure.
+func waitThenCancel(
+	cancel context.CancelFunc,
+	cond func() bool,
+) {
+	go func() {
+		deadline := time.After(5 * time.Second)
+
+		tick := time.NewTicker(time.Millisecond)
+		defer tick.Stop()
+
+		for {
+			if cond() {
+				cancel()
+
+				return
+			}
+
+			select {
+			case <-deadline:
+				cancel()
+
+				return
+			case <-tick.C:
+			}
+		}
+	}()
+}
+
 func TestIntegration_RetryWithDependencies(
 	t *testing.T,
 ) {
@@ -68,10 +108,9 @@ func TestIntegration_RetryWithDependencies(
 	)
 	defer cancel()
 
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
+	waitThenCancel(cancel, func() bool {
+		return db.RunCount() >= 2 && tracker.has("api")
+	})
 
 	err := sm.Run(ctx)
 	assert.NoError(t, err)
@@ -126,10 +165,9 @@ func TestIntegration_AllowedFailureWithDependencies(
 	)
 	defer cancel()
 
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
+	waitThenCancel(cancel, func() bool {
+		return api.WasRunCalled()
+	})
 
 	err := sm.Run(ctx)
 	// Manager should NOT die from migrator failure
@@ -162,10 +200,9 @@ func TestIntegration_RetryAndAllowedFailure(
 	)
 	defer cancel()
 
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
+	waitThenCancel(cancel, func() bool {
+		return svc.RunCount() >= 3
+	})
 
 	err := sm.Run(ctx)
 	assert.NoError(t, err)
@@ -195,10 +232,9 @@ func TestIntegration_OneShotServiceExitsCleanly(
 	)
 	defer cancel()
 
-	go func() {
-		time.Sleep(100 * time.Millisecond)
-		cancel()
-	}()
+	waitThenCancel(cancel, func() bool {
+		return oneshot.WasRunCalled() && longrunning.WasRunCalled()
+	})
 
 	err := sm.Run(ctx)
 	// Manager should NOT die when oneshot exits
@@ -270,19 +306,11 @@ func TestIntegration_FullStack(t *testing.T) {
 	)
 	defer cancel()
 
-	var managerDone int32
-
-	go func() {
-		time.Sleep(200 * time.Millisecond)
-
-		if atomic.LoadInt32(&managerDone) == 0 {
-			cancel()
-		}
-	}()
+	waitThenCancel(cancel, func() bool {
+		return tracker.has("migrator") && tracker.has("api")
+	})
 
 	err := sm.Run(ctx)
-
-	atomic.StoreInt32(&managerDone, 1)
 
 	// Manager should stay up despite cache failure
 	assert.NoError(t, err)
