@@ -563,6 +563,7 @@ Dockerfile.dev                 # User development image (overrides framework, ne
 Dockerfile.servicepack         # Framework production image (updated by servicepack-update)
 Dockerfile                     # User production image (never touched)
 .github/                       # Framework files (CI/CD workflows)
+.github/dependabot.yml         # Starter config, ignored by default - yours to own
 LICENSE                        # Your project license
 .golangci.yml                  # Framework files
 go.mod                         # Your deps preserved; framework deps merged upgrade-only
