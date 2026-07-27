@@ -26,6 +26,10 @@ fi
 grep -v 'github.com/psyb0t/servicepack/internal/pkg/service-manager/mocks.go:' coverage.txt > coverage_filtered.txt || cp coverage.txt coverage_filtered.txt
 result=$(go tool cover -func=coverage_filtered.txt | grep -oP 'total:\s+\(statements\)\s+\K\d+' || echo "0")
 
+# Persist the decimal percentage for the badge pipeline (survives the trap above).
+pct=$(go tool cover -func=coverage_filtered.txt | grep -oP 'total:\s+\(statements\)\s+\K[0-9.]+' || echo "0")
+echo "$pct" >coverage-percent.txt
+
 if [ "$result" -eq 0 ]; then
     warning "No test coverage information available"
     exit 0

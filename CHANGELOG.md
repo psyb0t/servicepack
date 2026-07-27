@@ -4,6 +4,20 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.12 — 2026-07-27
+
+Self-hosted README badges.
+
+- **Coverage / version / license badges are self-rendered SVGs** served from
+  `raw.githubusercontent.com/psyb0t/servicepack/badges/*.svg` — no third-party
+  render service. `make test-coverage` now writes the coverage percentage to
+  `coverage-percent.txt`, the pipeline uploads it as an artifact, and a `badges`
+  job bakes it into the SVG. The CI badge is switched to GitHub's native
+  `badge.svg`.
+- The `coverage-percent.txt` write lives in the framework-distributed
+  `scripts/make/servicepack/test_coverage.sh`, so servicepack-based projects pick
+  it up on `make servicepack-update`.
+
 ## v1.2.11 — 2026-07-27
 
 Dependency bumps (own libraries).

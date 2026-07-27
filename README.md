@@ -8,7 +8,10 @@ ___ ___ _____   _____ ___ ___ ___  _   ___ _  __
 # servicepack
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/psyb0t/servicepack.svg)](https://pkg.go.dev/github.com/psyb0t/servicepack)
-[![CI](https://img.shields.io/github/actions/workflow/status/psyb0t/servicepack/pipeline.yml?branch=main)](https://github.com/psyb0t/servicepack/actions/workflows/pipeline.yml)
+[![CI](https://github.com/psyb0t/servicepack/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/servicepack/actions/workflows/pipeline.yml)
+[![coverage](https://raw.githubusercontent.com/psyb0t/servicepack/badges/coverage.svg)](https://github.com/psyb0t/servicepack/actions/workflows/pipeline.yml)
+[![version](https://raw.githubusercontent.com/psyb0t/servicepack/badges/version.svg)](https://github.com/psyb0t/servicepack/tags)
+[![license](https://raw.githubusercontent.com/psyb0t/servicepack/badges/license.svg)](LICENSE)
 
 A Go service framework that runs your shit concurrently without fucking around.
 
