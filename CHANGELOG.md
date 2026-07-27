@@ -4,6 +4,17 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.14 — 2026-07-27
+
+Codex README subsection was missing its install command.
+
+- **Fixed the Codex subsection under "Agent integrations"** — it told readers to run
+  `codex plugin marketplace add psyb0t/agents` and then stopped, never showing the actual
+  install command. Added `codex plugin add servicepack@psyb0t` right after it.
+- **Clarified the two invocation forms** — installed via the marketplace, the skill invokes
+  as `$servicepack:servicepack`; picked up automatically from a repo's own
+  `.agents/skills/` with no install, it invokes as plain `$servicepack`.
+
 ## v1.2.13 — 2026-07-27
 
 Agent-client distribution manifests.

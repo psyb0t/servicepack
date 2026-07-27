@@ -717,10 +717,12 @@ claude plugin install servicepack@psyb0t
 
 ```bash
 codex plugin marketplace add psyb0t/agents
+codex plugin add servicepack@psyb0t
 ```
 
-Codex also picks the skill up automatically in any repo containing `.agents/skills/`, and
-invokes it as `$servicepack`.
+Installed via the marketplace, the skill invokes as `$servicepack:servicepack`. Codex also
+picks the skill up automatically with no install in any repo containing `.agents/skills/`,
+where it invokes as plain `$servicepack`.
 
 ### OpenClaw
 
