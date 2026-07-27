@@ -4,6 +4,21 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.10 — 2026-07-27
+
+Ship a starter Dependabot config; keep it downstream-owned.
+
+- **Added `.github/dependabot.yml`** — a starter age-gated Dependabot config.
+  Weekly version-update PRs for `gomod` + `github-actions`, quarantined via
+  `cooldown` (major 30 / minor 14 / patch 7 days) so a freshly-published release
+  must sit public before it can be proposed. The starter excludes
+  `github.com/psyb0t/*` from the cooldown (own packages update immediately) —
+  change that prefix to your own module namespace.
+- **`.servicepackupdateignore` now ignores `.github/dependabot.yml`** by
+  default, so `make servicepack-update` won't overwrite your customized
+  dependency policy. Delete that line if you'd rather the framework keep it in
+  sync.
+
 ## v1.2.9 — 2026-07-27
 
 Deflake the service-manager integration tests.

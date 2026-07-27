@@ -20,4 +20,10 @@
 cmd/init.go
 cmd/commands.go
 
+# Dependabot config - your own dependency policy (which deps, the cooldown
+# window, the own-package excludes). Ignored by default so a framework update
+# never clobbers your tweaks. Delete this line if you'd rather the framework
+# keep pushing its common dependabot.yml to every servicepack-based project.
+.github/dependabot.yml
+
 # Note: internal/pkg/services/* is always excluded - your services are never touched
