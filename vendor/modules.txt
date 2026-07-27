@@ -731,7 +731,7 @@ github.com/psyb0t/goenv
 # github.com/psyb0t/gofindimpl v1.0.0
 ## explicit; go 1.24.6
 github.com/psyb0t/gofindimpl
-# github.com/psyb0t/gonfiguration v1.5.0
+# github.com/psyb0t/gonfiguration v1.5.1
 ## explicit; go 1.25
 github.com/psyb0t/gonfiguration
 # github.com/psyb0t/slog-configurator v1.0.0

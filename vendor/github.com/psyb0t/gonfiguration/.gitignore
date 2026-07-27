@@ -1,3 +1,4 @@
 .vscode
 coverage.*
 CLAUDE.md
+git-update.sh
