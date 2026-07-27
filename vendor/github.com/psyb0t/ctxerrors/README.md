@@ -1,7 +1,10 @@
 # ctxerrors
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/psyb0t/ctxerrors.svg)](https://pkg.go.dev/github.com/psyb0t/ctxerrors)
-[![CI](https://img.shields.io/github/actions/workflow/status/psyb0t/ctxerrors/pipeline.yml?branch=main)](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml)
+[![CI](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml)
+[![coverage](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/coverage.svg)](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml)
+[![version](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/version.svg)](https://github.com/psyb0t/ctxerrors/tags)
+[![license](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/license.svg)](LICENSE)
 
 ```
  ####  ##### #    # ###### #####  #####   ####  #####   ####  
