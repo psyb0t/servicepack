@@ -4,6 +4,20 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.13 — 2026-07-27
+
+Agent-client distribution manifests.
+
+- **Added `.agents/.claude-plugin/plugin.json` and `.agents/.codex-plugin/plugin.json`** —
+  metadata manifests that make the existing `.agents/skills/servicepack` skill installable
+  as a plugin in Claude Code and Codex, rooted at `.agents/` so both clients discover the
+  skill directory with no extra config.
+- **Added an "Agent integrations" README section** with the copy-pasteable install commands
+  for Claude Code (`claude plugin marketplace add psyb0t/agents` +
+  `claude plugin install servicepack@psyb0t`), Codex
+  (`codex plugin marketplace add psyb0t/agents`), and OpenClaw
+  (`openclaw skills install @psyb0t/servicepack`).
+
 ## v1.2.12 — 2026-07-27
 
 Self-hosted README badges.

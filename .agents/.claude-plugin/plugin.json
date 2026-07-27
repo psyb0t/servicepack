@@ -1,0 +1,8 @@
+{
+  "name": "servicepack",
+  "description": "Go service framework — clone-and-own template with a concurrent service manager, retry/dependency/readiness semantics, and CLI scaffolding via make service",
+  "author": { "name": "psyb0t", "url": "https://github.com/psyb0t" },
+  "homepage": "https://github.com/psyb0t/servicepack",
+  "license": "MIT",
+  "keywords": ["go", "service-framework", "concurrency", "dependency-graph", "retry", "graceful-shutdown", "cli-scaffolding"]
+}

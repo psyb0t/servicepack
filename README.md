@@ -71,6 +71,7 @@ A Go service framework that runs your shit concurrently without fucking around.
 - [Dependencies](#dependencies)
 - [Directory Structure](#directory-structure)
 - [Example Services](#example-services)
+- [Agent integrations](#agent-integrations)
 - [Changelog](#changelog)
 - [License](#license)
 
@@ -699,6 +700,35 @@ Services can live in nested directories under `internal/pkg/services/`. The code
 Run them all: `go run ./cmd run` or `make run-dev`
 
 These get removed when you run `make own`.
+
+## Agent integrations
+
+The [skill](.agents/skills/servicepack) works in any agent that reads `.agents/skills/`, and
+installs natively in the clients below.
+
+### Claude Code
+
+```bash
+claude plugin marketplace add psyb0t/agents
+claude plugin install servicepack@psyb0t
+```
+
+### Codex
+
+```bash
+codex plugin marketplace add psyb0t/agents
+```
+
+Codex also picks the skill up automatically in any repo containing `.agents/skills/`, and
+invokes it as `$servicepack`.
+
+### OpenClaw
+
+The skill is published to ClawHub on every release:
+
+```bash
+openclaw skills install @psyb0t/servicepack
+```
 
 ## Changelog
 
