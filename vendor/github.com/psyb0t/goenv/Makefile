@@ -16,8 +16,7 @@ test: ## Run all tests
 
 test-coverage: ## Run tests with coverage check. Fails if coverage is below the threshold.
 	@echo "Running tests with coverage check..."
-	@trap 'rm -f coverage.txt' EXIT; \
-	go test -race -coverprofile=coverage.txt ./...; \
+	@go test -race -coverprofile=coverage.txt ./...; \
 	if [ $$? -ne 0 ]; then \
 		echo "Test failed. Exiting."; \
 		exit 1; \

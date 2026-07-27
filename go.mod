@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/psyb0t/ctxerrors v0.2.3
-	github.com/psyb0t/goenv v1.0.0
+	github.com/psyb0t/goenv v1.0.3
 	github.com/psyb0t/gonfiguration v1.5.0
 	github.com/psyb0t/slog-configurator v1.0.0
 	github.com/spf13/cobra v1.10.2
