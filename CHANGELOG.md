@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.11 — 2026-07-27
+
+Dependency bumps (own libraries).
+
+- Bump `github.com/psyb0t/ctxerrors` 0.2.3 → 0.3.1,
+  `github.com/psyb0t/goenv` 1.0.0 → 1.0.3, and
+  `github.com/psyb0t/gonfiguration` 1.5.0 → 1.5.1. Vendored tree re-synced. No
+  framework code changed.
+
 ## v1.2.10 — 2026-07-27
 
 Ship a starter Dependabot config; keep it downstream-owned.

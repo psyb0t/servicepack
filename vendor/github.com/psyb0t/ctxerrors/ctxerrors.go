@@ -8,11 +8,11 @@ import (
 
 // CTXError holds the wrapped error and additional context.
 type CTXError struct {
-	err      error  // Original error
-	message  string // Additional context message
-	file     string // File where error occurred
-	line     int    // Line where error occurred
-	funcName string // Function where error occurred
+	err      error
+	message  string
+	file     string
+	line     int
+	funcName string
 }
 
 // New creates a new error with context but without wrapping another error.
@@ -46,10 +46,10 @@ func Wrapf(err error, format string, args ...any) error {
 	return wrap(err, fmt.Sprintf(format, args...), framesToSkip)
 }
 
-// wrap is a private function that both Wrap and Wrapf use to create errors with context
 func wrap(err error, message string, skip int) error {
 	if err == nil {
-		// For nil error debug logging, get stack trace at different levels
+		// log three frames so callers can see the actual call chain that
+		// produced the nil, not just the immediate caller
 		debugFrame1 := 2
 		debugFrame2 := 3
 		debugFrame3 := 4
@@ -74,6 +74,8 @@ func wrap(err error, message string, skip int) error {
 
 		return nil
 	}
+
+	err = translate(err)
 
 	file, line, funcName := getCallerInfo(skip)
 

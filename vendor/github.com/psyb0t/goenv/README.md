@@ -1,10 +1,13 @@
 # goenv
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/psyb0t/goenv.svg)](https://pkg.go.dev/github.com/psyb0t/goenv)
+[![CI](https://img.shields.io/github/actions/workflow/status/psyb0t/goenv/pipeline.yml?branch=main)](https://github.com/psyb0t/goenv/actions/workflows/pipeline.yml)
+
 The most over-engineered environment variable reader in the history of Go programming. A full-blown, battle-tested, enterprise-grade package that reads ONE environment variable and tells you if you're in prod or dev.
 
 ## Why does this exist?
 
-Because `os.Getenv("ENV")` is 15 characters and sometimes you just need a whole fucking package to do the same thing but with ✨style✨.
+Because `os.Getenv("ENV")` is 16 characters and sometimes you just need a whole fucking package to do the same thing but with ✨style✨.
 
 ## Features
 
