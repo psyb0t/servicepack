@@ -4,7 +4,7 @@ The most over-engineered environment variable reader in the history of Go progra
 
 ## Why does this exist?
 
-Because `os.Getenv("ENV")` is 15 characters and sometimes you just need a whole fucking package to do the same thing but with ✨style✨.
+Because `os.Getenv("ENV")` is 16 characters and sometimes you just need a whole fucking package to do the same thing but with ✨style✨.
 
 ## Features
 
