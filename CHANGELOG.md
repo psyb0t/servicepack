@@ -4,6 +4,20 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.15 — 2026-08-01
+
+CI/infrastructure only. No code in this repo changed — the whole diff since v1.2.14 is under
+`.github/workflows/`.
+
+- **Split the pipeline** — building and publishing stay in `pipeline.yml`, and everything that
+  leaves the host now lives in its own file beside it.
+- **Mirrored to Codeberg as well as GitLab.**
+- **Archived to the Wayback Machine, Software Heritage and archive.org.**
+- **Issues opened on either mirror are copied back to GitHub** every six hours, and closed here
+  when the original closes.
+- **Pull requests are switched off on both mirrors** — they are force-pushed from GitHub, so
+  anything merged there would be destroyed by the next sync. Issues and forking stay enabled.
+
 ## v1.2.14 — 2026-07-27
 
 Codex README subsection was missing its install command.
