@@ -1,6 +1,7 @@
 package ctxerrors
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"runtime"
@@ -44,6 +45,41 @@ func Wrapf(err error, format string, args ...any) error {
 	framesToSkip := 2
 
 	return wrap(err, fmt.Sprintf(format, args...), framesToSkip)
+}
+
+// Join combines several errors into one that carries the call site, for the
+// case where an operation fans out and more than one branch can fail
+// independently — several sinks written to, several items in a batch. nil
+// errors are ignored, and Join returns nil when every error is nil.
+//
+// The result unwraps to what the standard library's errors.Join produces, so
+// errors.Is and errors.As still find any of the joined errors.
+func Join(errs ...error) error {
+	joined := errors.Join(errs...)
+	if joined == nil {
+		return nil
+	}
+
+	count := 0
+
+	for _, err := range errs {
+		if err != nil {
+			count++
+		}
+	}
+
+	// Skip Join() to get user's caller
+	framesToSkip := 1
+
+	file, line, funcName := getCallerInfo(framesToSkip)
+
+	return &CTXError{
+		err:      joined,
+		message:  fmt.Sprintf("%d errors", count),
+		file:     file,
+		line:     line,
+		funcName: funcName,
+	}
 }
 
 func wrap(err error, message string, skip int) error {

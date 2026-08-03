@@ -1,5 +1,11 @@
 # slog-configurator
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/psyb0t/slog-configurator.svg)](https://pkg.go.dev/github.com/psyb0t/slog-configurator)
+[![CI](https://github.com/psyb0t/slog-configurator/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/slog-configurator/actions/workflows/pipeline.yml)
+[![coverage](https://raw.githubusercontent.com/psyb0t/slog-configurator/badges/coverage.svg)](https://github.com/psyb0t/slog-configurator/actions/workflows/pipeline.yml)
+[![version](https://raw.githubusercontent.com/psyb0t/slog-configurator/badges/version.svg)](https://github.com/psyb0t/slog-configurator/tags)
+[![license](https://raw.githubusercontent.com/psyb0t/slog-configurator/badges/license.svg)](LICENSE)
+
 Welcome to `slog-configurator`, the badass sidekick for your logging adventures with Go's stdlib `log/slog`! This is the spiritual successor to [`logrus-configurator`](https://github.com/psyb0t/logrus-configurator), upgraded to use the standard library's structured logging package.
 
 ## What's This Shit About?
@@ -92,6 +98,8 @@ Whether you're in for a riot or a silent disco, `slog-configurator` is your tick
 ## Advanced: Handler Management
 
 The default handler is always a `FanOutHandler` that dispatches to all registered handlers. On init, it contains a single `MultiWriterHandler` (the stdout/stderr splitter). You can stack more handlers on top or replace them all.
+
+**A handler that shits itself doesn't take the others down with it.** Every handler gets the record regardless of what the ones before it did, and the failures come back joined. This matters because slog throws away whatever `Handle` returns — so if a fan-out bailed on the first error, an unreachable Loki server would silently kill your stdout logging too, and nothing anywhere would tell you why. Your logs go dark exactly when you need them.
 
 ```go
 import slogconfigurator "github.com/psyb0t/slog-configurator"

@@ -1,9 +1,9 @@
 package slogconfigurator
 
 import (
-	"fmt"
 	"log/slog"
 
+	"github.com/psyb0t/ctxerrors"
 	"github.com/psyb0t/gonfiguration"
 )
 
@@ -46,12 +46,12 @@ func configure() error {
 
 	c := config{}
 	if err := gonfiguration.Parse(&c); err != nil {
-		return fmt.Errorf("failed to parse log config: %w", err)
+		return ctxerrors.Wrap(err, "failed to parse log config")
 	}
 
 	slogLevel, err := getSlogLevel(c.Level)
 	if err != nil {
-		return fmt.Errorf("failed to get log level: %w", err)
+		return ctxerrors.Wrap(err, "failed to get log level")
 	}
 
 	opts := &slog.HandlerOptions{
@@ -61,7 +61,7 @@ func configure() error {
 
 	handler, err := NewMultiWriterHandler(c.Format, opts, nil, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create log handler: %w", err)
+		return ctxerrors.Wrap(err, "failed to create log handler")
 	}
 
 	slog.SetDefault(slog.New(NewFanOutHandler(handler)))

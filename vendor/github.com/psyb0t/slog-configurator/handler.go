@@ -2,10 +2,11 @@ package slogconfigurator
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
+
+	"github.com/psyb0t/ctxerrors"
 )
 
 // MultiWriterHandler routes log records to different writers based on level.
@@ -57,14 +58,14 @@ func (h *MultiWriterHandler) Enabled(_ context.Context, level slog.Level) bool {
 func (h *MultiWriterHandler) Handle(ctx context.Context, r slog.Record) error {
 	if r.Level >= slog.LevelWarn {
 		if err := h.stderrHandler.Handle(ctx, r); err != nil {
-			return fmt.Errorf("stderr handler failed: %w", err)
+			return ctxerrors.Wrap(err, "stderr handler failed")
 		}
 
 		return nil
 	}
 
 	if err := h.stdoutHandler.Handle(ctx, r); err != nil {
-		return fmt.Errorf("stdout handler failed: %w", err)
+		return ctxerrors.Wrap(err, "stdout handler failed")
 	}
 
 	return nil
@@ -111,19 +112,28 @@ func (h *FanOutHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return false
 }
 
-// Handle dispatches the record to all underlying handlers.
+// Handle dispatches the record to every underlying handler, and keeps going
+// when one of them fails.
+//
+// Returning at the first error would let a single broken sink silence all the
+// ones after it: slog discards whatever Handle returns, so a Loki handler that
+// cannot reach its server would take stdout down with it and nothing would say
+// so. Every handler sees the record regardless of what the earlier ones did,
+// and the failures are joined so none is lost.
 func (h *FanOutHandler) Handle(ctx context.Context, r slog.Record) error {
+	var errs []error
+
 	for i, handler := range h.handlers {
 		if !handler.Enabled(ctx, r.Level) {
 			continue
 		}
 
 		if err := handler.Handle(ctx, r); err != nil {
-			return fmt.Errorf("handler %d failed: %w", i, err)
+			errs = append(errs, ctxerrors.Wrapf(err, "handler %d failed", i))
 		}
 	}
 
-	return nil
+	return ctxerrors.Join(errs...)
 }
 
 // WithAttrs returns a new FanOutHandler with the given attributes added to all handlers.

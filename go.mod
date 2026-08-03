@@ -3,10 +3,10 @@ module github.com/psyb0t/servicepack
 go 1.26.0
 
 require (
-	github.com/psyb0t/ctxerrors v0.3.1
+	github.com/psyb0t/ctxerrors v0.4.0
 	github.com/psyb0t/goenv v1.0.3
-	github.com/psyb0t/gonfiguration v1.5.1
-	github.com/psyb0t/slog-configurator v1.0.0
+	github.com/psyb0t/gonfiguration v1.6.0
+	github.com/psyb0t/slog-configurator v1.1.2
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 )

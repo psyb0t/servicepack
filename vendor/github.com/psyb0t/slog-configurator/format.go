@@ -1,9 +1,10 @@
 package slogconfigurator
 
 import (
-	"fmt"
 	"io"
 	"log/slog"
+
+	"github.com/psyb0t/ctxerrors"
 )
 
 type format string
@@ -21,5 +22,5 @@ func getSlogHandler(f format, w io.Writer, opts *slog.HandlerOptions) (slog.Hand
 		return slog.NewTextHandler(w, opts), nil
 	}
 
-	return nil, fmt.Errorf("%s: %w", f, ErrInvalidLogFormat)
+	return nil, ctxerrors.Wrapf(ErrInvalidLogFormat, "%s", f)
 }
