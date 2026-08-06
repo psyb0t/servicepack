@@ -1,1 +1,50 @@
+# Build-context hygiene. Two jobs: keep secrets and scratch out of the image,
+# and shrink the context Docker ships to the daemon before the first RUN.
+#
+# Deliberately NOT excluded:
+#   vendor/     the build runs with -mod=vendor and needs it present
+#   *_test.go   the dev image runs `make test` against the copied source
+#   nested .md  a package may go:embed markdown (LLM prompt resources and the
+#               like). Only root-level and docs/ markdown is dropped below.
+
+# Git / CI metadata. The build embeds no commit id, so nothing here is needed.
+.git
+.github
+
+# Docs. `*.md` does not cross a `/`, so this is root-level only, and the whole
+# root docs/ tree goes with it. Markdown deeper in the source tree stays, since
+# a package may embed it.
+*.md
+docs/
+
+# Local secrets / env
+.env
+.env.*
+!.env.example
+
+# Local tooling that must never enter an image
+git-update.sh
+
+# Agent skill / plugin manifests. Repo distribution material — published from
+# the repo itself, never built into or read by the binary.
+.agents
+
+# Build output, coverage, logs, debug artifacts
+build/
+coverage.*
+coverage-percent.txt
+*.log
+*.out
+__debug_*
+
+# Editor / IDE
+.vscode
+.idea
+
+# Scratch and local state
 .telemetry/
+.testing/
+.backup
+.research_files
+scripts/.post-update-temp
+__pycache__

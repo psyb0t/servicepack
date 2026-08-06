@@ -4,6 +4,44 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.19 — 2026-08-06
+
+Build-context and ignore-file hygiene. No code change.
+
+### Fixed
+
+- **`.research_files` was never gitignored.** The entry read `research_files`,
+  without the leading dot, so it matched nothing and the directory it was meant
+  to cover was tracked-eligible the whole time. Nothing had been committed. The
+  dotted form is now present; the bare one is left in place in case a project
+  uses it.
+
+- **`.dockerignore` was a single line (`.telemetry/`), and every Dockerfile does
+  `COPY . .`.** The build context therefore carried the entire working tree, and
+  because `Dockerfile.dev` / `Dockerfile.servicepack.dev` end at that `COPY`,
+  whatever it picked up shipped *inside* the dev images — including
+  `git-update.sh`, the gitignored local release script. It now excludes git and
+  CI metadata, root-level and `docs/` documentation, env files, local tooling,
+  build output, coverage, logs, editor state, backups and research scratch.
+
+### Notes
+
+- **`vendor/`, `*_test.go` and nested markdown are deliberately kept.** The
+  build runs with `-mod=vendor`, the dev image runs `make test` against the
+  copied source, and a package may `go:embed` markdown as a resource — a blanket
+  `**/*.md` would break that silently and confusingly. Markdown is dropped at
+  the repository root and under `docs/` only; `*.md` does not cross a `/`, so it
+  never reaches nested files. The reasoning is written into the file so it
+  survives a future tidy-up.
+- `.agents` is excluded too: it is published from the repository itself and is
+  never built into or read by the binary.
+- Verified by building both images and listing the result: `git-update.sh`,
+  `.git`, root markdown and `.agents` absent; `vendor/`, `cmd/` and the test
+  files present.
+- `.gitignore` is excluded from the update sync and `.dockerignore` ships as a
+  default opt-out, so **existing projects do not receive either change** — copy
+  the entries across by hand. New projects get them at scaffold time.
+
 ## v1.2.18 — 2026-08-06
 
 The update's module-path rewrite no longer walks your whole working tree.

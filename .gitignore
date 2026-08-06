@@ -9,6 +9,8 @@ build
 CLAUDE.md
 .env
 research_files
+# The dotted form is the one actually used; the bare name above never matched it.
+.research_files
 .backup
 scripts/.post-update-temp
 git-update.sh
