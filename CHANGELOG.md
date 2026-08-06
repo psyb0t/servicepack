@@ -4,6 +4,46 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.17 — 2026-08-06
+
+The shipped `.servicepackupdateignore` now covers the framework's own repo
+furniture. No code change.
+
+### Fixed
+
+- **A downstream update could add this repo's publication workflows to a
+  project that must not have them.** The update is an rsync of the framework
+  tree over yours, so a file servicepack ships that a downstream lacks is
+  ADDED, not updated — and `mirror-and-archive.yml` force-pushes the repo to
+  public GitLab and Codeberg and saves it to the Wayback Machine. servicepack
+  is public; a downstream need not be, and on a private one that turns the next
+  tag into a disclosure the archive does not forget. It is now ignored by
+  default, along with the rest of the framework's own furniture:
+  `issue-pull.yml` (relays issues from mirrors that do not exist),
+  `pipeline.yml` (builds and releases THE FRAMEWORK, including publishing its
+  agent skill to ClawHub), `.github/FUNDING.yml` (sponsors servicepack's
+  author), `.agents` (the skill describing servicepack, which in a downstream
+  tells an agent it is reading the framework), `.gitleaks.toml` (an allowlist
+  names the untracked paths of the tree it belongs to) and `.dockerignore`
+  (pairs with `Dockerfile`, already downstream-owned).
+
+  The opt-out model was already right for a framework BASELINE a project
+  diverges from — `.golangci.yml`, `Makefile`. It does not fit files that are
+  wrong on arrival for every consumer, because then every project independently
+  discovers the same mistake. Those now start ignored instead.
+
+### Documentation
+
+- **README's `.servicepackupdateignore` section said "Create a
+  `.servicepackupdateignore` file".** The framework ships one, so that sent
+  readers to create a file they already had. It now says the file is theirs
+  from scaffold, tabulates every default entry with the reason, and states the
+  consequence of the file being excluded from the sync: opt-outs are never
+  overwritten, and new default entries never arrive automatically — an existing
+  project copies them across by hand.
+- The framework-vs-user file table listed `.github/` as wholly framework-owned,
+  which is no longer true of the entries above.
+
 ## v1.2.16 — 2026-08-06
 
 Two service-manager tests synchronized on `time.Sleep`. Both are fixed. Test

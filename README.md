@@ -541,16 +541,42 @@ make servicepack-update-revert
 
 ### Customizing Updates with .servicepackupdateignore
 
-Create a `.servicepackupdateignore` file to exclude files from framework updates:
+You already have one — it ships with the framework and it's yours from the
+moment you scaffold. The update never overwrites it, so your opt-outs are safe.
+Flip side: it never *adds* to it either, so when a servicepack release
+introduces a new default entry, existing projects copy that line across by hand.
+
+Add any framework file you've customized:
 
 ```
-# Custom framework modifications (these are already user files)
-# Note: Dockerfile, Dockerfile.dev, Makefile, and scripts/make/ are automatically excluded
+# Custom framework modifications
+.golangci.yml
+scripts/custom_*
 
 # Local configuration files
 *.local
 .env*
 ```
+
+**What it already ignores for you, and why.** The update is an rsync of the
+framework tree over yours, so anything servicepack ships that isn't a baseline
+for *your* app doesn't get updated — it gets **added**. These entries exist to
+publish, fund and document servicepack itself, so they're wrong on arrival
+rather than a starting point you'd customize:
+
+| Entry | Why it's ignored by default |
+|---|---|
+| `.github/workflows/mirror-and-archive.yml` | Force-pushes the repo to public GitLab + Codeberg and saves it to the Wayback Machine. servicepack is public; **your project may not be** — inheriting this turns your next tag into a disclosure the archive won't forget. |
+| `.github/workflows/issue-pull.yml` | Relays issues back from those mirrors. With no mirrors it's a cron job that runs forever and finds nothing. |
+| `.github/workflows/pipeline.yml` | The framework's pipeline builds and releases *the framework*, including publishing its agent skill to ClawHub. Yours is yours: codegen gates, web builds, integration suites, image publishing. |
+| `.github/FUNDING.yml` | Sponsor links for servicepack's author, not yours. |
+| `.agents` | The agent skill describing *servicepack*. In your repo it tells an agent it's looking at the framework instead of your app. |
+| `.gitleaks.toml` | Allowlists are per-repo by nature — they name the untracked paths *this* tree has, not yours. |
+| `.dockerignore` | Pairs with `Dockerfile` / `Dockerfile.dev`, which are already yours. |
+| `.github/dependabot.yml` | Your dependency policy: which ecosystems, the cooldown window, the own-package excludes. |
+| `cmd/init.go`, `cmd/commands.go` | Your lifecycle and CLI hooks. |
+
+Delete any line you'd rather the framework keep pushing to you.
 
 **Framework vs User Files**:
 
@@ -566,8 +592,13 @@ Dockerfile.servicepack.dev     # Framework development image (updated by service
 Dockerfile.dev                 # User development image (overrides framework, never touched)
 Dockerfile.servicepack         # Framework production image (updated by servicepack-update)
 Dockerfile                     # User production image (never touched)
-.github/                       # Framework files (CI/CD workflows)
+.github/workflows/             # Framework CI baseline (collaborators-only, etc.)
+.github/workflows/pipeline.yml # Ignored by default - your pipeline is yours
 .github/dependabot.yml         # Starter config, ignored by default - yours to own
+.github/FUNDING.yml            # Ignored by default - the framework's sponsors
+.agents/                       # Ignored by default - the framework's agent skill
+.gitleaks.toml                 # Ignored by default - allowlists are per-repo
+.dockerignore                  # Ignored by default - pairs with your Dockerfile
 LICENSE                        # Your project license
 .golangci.yml                  # Framework files
 go.mod                         # Your deps preserved; framework deps merged upgrade-only

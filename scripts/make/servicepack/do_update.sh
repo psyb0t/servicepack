@@ -82,6 +82,20 @@ section "Updating Framework Files"
 # downstream that has genuinely customized a framework-owned file lists it in
 # ITS OWN .servicepackupdateignore -- that is the intended opt-out, not a
 # blanket exclude baked into the framework.
+#
+# The list above is only the mechanical floor (git internals, the dependency
+# merge, per-project prose). The opt-outs that nearly every project wants ship
+# in the .servicepackupdateignore this repo hands you -- the framework's own
+# publication workflows, agent skill, funding links, secret-scanning allowlist
+# and docker context. Those are the framework's furniture rather than a
+# baseline you customize, so they start ignored instead of leaving each project
+# to find out the hard way. Read that file, not this list, when you want to
+# know what your project is keeping for itself.
+#
+# Note that file is excluded from the sync (above), so it is yours from the
+# moment you scaffold: a framework update can never rewrite your opt-outs, and
+# equally never adds new default ones to an existing project. When a release
+# adds an entry, existing downstreams have to copy it over by hand.
 EXCLUDE_ARGS="--exclude=internal/pkg/services/* \
     --exclude=README.md \
     --exclude=LICENSE \

@@ -26,4 +26,47 @@ cmd/commands.go
 # keep pushing its common dependabot.yml to every servicepack-based project.
 .github/dependabot.yml
 
+# --- The framework's own repo furniture --------------------------------------
+#
+# The update is an rsync of the framework tree over yours, so anything shipped
+# here that isn't a baseline for YOUR app doesn't get "updated" - it gets ADDED.
+# The entries below exist to publish, fund and document servicepack itself.
+# They are wrong on arrival for a downstream rather than a starting point you
+# customize, which is why they're ignored by default instead of left for every
+# project to discover on its own.
+
+# Mirrors this repo to GitLab and Codeberg and saves it to the Wayback Machine.
+# servicepack is public; your project may not be. On a private repo this turns
+# your next tag into a public disclosure, and the archive does not forget.
+# Delete this line only if your repo is public AND you want those mirrors.
+.github/workflows/mirror-and-archive.yml
+
+# Relays issues back from those mirrors. Without them it is a cron job that
+# runs forever and finds nothing.
+.github/workflows/issue-pull.yml
+
+# The framework's pipeline builds and releases THE FRAMEWORK - including
+# publishing its agent skill to ClawHub, which your project doesn't have. Your
+# pipeline is yours: codegen gates, web builds, integration suites, image
+# publishing. Delete this line if you want the framework's baseline pipeline
+# pushed over yours on every update.
+.github/workflows/pipeline.yml
+
+# Sponsor links for servicepack's author, not yours.
+.github/FUNDING.yml
+
+# The agent skill describing SERVICEPACK. Landing it in your repo tells any
+# agent reading it that it is looking at the framework rather than your app.
+.agents
+
+# Secret-scanning allowlist. Allowlists are per-repo by nature - they name the
+# untracked paths THIS tree has - so the framework's would silence the wrong
+# things in yours, or drown you in findings from paths you don't have.
+.gitleaks.toml
+
+# Docker build context. Pairs with Dockerfile / Dockerfile.dev, which are
+# already yours - your context excludes whatever your app builds (a web tree,
+# fixtures) and the framework has no concept of those.
+.dockerignore
+
 # Note: internal/pkg/services/* is always excluded - your services are never touched
