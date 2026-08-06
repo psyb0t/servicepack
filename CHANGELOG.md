@@ -4,6 +4,50 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.18 — 2026-08-06
+
+The update's module-path rewrite no longer walks your whole working tree.
+
+### Fixed
+
+- **`make servicepack-update` rewrote Go files it had never delivered, anywhere
+  under your repo.** After syncing the framework, the update rewrites
+  servicepack's import path to your module path. That rewrite ran as
+  `find . -type f -name "*.go" -not -path "./vendor/*" -exec sed -i ...`, and
+  `find` does not honour `.gitignore` — so it descended into scratch
+  directories, nested clones and any other ignored tree. In a real project it
+  visited 62,026 files instead of the ~50 the sync had delivered, and rewrote
+  the imports of an unrelated servicepack checkout that happened to live under
+  the repo. Nothing showed up in `git status`, because everything it damaged was
+  ignored.
+
+  The rewrite is now scoped to rsync's own transfer manifest, captured while the
+  sync runs. That manifest is the exact set of files the update delivered, with
+  every exclude and every `.servicepackupdateignore` entry already applied — so
+  a file the update did not touch can no longer be edited by it.
+
+- **The companion `-name "*.mod"` walk is gone.** It had no legitimate target:
+  rsync never copies `go.mod`, its module line is rewritten directly, its
+  requires are merged upgrade-only by `merge_framework_deps`, and `make dep`
+  tidies and vendors. Its only reachable effect was rewriting `go.mod` files in
+  directories the update had no business entering.
+
+### Added
+
+- A missing sync manifest now aborts the update instead of silently skipping the
+  rewrite. A skip would leave the freshly synced framework importing
+  servicepack's own path, so nothing would build and the reason would be
+  invisible.
+- After rewriting, the update scans the files your repo actually owns (tracked
+  plus untracked-and-not-ignored) and warns if any still reference the framework
+  path — surfacing an incomplete manifest before you merge rather than at build
+  time.
+
+### Note for existing projects
+
+Both scripts run from the freshly downloaded framework, so this fix applies on
+the very next `make servicepack-update` — no intermediate release needed.
+
 ## v1.2.17 — 2026-08-06
 
 The shipped `.servicepackupdateignore` now covers the framework's own repo

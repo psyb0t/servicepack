@@ -12,6 +12,7 @@ CURRENT_VERSION="$3"
 LATEST_VERSION="$4"
 USER_MODULE="$5"
 TEMP_DIR="$6"
+SYNCED_FILES="$7"
 
 # Source common functions (from the newly updated framework)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,13 +25,58 @@ if [ -n "$USER_MODULE" ]; then
     info "Restoring user module name in go.mod..."
     sed -i "1s|.*|module $USER_MODULE|" go.mod
 
-    info "Replacing module references in all files..."
-    # Get the original module name from the downloaded framework
+    # Rewrite the framework's import path to yours -- but ONLY in the .go files
+    # this sync actually delivered, listed by rsync itself in $SYNCED_FILES.
+    #
+    # This used to be `find . -name '*.go' -not -path './vendor/*'`, which walks
+    # the WHOLE working tree. `find` knows nothing about .gitignore, so it also
+    # descended into scratch dirs, research checkouts and nested clones. In a real
+    # project that meant 62k files rewritten instead of ~50, and it silently
+    # rewrote the imports of an unrelated servicepack checkout that happened to
+    # live under the repo -- invisible in `git status`, because the wreckage was
+    # all gitignored.
+    #
+    # go.mod needs no walk of its own either: rsync never copies it (see
+    # do_update.sh), its module line is rewritten directly above, its requires are
+    # merged below, and `make dep` tidies and vendors the rest. The old
+    # `-name '*.mod'` find had no legitimate target at all.
     FRAMEWORK_MODULE=$(head -n 1 "$TEMP_DIR/go.mod" | awk '{print $2}')
 
-    # Replace all references to framework module with user module
-    find . -type f -name "*.go" -not -path "./vendor/*" -exec sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" {} \;
-    find . -type f -name "*.mod" -not -path "./vendor/*" -exec sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" {} \;
+    # Fail loudly rather than falling back to the old tree-wide find: a silent
+    # skip would leave the synced framework importing servicepack's own path and
+    # nothing would build, with no clue why.
+    if [ ! -f "$SYNCED_FILES" ]; then
+        error "No sync manifest at '$SYNCED_FILES'; cannot rewrite module paths."
+        exit 1
+    fi
+
+    info "Replacing module references in synced framework files..."
+
+    rewritten=0
+    while IFS= read -r synced_file; do
+        [ -f "$synced_file" ] || continue
+        sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" "$synced_file"
+        rewritten=$((rewritten + 1))
+    done < <(grep '\.go$' "$SYNCED_FILES" || true)  # no .go in the sync is valid
+
+    info "Rewrote module references in $rewritten synced .go file(s)"
+
+    # Belt and braces: nothing the repo actually owns may still import the
+    # framework path. `git ls-files -co --exclude-standard` is tracked plus
+    # untracked-but-not-ignored -- i.e. the real project, deliberately excluding
+    # the gitignored scratch the old `find` used to trash.
+    if [ "$FRAMEWORK_MODULE" != "$USER_MODULE" ]; then
+        leftovers=$(git ls-files -co --exclude-standard -- '*.go' 2>/dev/null |
+            xargs -r grep -l -- "$FRAMEWORK_MODULE" 2>/dev/null || true)
+
+        if [ -n "$leftovers" ]; then
+            warning "These files still reference $FRAMEWORK_MODULE:"
+            while IFS= read -r leftover; do
+                printf '  %s\n' "$leftover" >&2
+            done <<< "$leftovers"
+            warning "The sync manifest may be incomplete; check before merging."
+        fi
+    fi
 fi
 
 # Save the new version

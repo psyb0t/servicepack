@@ -123,8 +123,20 @@ if [ -f ".servicepackupdateignore" ]; then
     done < .servicepackupdateignore
 fi
 
-# Update core framework files with exclusions
-eval "rsync -av $EXCLUDE_ARGS \"$TEMP_DIR/\" ./"
+# Update core framework files with exclusions.
+#
+# Capture rsync's own transfer list as it runs. _post_update.sh has to rewrite the
+# framework's module path to yours, and this manifest is the exact set of files to
+# do that to: every exclude above and every .servicepackupdateignore entry has
+# already been applied to it. Deriving the set any other way -- notably a `find`
+# over the working tree -- reaches files this update never delivered, including
+# everything in gitignored scratch directories.
+SYNCED_FILES=$(mktemp)
+trap 'rm -f "$SYNCED_FILES"' EXIT
+
+set -o pipefail
+eval "rsync -av --out-format='%n' $EXCLUDE_ARGS \"$TEMP_DIR/\" ./" | tee "$SYNCED_FILES"
+set +o pipefail
 
 section "Running Post-Update Script"
 info "Executing post-update logic with latest framework code..."
@@ -138,4 +150,5 @@ bash "$SCRIPT_DIR/_post_update.sh" \
     "$CURRENT_VERSION" \
     "$LATEST_VERSION" \
     "$USER_MODULE" \
-    "$TEMP_DIR"
+    "$TEMP_DIR" \
+    "$SYNCED_FILES"
