@@ -19,6 +19,69 @@ var (
 	errTestServiceStop = errors.New("stop error")
 )
 
+const (
+	// runHangGuard bounds a Run that should have been ended by Stop. It is
+	// deliberately far longer than any real wait: a test that reaches it has
+	// hung, and every legitimate wait here is synchronized explicitly instead.
+	runHangGuard = 30 * time.Second
+
+	// startedPollInterval is how often the start-group condition is rechecked.
+	startedPollInterval = time.Millisecond
+)
+
+// waitForStartedServices blocks until the manager has registered `want`
+// services into start groups.
+//
+// That is the precondition Stop actually has: it iterates startGroups, and a
+// group lands there only after every service goroutine has launched and
+// waitGroupReady has returned. A Stop arriving before the append finds nothing
+// to stop, so every "should have Stop called" assertion fails.
+//
+// This replaced a time.Sleep that stood in for the same condition. The sleep
+// was load-bearing rather than cosmetic — setting it to zero fails these tests
+// outright — which meant any load that delayed the manager past it failed the
+// suite for reasons unrelated to the code under test. It read as a flake in a
+// consumer's CI, one package deep in an unrelated repo.
+func waitForStartedServices(t *testing.T, sm *ServiceManager, want int) {
+	t.Helper()
+
+	require.Eventually(t, func() bool {
+		sm.startGroupsMu.RLock()
+		defer sm.startGroupsMu.RUnlock()
+
+		started := 0
+		for _, group := range sm.startGroups {
+			started += len(group)
+		}
+
+		return started >= want
+	}, runHangGuard, startedPollInterval,
+		"manager never registered %d service(s) into a start group", want)
+}
+
+// waitForRunCalled blocks until every mock service has entered Run. Waiting for
+// it IS the assertion that they all started, so there is nothing left to check
+// afterwards.
+//
+// Like waitForStartedServices this replaced a sleep, and the same proof
+// applies: zeroing that sleep failed these tests outright, so it was the
+// synchronization rather than a courtesy pause.
+func waitForRunCalled(t *testing.T, services []Service) {
+	t.Helper()
+
+	require.Eventually(t, func() bool {
+		for _, svc := range services {
+			mockSvc, ok := svc.(*MockService)
+			if ok && !mockSvc.WasRunCalled() {
+				return false
+			}
+		}
+
+		return true
+	}, runHangGuard, startedPollInterval,
+		"not every service reached Run")
+}
+
 func TestGetInstance(t *testing.T) {
 	// Reset singleton before test
 	ResetInstance()
@@ -92,26 +155,23 @@ func TestServiceManager_Add(t *testing.T) {
 }
 
 func TestServiceManager_Run(t *testing.T) {
+	// contextSetup is gone. Three rows used it to spawn a goroutine that slept
+	// 10ms and then cancelled, which raced the manager: if the services had not
+	// started inside that window the run ended before they ever reached Run,
+	// and the "should have Run called" assertion failed for reasons that had
+	// nothing to do with the manager. The other two rows returned a plain
+	// WithCancel, so the field's only real content WAS the race. Cancellation
+	// now happens in the stopMethod switch below, after the wait — which is
+	// what "context" was always supposed to mean.
 	testCases := []struct {
-		name         string
-		services     []Service
-		contextSetup func() (context.Context, context.CancelFunc)
-		expectError  bool
-		stopMethod   string // "context", "stop_method", "service_error"
+		name        string
+		services    []Service
+		expectError bool
+		stopMethod  string // "context", "stop_method", "service_error"
 	}{
 		{
-			name:     "run single service with context cancellation",
-			services: []Service{NewMockService("test1")},
-			contextSetup: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
-
-				go func() {
-					time.Sleep(10 * time.Millisecond)
-					cancel()
-				}()
-
-				return ctx, cancel
-			},
+			name:        "run single service with context cancellation",
+			services:    []Service{NewMockService("test1")},
 			expectError: false,
 			stopMethod:  "context",
 		},
@@ -119,16 +179,6 @@ func TestServiceManager_Run(t *testing.T) {
 			name: "run multiple services with context cancellation",
 			services: []Service{
 				NewMockService("test1"), NewMockService("test2"),
-			},
-			contextSetup: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
-
-				go func() {
-					time.Sleep(10 * time.Millisecond)
-					cancel()
-				}()
-
-				return ctx, cancel
 			},
 			expectError: false,
 			stopMethod:  "context",
@@ -138,34 +188,18 @@ func TestServiceManager_Run(t *testing.T) {
 			services: []Service{
 				NewMockService("failing").WithRunError(errTestService),
 			},
-			contextSetup: func() (context.Context, context.CancelFunc) {
-				return context.WithCancel(context.Background())
-			},
 			expectError: true,
 			stopMethod:  "service_error",
 		},
 		{
-			name:     "run with stop method",
-			services: []Service{NewMockService("test1")},
-			contextSetup: func() (context.Context, context.CancelFunc) {
-				return context.WithCancel(context.Background())
-			},
+			name:        "run with stop method",
+			services:    []Service{NewMockService("test1")},
 			expectError: false,
 			stopMethod:  "stop_method",
 		},
 		{
-			name:     "run with no services",
-			services: []Service{},
-			contextSetup: func() (context.Context, context.CancelFunc) {
-				ctx, cancel := context.WithCancel(context.Background())
-
-				go func() {
-					time.Sleep(10 * time.Millisecond)
-					cancel()
-				}()
-
-				return ctx, cancel
-			},
+			name:        "run with no services",
+			services:    []Service{},
 			expectError: true, // No services means "no enabled services"
 			stopMethod:  "context",
 		},
@@ -178,7 +212,7 @@ func TestServiceManager_Run(t *testing.T) {
 			sm := GetInstance()
 			sm.Add(tc.services...)
 
-			ctx, cancel := tc.contextSetup()
+			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
 			runDone := make(chan error, 1)
@@ -187,17 +221,11 @@ func TestServiceManager_Run(t *testing.T) {
 				runDone <- sm.Run(ctx)
 			}()
 
-			// Give services time to start
-			time.Sleep(5 * time.Millisecond)
-
-			// Verify services started (for non-error cases)
+			// Waiting for this IS the assertion that every service started, so
+			// nothing is re-checked afterwards. Skipped for the rows that never
+			// reach Run: an erroring service and the no-services case.
 			if !tc.expectError && len(tc.services) > 0 {
-				for _, svc := range tc.services {
-					if mockSvc, ok := svc.(*MockService); ok {
-						assert.True(t, mockSvc.WasRunCalled(),
-							"Service %s should have Run called", mockSvc.name)
-					}
-				}
+				waitForRunCalled(t, tc.services)
 			}
 
 			// Execute stop method
@@ -205,7 +233,7 @@ func TestServiceManager_Run(t *testing.T) {
 			case "stop_method":
 				sm.Stop(ctx)
 			case "context":
-				// Already set up in contextSetup
+				cancel()
 			case "service_error":
 				// Service will error naturally
 			}
@@ -218,7 +246,7 @@ func TestServiceManager_Run(t *testing.T) {
 				} else {
 					assert.NoError(t, err)
 				}
-			case <-time.After(time.Second):
+			case <-time.After(runHangGuard):
 				t.Fatal("ServiceManager.Run() did not complete within timeout")
 			}
 		})
@@ -271,10 +299,16 @@ func TestServiceManager_Stop(t *testing.T) {
 
 			ctx := context.Background()
 
-			// First run the services if there are any
-			// (so they get added to runningServices)
+			// First run the services if there are any, so the manager
+			// registers them and Stop has something to stop.
 			if len(tc.services) > 0 {
-				runCtx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
+				// A hang guard, NOT the synchronization. It used to be 10ms,
+				// which made it both: the deadline could fire before Stop was
+				// even called, ending the run for the wrong reason. Stop
+				// cancels the manager's context and closes each mock's stopCh,
+				// so Run returns on its own and this bound is never reached in
+				// a passing test.
+				runCtx, cancel := context.WithTimeout(ctx, runHangGuard)
 				defer cancel()
 
 				// Run services in background so they can be stopped
@@ -284,8 +318,7 @@ func TestServiceManager_Stop(t *testing.T) {
 					runDone <- sm.Run(runCtx)
 				}()
 
-				// Give services time to start
-				time.Sleep(5 * time.Millisecond)
+				waitForStartedServices(t, sm, len(tc.services))
 
 				// Now stop them
 				sm.Stop(ctx)

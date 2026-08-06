@@ -4,6 +4,70 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.16 — 2026-08-06
+
+Two service-manager tests synchronized on `time.Sleep`. Both are fixed. Test
+files only — no framework behaviour changed, but because these files ship with
+the framework, every consumer inherits the flake until it updates.
+
+### Fixed
+
+- **`TestServiceManager_Stop` raced the manager.** It slept 5ms captioned "give
+  services time to start", then called `Stop` and asserted every service had
+  `Stop` called. `Stop` iterates `startGroups`, and a group lands there only
+  after every service goroutine has launched and `waitGroupReady` has returned
+  — so a `Stop` arriving before that append finds nothing to stop and every
+  assertion fails. The sleep was the synchronization, not a courtesy pause:
+  setting it to zero fails the test outright. It now waits for the manager to
+  register the services, which is the precondition `Stop` actually has.
+- **The same test used a 10ms context deadline as both a hang guard and a
+  timer.** Under load the deadline could fire before `Stop` was ever called,
+  ending the run for the wrong reason. `Stop` cancels the manager's context and
+  closes each mock's channel, so the run ends on its own; the bound is now long
+  enough to only ever mean "hung".
+- **`TestServiceManager_Run` had the same sleep**, before asserting every
+  service had `Run` called, and three of its rows spawned a goroutine that slept
+  10ms and then cancelled the context — racing the manager to start the very
+  services the row was about to assert on. Cancellation moved into the
+  `stopMethod` switch, where it happens after the wait. The `contextSetup`
+  field is gone: two rows returned a plain `WithCancel`, so the field's only
+  real content was that race.
+
+Under enough load to delay the manager past those windows, both tests failed for
+reasons unrelated to the code under test — surfacing as an unexplained flake in
+a consumer's CI, one package deep in an unrelated repo.
+
+- **`TestIntegration_RetryWithDependencies` asserted an ordering the framework
+  does not promise.** It required `db` to reach `Run` before `api`, and that was
+  wrong roughly once in 600 runs. `ReadyNotifier`'s own contract says a service
+  which does not implement it is "considered ready immediately after their
+  goroutine is launched" — so the manager orders the LAUNCH of the groups, not
+  the moment each service enters `Run`. `db`'s goroutine is started and has
+  signalled before `api`'s exists, but it can be descheduled between that signal
+  and its own `Run` body. Neither mock in that test implements `ReadyNotifier`,
+  so the ordering was a coin flip weighted heavily enough to pass almost always.
+  The assertion is gone; the guarantee is still covered by
+  `TestServiceManager_ReadyNotifier`, which drives two `ReadyMockService`s and
+  checks the exact sequence deterministically.
+
+### Added
+
+- **`.gitleaks.toml`** — this repo had no secret-scanning config at all. The
+  allowlist covers only genuinely untracked paths (each one verified with
+  `git ls-files`) plus `vendor/`, whose contents are third-party source
+  reproduced verbatim. It allowlists by PATH only, never by a regex on the
+  matched text, since the latter would silence a real credential in any file
+  whose name merely looks like a fixture.
+
+### Documentation
+
+- **`.agents/skills/servicepack/SKILL.md` now says what `Dependent` alone
+  actually guarantees.** It ordered the LAUNCH and the docs did not distinguish
+  that from readiness, so "dependency-ordered startup" reads as a promise the
+  framework only keeps when the dependency also implements `ReadyNotifier`.
+  Spelled out, since that distinction is precisely what made the removed test
+  assertion wrong.
+
 ## v1.2.15 — 2026-08-01
 
 CI/infrastructure only. No code in this repo changed — the whole diff since v1.2.14 is under

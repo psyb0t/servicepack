@@ -1,0 +1,30 @@
+title = "servicepack secret scanning"
+
+[extend]
+useDefault = true
+
+# gitleaks `dir` mode scans the WORKING TREE and does NOT honour .gitignore, so
+# every gitignored path has to be named again here or the gate drowns in
+# findings from files that will never be committed — and a drowned gate is one
+# people learn to skip.
+#
+# Every entry below was verified untracked with `git ls-files --error-unmatch`
+# before being added. Allowlisting a path that IS committed would silence a real
+# leak permanently.
+#
+# Allowlisting is by PATH only, never by regex on the matched text: a pattern
+# like `test_secret` suppresses any finding whose text happens to contain it,
+# including a genuine credential in a file that merely looks like a fixture.
+[[allowlists]]
+description = "Gitignored local state, build output, and vendored dependencies"
+paths = [
+  '''(^|/)\.env$''',
+  '''(^|/)\.telemetry(?:/|$)''',
+  '''(^|/)build(?:/|$)''',
+  '''(^|/)coverage-percent\.txt$''',
+  '''(^|/)git-update\.sh$''',
+  '''(^|/)CLAUDE\.md$''',
+  # Third-party source reproduced verbatim by `go mod vendor`. A finding here
+  # is an upstream test fixture we cannot edit, and it is committed on purpose.
+  '''(^|/)vendor(?:/|$)''',
+]

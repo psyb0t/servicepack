@@ -183,6 +183,8 @@ type Commander interface {
 
 Dependencies on services not present in the current process (e.g. another microservice) are skipped with a debug log, not an error — cyclic dependencies within the process ARE rejected at startup.
 
+**`Dependent` alone orders the LAUNCH, not the readiness.** A service that does not implement `ReadyNotifier` is treated as ready the moment its goroutine is launched, so its dependents are started right after — possibly before its `Run` body has executed a single line. If a dependent genuinely must not start until the dependency is accepting work (a DB accepting connections, a listener bound), the dependency has to implement `ReadyNotifier` and close its channel when it is actually up. Combining `Dependent` with `ReadyNotifier` is what turns "started in the right order" into "started only once the dependency works".
+
 ## Lifecycle hooks — customize without touching framework files
 
 `cmd/init.go` is yours; it's never overwritten by `make servicepack-update`. Register hooks on the `App` singleton:
