@@ -599,6 +599,7 @@ Dockerfile                     # User production image (never touched)
 .agents/                       # Ignored by default - the framework's agent skill
 .gitleaks.toml                 # Ignored by default - allowlists are per-repo
 .dockerignore                  # Ignored by default - pairs with your Dockerfile
+.gitignore                     # Yours - never synced at all (see note below)
 LICENSE                        # Your project license
 .golangci.yml                  # Framework files
 go.mod                         # Your deps preserved; framework deps merged upgrade-only
@@ -607,6 +608,13 @@ CHANGELOG.md                   # Your project changelog - never touched
 README.md                      # Your project docs
 internal/pkg/services/         # Your services - never touched
 ```
+
+**`.gitignore` is never synced — in either direction.** It's excluded outright,
+not via `.servicepackupdateignore`, so nothing you put in it can ever be
+clobbered by an update. The flip side is the one that bites: when a servicepack
+release adds a new entry to its own `.gitignore`, **your project never gets it**,
+and nothing tells you. If a release note mentions a `.gitignore` change, copy the
+line across by hand. Same deal as `.servicepackupdateignore` itself.
 
 **Your dependencies are safe.** `go.mod` / `go.sum` are never overwritten by
 the update. Instead the framework's own `require` entries and `tool` directives

@@ -17,3 +17,6 @@ git-update.sh
 .telemetry/
 coverage-percent.txt
 .testing/
+.anustimes/
+.brutal_reviews/
+.rule_audits/

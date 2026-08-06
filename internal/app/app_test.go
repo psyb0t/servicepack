@@ -2,12 +2,48 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+const (
+	// Generous on purpose: this bounds only a FAILING test, and a consumer's
+	// machine may be running a browser suite and image builds alongside it.
+	servicesRunningTimeout = 5 * time.Second
+	servicesRunningPoll    = time.Millisecond
+)
+
+// waitForRunningServices blocks until every mock reports IsRunning.
+//
+// This replaces a fixed `time.Sleep(20 * time.Millisecond)` that gated the
+// assertion on start-up having happened. 20ms is ample on an idle machine and
+// nowhere near enough on a loaded one, so the assertion failed in a downstream
+// project's full-suite run and reported a service-startup bug that did not
+// exist. Waiting on the condition itself cannot report that lie.
+func waitForRunningServices(
+	t *testing.T,
+	services []*servicemanager.MockService,
+) {
+	t.Helper()
+
+	require.Eventually(t, func() bool {
+		for _, svc := range services {
+			if !svc.IsRunning() {
+				return false
+			}
+		}
+
+		return true
+	}, servicesRunningTimeout, servicesRunningPoll,
+		"not all services reported running")
+}
 
 // createTestApp creates an app with mock services instead of real ones.
 func createTestApp() *App {
@@ -216,6 +252,100 @@ func TestApp_RunAndStop_Integration(t *testing.T) {
 	})
 }
 
+// TestApp_RunShutdownRacingServiceError proves Run does not panic when a
+// service error arrives while Run is already unwinding on context cancellation.
+//
+// Run's deferred close(errCh) used to be registered LAST, so LIFO ran it FIRST
+// — closing the channel while the goroutine that sends on it was still live.
+// A shutdown that raced a non-nil error from ServiceManager.Run therefore hit
+// "panic: send on closed channel", which no recover in the tree catches: it
+// takes the whole process down during what should be a graceful stop.
+//
+// The service below returns an error only AFTER its context is cancelled, so
+// cancelling reliably produces an in-flight send during teardown.
+func TestApp_RunShutdownRacingServiceError(t *testing.T) {
+	const shutdownRaceAttempts = 25
+
+	for attempt := range shutdownRaceAttempts {
+		servicemanager.ResetInstance()
+		servicemanager.GetInstance().ClearServices()
+
+		// One service fails on its own, so ServiceManager.Run is heading for a
+		// NON-nil return (a cancelled context alone is treated as a clean
+		// shutdown and returns nil, which never puts a send in flight).
+		failer := servicemanager.NewMockService(
+			fmt.Sprintf("failer-%d", attempt),
+		).WithRunError(errShutdownRace)
+
+		// The second holds ServiceManager.Run inside its own teardown, which is
+		// what widens the window: Run's deferred Stop waits on this Stop, so
+		// App.Run has time to observe ctx.Done, return, and fire its defers
+		// before the goroutine finally sends the error.
+		slow := &slowStopService{
+			name: fmt.Sprintf("slow-stop-%d", attempt),
+		}
+
+		app := &App{serviceManager: servicemanager.GetInstance()}
+		app.serviceManager.Add(failer, slow)
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		done := make(chan error, 1)
+
+		go func() {
+			done <- app.Run(ctx)
+		}()
+
+		// Cancel once the slow service is inside Run, so App.Run's select takes
+		// the ctx.Done branch while the error is still working its way out.
+		require.Eventually(t, slow.started.Load,
+			servicesRunningTimeout, servicesRunningPoll,
+			"service never started")
+
+		cancel()
+
+		select {
+		case <-done:
+			// Run returned rather than panicking. Either error value is fine —
+			// this test is about surviving the race, not about which wins.
+		case <-time.After(servicesRunningTimeout):
+			t.Fatalf("attempt %d: Run did not return after cancel", attempt)
+		}
+	}
+}
+
+// slowStopService holds ServiceManager.Run inside its teardown for a beat, so a
+// non-nil error is still travelling out of Run while App.Run has already
+// returned on ctx.Done and run its defers.
+type slowStopService struct {
+	name    string
+	started atomic.Bool
+}
+
+func (s *slowStopService) Name() string {
+	return s.name
+}
+
+func (s *slowStopService) Run(ctx context.Context) error {
+	s.started.Store(true)
+
+	<-ctx.Done()
+
+	return nil
+}
+
+func (s *slowStopService) Stop(_ context.Context) error {
+	time.Sleep(stopUnwindDelay)
+
+	return nil
+}
+
+// stopUnwindDelay is how long the manager is held in teardown. Long enough that
+// App.Run reliably reaches its defers first, short enough not to pad the suite.
+const stopUnwindDelay = 100 * time.Millisecond
+
+var errShutdownRace = errors.New("service failed during shutdown")
+
 func TestApp_ServiceActivity(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -291,14 +421,7 @@ func TestApp_ServiceActivity(t *testing.T) {
 				done <- app.Run(ctx)
 			}()
 
-			// Give services time to start
-			time.Sleep(20 * time.Millisecond)
-
-			// Verify all services are running
-			for i, mockSvc := range mockServices {
-				assert.True(t, mockSvc.IsRunning(),
-					"Service %d (%s) should be running", i, mockSvc.Name())
-			}
+			waitForRunningServices(t, mockServices)
 
 			// Stop using specified method
 			var stopErr error

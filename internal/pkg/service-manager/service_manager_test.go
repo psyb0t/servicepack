@@ -895,6 +895,58 @@ func (d *dependentStopTrackingService) Dependencies() []string {
 	return d.deps
 }
 
+// runReturnTimeout bounds only a FAILING run of the test below. The bug it
+// guards against hangs forever, so any finite bound proves the point; this one
+// is generous enough not to trip on a loaded machine.
+const runReturnTimeout = 10 * time.Second
+
+// TestServiceManager_RunWithConcurrentFailures proves Run still returns when
+// more than one non-allowed service fails at the same time.
+//
+// errCh has capacity 1 and Run receives from it at most once.
+// handleServiceError used a plain blocking send, so a later concurrent failure
+// parked on that
+// send forever, and Run's `defer s.wg.Wait()` then never returned — a hung
+// process instead of the reported error the README promises. A bare send is not
+// selectable, so context cancellation could not rescue it either.
+func TestServiceManager_RunWithConcurrentFailures(t *testing.T) {
+	testCases := []struct {
+		name         string
+		serviceCount int
+	}{
+		{"two services fail at once", 2},
+		{"three services fail at once", 3},
+		{"ten services fail at once", 10},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+
+			for i := range tc.serviceCount {
+				sm.Add(NewMockService(fmt.Sprintf("failer-%d", i)).
+					WithRunError(errTestService))
+			}
+
+			done := make(chan error, 1)
+
+			go func() {
+				done <- sm.Run(t.Context())
+			}()
+
+			select {
+			case err := <-done:
+				assert.ErrorIs(t, err, errTestService)
+			case <-time.After(runReturnTimeout):
+				t.Fatal(
+					"Run never returned: concurrent failures deadlocked it")
+			}
+		})
+	}
+}
+
 func TestServiceManager_PanicRecovery(t *testing.T) {
 	testCases := []struct {
 		name       string

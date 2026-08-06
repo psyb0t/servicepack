@@ -4,6 +4,88 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.20 — 2026-08-06
+
+Two concurrency bugs in the core, a broken quick start, and a command-injection
+hole in the updater. The two concurrency fixes are the reason to take this one.
+
+### Fixed
+
+- **A shutdown racing a service error killed the process.** `App.Run` registered
+  its deferred `close(errCh)`, `wg.Wait` and `Stop` in an order that, because
+  defers run LIFO, executed them backwards: the error channel was closed while
+  the goroutine that sends on it was still live. A stop signal arriving while
+  `ServiceManager.Run` was unwinding toward a non-nil error therefore panicked
+  the whole process with `send on closed channel` — during what is supposed to
+  be a graceful shutdown, and nothing recovers it. `ServiceManager.Run` already
+  registered the same three in the correct order; `App.Run` disagreed with it.
+
+- **Three or more services failing at once hung the process forever.** The
+  manager's error channel has capacity 1 and `Run` receives from it exactly
+  once, but `handleServiceError` used a plain blocking send. The second and
+  later concurrent non-allowed failures parked on that send permanently, so
+  `Run`'s deferred `wg.Wait` never returned: no error, no exit, just a hang.
+  A bare send is not selectable, so context cancellation could not break it out
+  either. The send is now non-blocking and the dropped errors are logged. That
+  matches the documented contract — the *first* non-allowed failure stops
+  everything and the rest are consequences of that same shutdown.
+
+- **`make build` built nothing.** The root `Makefile` shipped a live `build:`
+  target that only echoed, shadowing the framework's real one — so the quick
+  start in this README (`make own` → `make build` → `./build/<name> run`) failed
+  at the third step for everyone who followed it. The example override now ships
+  commented out.
+
+- **`make servicepack-update` could execute arbitrary commands from
+  `.servicepackupdateignore`.** The rsync exclude list was built by string
+  concatenation and run through `eval`, so a shell metacharacter in that file —
+  a backtick, a `$(...)`, a `;` — ran during the update. It is now a bash array
+  passed directly to rsync, with no `eval`; entries can only ever be patterns.
+  Scope worth stating plainly: that file is excluded from the sync, so an
+  upstream release could never inject into a downstream tree. This was a local
+  vector, not remote code execution.
+
+- **Base images were unpinned, and the runtime image floated on `alpine:latest`.**
+  Tags are mutable: an upstream can republish different bytes under the same name
+  and the next build consumes them silently. All four are now pinned by digest —
+  including the `docker run` inside `build.sh`, which is what `make build`
+  actually uses. Pinning only the Dockerfiles would have left the default build
+  path unprotected.
+
+- **The production image's binary introduced itself by the wrong name.** The
+  Dockerfiles never injected `-X main.appName`, so the binary fell back to the
+  literal `servicepack` in its own `--help` regardless of the project's module
+  path. `make build` had always injected it; the image build had not.
+
+- **Script diagnostics went to stdout.** Every helper in `common.sh` wrote its
+  banners to stdout, and all framework scripts source it, so anything capturing
+  a script's output got the decoration mixed into the data. They now write to
+  stderr.
+
+- **Three error sites returned bare errors**, contradicting this README's own
+  claim that all errors carry `ctxerrors` context. Note for anyone doing the
+  same sweep: one of those values can legitimately be nil, and wrapping a nil
+  emits a spurious error log rather than passing it through — the wrap belongs
+  inside the non-nil branch.
+
+- **`internal/app` had a test that synchronized on a fixed sleep**, asserting
+  services were running after 20ms. It failed under load and reported a
+  service-startup bug that did not exist. It now waits for the condition.
+
+### Notes
+
+- Both concurrency fixes ship with regression tests that were verified by
+  reintroducing the original code: the old defer order produces
+  `panic: send on closed channel`, and the old blocking send produces a hang at
+  three and ten concurrent failures. Two services alone does *not* hang, because
+  the single receive drains the buffer just in time — which is why this survived
+  as long as it did.
+- The injection fix was likewise verified in both directions: the old form
+  executed a `$(...)` planted in the ignore file; the new one treats it as a
+  literal pattern.
+- `Makefile` is excluded from the update sync, so an existing project keeps its
+  own copy — comment out the `build:` override by hand if yours still has it.
+
 ## v1.2.19 — 2026-08-06
 
 Build-context and ignore-file hygiene. No code change.

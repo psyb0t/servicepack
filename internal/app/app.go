@@ -75,19 +75,31 @@ func (a *App) Run(ctx context.Context) error {
 	a.cancel = cancel
 	a.cancelMu.Unlock()
 
+	// Defers run LIFO, so these three are registered in the REVERSE of the
+	// order they must run in: Stop first (it cancels the context, which is
+	// what lets the goroutine below finish), then wait for that goroutine to
+	// actually exit, and only then close the channel it sends on.
+	//
+	// Registered the other way round, close(errCh) runs while its producer is
+	// still live: a shutdown racing a non-nil error out of ServiceManager.Run
+	// panics the process with "send on closed channel" during what should be a
+	// graceful stop, and Stop lands last -- after the wait it was meant to
+	// unblock. ServiceManager.Run already registers the same trio in this
+	// order; this function used to disagree with it.
+	errCh := make(chan error, 1)
+	defer close(errCh)
+
+	defer a.wg.Wait()
+
 	defer func() {
 		if err := a.Stop(ctx); err != nil {
 			slog.Error("failed to stop app", "error", err)
 		}
 	}()
-	defer a.wg.Wait()
 
 	for _, hook := range a.preRunHooks {
 		hook(ctx)
 	}
-
-	errCh := make(chan error, 1)
-	defer close(errCh)
 
 	a.wg.Go(func() {
 		if err := a.serviceManager.Run(ctx); err != nil {

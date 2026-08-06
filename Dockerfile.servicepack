@@ -1,5 +1,5 @@
 # Production Dockerfile - Multi-stage build
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS builder
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -18,13 +18,24 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build binary with static linking
-RUN CGO_ENABLED=0 go build -a \
-    -ldflags '-extldflags "-static"' \
+# Build binary with static linking.
+#
+# The app name is derived from go.mod's module path and injected into
+# main.appName, which cmd/main.go uses as cobra's Use:/Short:. Without it the
+# binary falls back to the literal "servicepack" and a downstream project's
+# image introduces itself by the framework's name in its own --help. `make
+# build` has always injected it; this build path used to skip it, so the two
+# produced differently-named binaries from the same source.
+RUN APP_NAME="$(head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')" && \
+    CGO_ENABLED=0 go build -a \
+    -ldflags "-extldflags \"-static\" -X main.appName=${APP_NAME}" \
     -o ./build/app ./cmd/...
 
 # Final stage - minimal runtime image
-FROM alpine:latest
+# Pinned by digest, not by tag: a tag is mutable, so `alpine:latest` lets an
+# upstream republish different bytes under the same name and your next build
+# silently picks them up. Bump this deliberately.
+FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates

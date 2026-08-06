@@ -10,25 +10,31 @@ BLUE='\033[0;34m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
-# Helper functions for pretty output
+# Diagnostics go to STDERR, never stdout.
+#
+# Every script in this tree sources this file, so when these wrote to stdout any
+# caller that captured a script's output — `VAR=$(some_script.sh)`, or piping it
+# into another command — got the decorated banners mixed in with the data it
+# actually wanted. stdout is the script's OUTPUT; stderr is where the running
+# commentary belongs.
 info() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC} $1"
+    echo -e "${BLUE}${BOLD}[INFO]${NC} $1" >&2
 }
 
 success() {
-    echo -e "${GREEN}${BOLD}[SUCCESS]${NC} $1"
+    echo -e "${GREEN}${BOLD}[SUCCESS]${NC} $1" >&2
 }
 
 warning() {
-    echo -e "${YELLOW}${BOLD}[WARNING]${NC} $1"
+    echo -e "${YELLOW}${BOLD}[WARNING]${NC} $1" >&2
 }
 
 error() {
-    echo -e "${RED}${BOLD}[ERROR]${NC} $1"
+    echo -e "${RED}${BOLD}[ERROR]${NC} $1" >&2
 }
 
 section() {
-    echo ""
-    echo -e "${BOLD}=== $1 ===${NC}"
-    echo ""
+    echo "" >&2
+    echo -e "${BOLD}=== $1 ===${NC}" >&2
+    echo "" >&2
 }

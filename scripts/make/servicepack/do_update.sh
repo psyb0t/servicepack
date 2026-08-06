@@ -96,21 +96,35 @@ section "Updating Framework Files"
 # moment you scaffold: a framework update can never rewrite your opt-outs, and
 # equally never adds new default ones to an existing project. When a release
 # adds an entry, existing downstreams have to copy it over by hand.
-EXCLUDE_ARGS="--exclude=internal/pkg/services/* \
-    --exclude=README.md \
-    --exclude=LICENSE \
-    --exclude=CHANGELOG.md \
-    --exclude=.git \
-    --exclude=.gitignore \
-    --exclude=.servicepackupdateignore \
-    --exclude=Makefile \
-    --exclude=Dockerfile \
-    --exclude=Dockerfile.dev \
-    --exclude=build/ \
-    --exclude=coverage.txt \
-    --exclude=vendor/ \
-    --exclude=go.mod \
-    --exclude=go.sum"
+# An ARRAY, not a string, and passed to rsync without `eval`.
+#
+# This used to be one space-joined string expanded through `eval`, with the
+# downstream's own .servicepackupdateignore lines concatenated onto it below.
+# eval re-parses that whole command line, so any shell metacharacter in that
+# file — a backtick, a $(...), a ; — executed during `make servicepack-update`.
+# An array member is passed to rsync as a single literal argument, so the
+# contents of that file can no longer be anything but a pattern.
+#
+# The `*` in the first entry is deliberate and must stay unexpanded: rsync does
+# its own pattern matching, and quoting is what guarantees the shell keeps its
+# hands off it.
+EXCLUDE_ARGS=(
+    "--exclude=internal/pkg/services/*"
+    "--exclude=README.md"
+    "--exclude=LICENSE"
+    "--exclude=CHANGELOG.md"
+    "--exclude=.git"
+    "--exclude=.gitignore"
+    "--exclude=.servicepackupdateignore"
+    "--exclude=Makefile"
+    "--exclude=Dockerfile"
+    "--exclude=Dockerfile.dev"
+    "--exclude=build/"
+    "--exclude=coverage.txt"
+    "--exclude=vendor/"
+    "--exclude=go.mod"
+    "--exclude=go.sum"
+)
 
 # Add excludes from .servicepackupdateignore if it exists
 if [ -f ".servicepackupdateignore" ]; then
@@ -119,7 +133,7 @@ if [ -f ".servicepackupdateignore" ]; then
         # Skip comments (lines starting with #) and empty lines
         [[ "$line" =~ ^[[:space:]]*# ]] && continue
         [[ -z "${line// }" ]] && continue
-        EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude=$line"
+        EXCLUDE_ARGS+=("--exclude=$line")
     done < .servicepackupdateignore
 fi
 
@@ -135,7 +149,7 @@ SYNCED_FILES=$(mktemp)
 trap 'rm -f "$SYNCED_FILES"' EXIT
 
 set -o pipefail
-eval "rsync -av --out-format='%n' $EXCLUDE_ARGS \"$TEMP_DIR/\" ./" | tee "$SYNCED_FILES"
+rsync -av --out-format='%n' "${EXCLUDE_ARGS[@]}" "$TEMP_DIR/" ./ | tee "$SYNCED_FILES"
 set +o pipefail
 
 section "Running Post-Update Script"

@@ -247,7 +247,9 @@ func (s *ServiceManager) buildServiceCommand(
 					"error", err,
 				)
 
-				return err
+				return ctxerrors.Wrapf(
+					err, "instantiate service %s", name,
+				)
 			}
 
 			cmdr, ok := svc.(Commander)
@@ -521,7 +523,24 @@ func (s *ServiceManager) handleServiceError(
 		return
 	}
 
-	errCh <- err
+	// Non-blocking on purpose. errCh has capacity 1 and Run receives from it at
+	// most once, so a plain send parks every concurrent failure after the first
+	// forever — and Run's `defer s.wg.Wait()` then never returns, turning a
+	// reported error into a hung process. A bare send is not selectable, so
+	// context cancellation cannot rescue it either.
+	//
+	// Dropping the later errors is the correct semantic rather than a
+	// compromise: the documented contract is that the FIRST non-allowed
+	// failure stops everything, and what follows is a consequence of that
+	// same shutdown. They are logged here so nothing vanishes silently.
+	select {
+	case errCh <- err:
+	default:
+		slog.Error("service failed after an earlier failure stopped the app",
+			"service", service.Name(),
+			"error", err,
+		)
+	}
 }
 
 func (s *ServiceManager) safeRun(

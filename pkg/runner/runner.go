@@ -28,7 +28,7 @@ type config struct {
 func Run(runnable Runnable) error {
 	cfg, err := getConfig()
 	if err != nil {
-		return err
+		return ctxerrors.Wrap(err, "get runner config")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -113,13 +113,19 @@ func (r *appRunner) waitForShutdown(
 
 		return nil
 	case err := <-errCh:
+		// The wrap stays inside the non-nil branch: ctxerrors logs an ERROR of
+		// its own when handed a nil, so wrapping unconditionally would emit a
+		// bogus "Trying to wrap a nil error" line on every clean shutdown that
+		// arrives through this channel.
 		if err != nil {
 			slog.Error("application error",
 				"error", err,
 			)
+
+			return ctxerrors.Wrap(err, "run application")
 		}
 
-		return err
+		return nil
 	}
 }
 
