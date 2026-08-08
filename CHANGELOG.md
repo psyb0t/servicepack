@@ -4,6 +4,27 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.22 — 2026-08-08
+
+`slogging` v1.7.0. The framework's own code was unaffected; the scaffold's docs
+were not.
+
+- `slogging` v1.6.1 → v1.7.0, which rebuilt that module's handler API:
+  `MultiWriterHandler` is gone, the fan-out moved to a `handlers` package, and
+  `AddHandler` split into **`AddSink`** (add a destination) and **`SetOutput`**
+  (change where the process prints, keeping the destinations). The framework
+  uses the blank import and never names a handler type, so no framework code
+  changed and the vendor tree just follows.
+- **The custom-handler example is now `slogconf.AddSink(myCustomHandler)`** — in
+  the README, and in `cmd/init.go`'s own comment. That is the part that actually
+  mattered here: a project generated from this scaffold copies those, so an
+  example calling a function that no longer exists would fail to compile in
+  every new project while the framework itself built fine.
+- If you have a generated project on the old call, `AddHandler` becomes
+  `AddSink`. Reach for `SetOutput` instead when what you wanted was to replace
+  stdout/stderr rather than add alongside it — adding a second console handler
+  prints every line twice.
+
 ## v1.2.21 — 2026-08-08
 
 The logging dependency was renamed upstream. No framework behaviour changed.

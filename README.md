@@ -232,7 +232,7 @@ package main
 import "github.com/psyb0t/slogging/slogconf"
 
 func init() {
-    slogconf.AddHandler(myLokiHandler)
+    slogconf.AddSink(myLokiHandler)
 }
 ```
 

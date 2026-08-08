@@ -734,8 +734,9 @@ github.com/psyb0t/gofindimpl
 # github.com/psyb0t/gonfiguration v1.5.1
 ## explicit; go 1.25
 github.com/psyb0t/gonfiguration
-# github.com/psyb0t/slogging v1.6.1
+# github.com/psyb0t/slogging v1.7.0
 ## explicit; go 1.26
+github.com/psyb0t/slogging/handlers
 github.com/psyb0t/slogging/slogconf
 # github.com/quasilyte/go-ruleguard v0.4.5
 ## explicit; go 1.22.0

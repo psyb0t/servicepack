@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/slogging/handlers"
 )
 
 // The environment variables read when Options does not name others.
@@ -25,7 +26,7 @@ const (
 const (
 	defaultAddSource = false
 	defaultLevel     = levelInfo
-	defaultFormat    = formatText
+	defaultFormat    = handlers.DefaultFormat
 )
 
 // Options selects which environment variables configure logging and what they
@@ -86,8 +87,15 @@ func (o Options) withDefaults() Options {
 }
 
 type config struct {
-	Level     level
-	Format    format
+	// Level is the configured NAME, kept for the startup log line.
+	Level level
+
+	// SlogLevel is that name resolved. Resolving during readConfig rather than
+	// after it keeps every validation in one place, so the order failures
+	// surface in is the order the settings are read.
+	SlogLevel slog.Level
+
+	Format    handlers.Format
 	AddSource bool
 }
 
@@ -136,22 +144,18 @@ func configureWith(opts Options) error {
 		return err
 	}
 
-	slogLevel, err := getSlogLevel(c.Level)
-	if err != nil {
-		return ctxerrors.Wrap(err, "failed to get log level")
-	}
-
-	handlerOpts := &slog.HandlerOptions{
+	handler, err := handlers.NewStd(handlers.Options{
+		Format:    c.Format,
+		Level:     c.SlogLevel,
 		AddSource: c.AddSource,
-		Level:     slogLevel,
-	}
-
-	handler, err := NewMultiWriterHandler(c.Format, handlerOpts, nil, nil)
+	})
 	if err != nil {
 		return ctxerrors.Wrap(err, "failed to create log handler")
 	}
 
-	slog.SetDefault(slog.New(NewFanOutHandler(handler)))
+	// Installed as the fan-out's slot 0 rather than bare, so SetOutput has a
+	// slot to swap and AddSink has somewhere to append.
+	SetHandlers(handler)
 
 	c.log()
 
@@ -164,12 +168,28 @@ func configureWith(opts Options) error {
 // struct-tag config loader. The tag is what made the variable names
 // unchangeable without forking this package, and it is the entire reason Options
 // exists. Nothing is lost by reading here: these are three plain variables with
-// no validation beyond what getSlogLevel and getSlogHandler already do, and no
+// no validation beyond what getSlogLevel and parseFormat already do, and no
 // config file has ever been involved.
 func readConfig(opts Options) (config, error) {
+	// Level before format, deliberately: with both misconfigured the level
+	// error is the one that surfaces, and a test pins that ordering so it
+	// cannot drift silently.
+	levelName := level(envOrDefault(opts.LevelEnvVar, opts.DefaultLevel))
+
+	slogLevel, err := getSlogLevel(levelName)
+	if err != nil {
+		return config{}, ctxerrors.Wrap(err, "failed to get log level")
+	}
+
+	logFormat, err := parseFormat(envOrDefault(opts.FormatEnvVar, opts.DefaultFormat))
+	if err != nil {
+		return config{}, err
+	}
+
 	c := config{
-		Level:     level(envOrDefault(opts.LevelEnvVar, opts.DefaultLevel)),
-		Format:    format(envOrDefault(opts.FormatEnvVar, opts.DefaultFormat)),
+		Level:     levelName,
+		SlogLevel: slogLevel,
+		Format:    logFormat,
 		AddSource: opts.DefaultAddSource,
 	}
 
