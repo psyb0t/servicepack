@@ -2,14 +2,95 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.6.2 — 2026-08-01
+
+Repository infrastructure only, no library change.
+
+- Every push now mirrors the repo to GitLab and Codeberg, so the source stays
+  fetchable if GitHub is unavailable. Gitee is wired but left off — it binds
+  repo creation to a mobile number and silently creates the repo private
+  without one.
+- Pushes to the default branch and every tag are archived to the Wayback
+  Machine and Software Heritage, through the authenticated Save Page Now API,
+  with README outlinks captured too. Feature-branch pushes are skipped because
+  the archive is rate-limited.
+- Issues filed on the Codeberg and GitLab mirrors are pulled back into GitHub
+  every six hours, so a bug reported on a mirror reaches the same tracker.
+  Scheduled runs jitter to avoid stampeding the mirrors; a manual run does not.
+- `.dockerignore` keeps the local `.telemetry/` scratch dir out of any build
+  context.
+
+The Go code, the public API and `go.mod` are untouched — `v1.6.2` is byte-for-byte
+`v1.6.1` as far as the library is concerned.
+
+## v1.6.1 — 2026-07-31
+
+CI only, no library change.
+
+- Restores a green pipeline and the GitHub Release artifact. The shared Go
+  workflow had gained a codegen-drift gate that defaulted to running
+  `make generate` and failing if the tree moved afterwards. This repo generates
+  nothing and has no such target, so that job failed on `v1.6.0` and the release
+  step, which depends on it, was skipped along with it. The gate is now opt-in
+  upstream and stays off here. The `v1.6.0` tag itself is fine and `go get`
+  resolves it normally.
+
+## v1.6.0 — 2026-07-31
+
+Errors now carry the file, line and function they came from.
+
+- Every error is built with [ctxerrors](https://github.com/psyb0t/ctxerrors)
+  instead of `fmt.Errorf`, across `Parse`, the field walker and every type
+  setter. A parse failure now names the exact field and the exact setter that
+  rejected it, along with each hop it was wrapped at, rather than a bare
+  message you have to trace back by hand:
+
+  ```
+  failed to parse fields: failed to set field value: field API_KEY: required field not set
+    [gonfiguration.go:169 in fillFieldValue]
+    [gonfiguration.go:112 in parseDstFields]
+    [gonfiguration.go:44 in Parse]
+  ```
+
+- The exported sentinels in `errors.go` are unchanged and still declared with
+  `errors.New`, so `errors.Is(err, gonfiguration.ErrRequiredFieldNotSet)` and
+  friends match exactly as before, through the added wrapping.
+- **No longer dependency-free.** `github.com/psyb0t/ctxerrors` is now a direct
+  dependency, replacing the previous stdlib-only guarantee. It is a small
+  package with no dependencies of its own beyond the standard library.
+
+## v1.5.4 — 2026-07-27
+
+Go 1.26 + lint tooling (`modernize` → built-in `go fix`).
+
+- Bumped the `go` directive to 1.26 (`go.mod` + CI).
+- `make lint` / `make lint-fix` now use Go 1.26's built-in `go fix` (`-diff`
+  check in `lint`, apply in `lint-fix`) instead of the `modernize` analyzer, and
+  the `modernize` tool directive is dropped from `go.mod`.
+- `go fix` modernized one deprecated stdlib reference: `reflect.Ptr` →
+  `reflect.Pointer` in `gonfiguration.go` (`reflect.Ptr` is a deprecated alias for
+  the same constant — no behavior change).
+
+## v1.5.3 — 2026-07-27
+
+Self-hosted README badges.
+
+- **Coverage / version / license badges are self-rendered SVGs** served from
+  `raw.githubusercontent.com/psyb0t/gonfiguration/badges/*.svg` — no third-party
+  render service. `make test-coverage` writes the percentage to
+  `coverage-percent.txt`, the pipeline uploads it, and a `badges` job bakes it
+  into the SVG. The CI badge is switched to GitHub's native `badge.svg`. No
+  library code changed.
+
+## v1.5.2 — 2026-07-27
+
+- Bump `github.com/stretchr/testify` 1.10.0 → 1.11.1 (test dependency).
+
 ## v1.5.1 — 2026-07-26
 
-Coverage reporting to Codecov + README badges.
+README badges + repo housekeeping.
 
-- **Codecov coverage upload.** `pipeline.yml` enables the reusable workflow's
-  Codecov step; `make test-coverage` keeps `coverage.txt` (previously deleted
-  on exit) so CI can upload it.
-- **README badges.** pkg.go.dev reference + GitHub Actions CI status badges.
+- pkg.go.dev reference + GitHub Actions CI status badges.
 - Added a GitHub Sponsors funding config; CI restricted to collaborators only;
   README tweaks. No library code changed.
 

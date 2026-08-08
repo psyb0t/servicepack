@@ -2,3 +2,5 @@
 coverage.*
 CLAUDE.md
 git-update.sh
+coverage-percent.txt
+.telemetry/
