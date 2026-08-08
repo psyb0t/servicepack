@@ -53,7 +53,7 @@ cd servicepack
 make run-dev
 ```
 
-Builds a dev image and runs the shipped example services (`hello-world`, `example-database`, `example-api`, `example-migrator`, `example-optional`, `example-flaky`, `example-crasher`) so you can see retries, dependencies, allowed failures, readiness gating, and a crash-everything failure in action before committing to `make own`.
+Builds a dev image and runs the shipped example services (`hello-world`, `example-database`, `example-api`, `example-migrator`, `example-optional`, `example-flaky`, `example-crasher`, `example-nested/http`, `example-nested/grpc`) so you can see retries, dependencies, allowed failures, readiness gating, and a crash-everything failure in action before committing to `make own`.
 
 ## Environment variables the framework itself reads
 

@@ -4,6 +4,25 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.23 — 2026-08-08
+
+Documentation. No code change.
+
+- The scaffolded-service snippet showed a body that waits on `ctx.Done()` and
+  returns nil. `scripts/make/servicepack/service.sh` emits
+  `panic("TODO: Implement <name> service logic")` — the opposite of a service
+  that quietly does nothing, and deliberately so.
+- The registration step named `scripts/make/service_registration.sh`; the script
+  is at `scripts/make/servicepack/service_registration.sh`.
+- The example-services list omitted `example-nested/http` and
+  `example-nested/grpc`, which ship.
+- The coverage note said examples and `cmd` are excluded. The exclusion is
+  `/cmd` plus the **entire** `internal/pkg/services` tree — every user service,
+  not just the examples — and `service-manager/mocks.go` is filtered out of the
+  profile afterwards.
+- Clarified that `make own` removes the `example-*` services and keeps
+  `hello-world`, which `own.sh` says in as many words.
+
 ## v1.2.22 — 2026-08-08
 
 `slogging` v1.7.0. The framework's own code was unaffected; the scaffold's docs

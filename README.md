@@ -273,7 +273,7 @@ Hooks execute sequentially in registration order. Pre-run hooks receive the app 
 ## How Services Actually Work
 
 1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
-2. The `scripts/make/service_registration.sh` script finds all Service implementations
+2. The `scripts/make/servicepack/service_registration.sh` script finds all Service implementations
 3. It generates `internal/pkg/services/services.gen.go` with a `services.Init()` function
 4. `services.Init()` registers service factories (cheap, no connections) at startup
 5. Factories are only called when actually needed: `./app run` instantiates all (filtered by `SERVICES_ENABLED`), `./app <service> <subcommand>` instantiates only that service
@@ -297,7 +297,7 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 - `make build` - Build the binary using Docker (static linking)
 - `make dep` - Get dependencies with `go mod tidy` and `go mod vendor`
 - `make test` - Run all tests with race detection
-- `make test-coverage` - Run tests with 90% coverage requirement (excludes example services and cmd packages)
+- `make test-coverage` - Run tests with 90% coverage requirement (excludes `/cmd` and the entire `internal/pkg/services` tree — every user service, not just the examples — and filters `service-manager/mocks.go` out of the coverage profile)
 - `make lint` - Lint with `go fix` (diff-only) + golangci-lint (80+ linters)
 - `make lint-fix` - Apply `go fix` modernizations + golangci-lint auto-fixes
 - `make clean` - Clean build artifacts and coverage files
@@ -643,7 +643,7 @@ Tests are structured per component:
 - `internal/pkg/service-manager/errors_test.go` - Error definition and matching tests
 - Each service should have its own `*_test.go` files
 
-90% test coverage is required by default (excludes example services and cmd packages). The coverage check runs with race detection and fails if below threshold.
+90% test coverage is required by default (excludes `/cmd` and the entire `internal/pkg/services` tree — every user service, not just the examples — and filters `service-manager/mocks.go` out of the coverage profile). The coverage check runs with race detection and fails if below threshold.
 
 ### Test Isolation
 
@@ -686,6 +686,7 @@ Core dependencies:
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
 - [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
 - [`github.com/psyb0t/goenv`](https://github.com/psyb0t/goenv) - Environment detection (prod/dev)
+- [`github.com/psyb0t/gonfiguration`](https://github.com/psyb0t/gonfiguration) - Env-var config parsing (used by `pkg/runner` and every generated service)
 
 Development dependencies:
 
@@ -738,7 +739,7 @@ Services can live in nested directories under `internal/pkg/services/`. The code
 
 Run them all: `go run ./cmd run` or `make run-dev`
 
-These get removed when you run `make own`.
+The `example-*` services get removed when you run `make own`; `hello-world` stays as your starting point.
 
 ## Agent integrations
 

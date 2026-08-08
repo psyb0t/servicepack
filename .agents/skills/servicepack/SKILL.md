@@ -109,10 +109,7 @@ func (s *MyWorker) Name() string {
 
 func (s *MyWorker) Run(ctx context.Context) error {
 	slog.Info("starting service", "service", ServiceName)
-	// your logic — listen on ctx.Done() and return cleanly when cancelled
-	<-ctx.Done()
-
-	return nil
+	panic("TODO: Implement my-worker service logic")
 }
 
 func (s *MyWorker) Stop(_ context.Context) error {
