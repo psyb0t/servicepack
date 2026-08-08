@@ -5,3 +5,4 @@ CLAUDE.md
 git-update.sh
 plan.md
 coverage-percent.txt
+.telemetry/
