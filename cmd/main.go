@@ -8,7 +8,7 @@ import (
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 	"github.com/psyb0t/servicepack/internal/pkg/services"
 	"github.com/psyb0t/servicepack/pkg/runner"
-	_ "github.com/psyb0t/slog-configurator"
+	_ "github.com/psyb0t/slogging/slogconf"
 	"github.com/spf13/cobra"
 )
 

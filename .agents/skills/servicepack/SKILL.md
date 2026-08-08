@@ -1,6 +1,6 @@
 ---
 name: servicepack
-description: Build a Go service on psyb0t/servicepack — clone-and-own framework (not a `go get` library) providing a Service interface (Name/Run/Stop), a singleton ServiceManager that runs services concurrently with dependency-ordered topological start, automatic retry (Retryable), non-fatal failures (AllowedFailure), readiness gating (ReadyNotifier), per-service CLI subcommands (Commander), an App singleton with OnPreRun/OnPostStop lifecycle hooks, gofindimpl-based service auto-discovery codegen, slog-configurator logging, and a graceful-shutdown Runner. Import path github.com/psyb0t/servicepack. Use when the user wants to build a Go service/daemon with concurrent long-running workers, retry/dependency/readiness semantics, or a `make service NAME=x` scaffolded multi-service binary.
+description: Build a Go service on psyb0t/servicepack — clone-and-own framework (not a `go get` library) providing a Service interface (Name/Run/Stop), a singleton ServiceManager that runs services concurrently with dependency-ordered topological start, automatic retry (Retryable), non-fatal failures (AllowedFailure), readiness gating (ReadyNotifier), per-service CLI subcommands (Commander), an App singleton with OnPreRun/OnPostStop lifecycle hooks, gofindimpl-based service auto-discovery codegen, slogging/slogconf logging, and a graceful-shutdown Runner. Import path github.com/psyb0t/servicepack. Use when the user wants to build a Go service/daemon with concurrent long-running workers, retry/dependency/readiness semantics, or a `make service NAME=x` scaffolded multi-service binary.
 homepage: https://github.com/psyb0t/servicepack
 user-invocable: true
 permissions:
@@ -237,7 +237,7 @@ func commands() []*cobra.Command {
 
 ## Logging and config
 
-- Logging is `log/slog`, wired by `github.com/psyb0t/slog-configurator`. Add extra `slog.Handler`s (Loki, Datadog, etc.) in `cmd/init.go`; every `slog.Info/Warn/Error` call across the framework and your services goes to every registered handler.
+- Logging is `log/slog`, wired by `github.com/psyb0t/slogging/slogconf`. Add extra `slog.Handler`s (Loki, Datadog, etc.) in `cmd/init.go`; every `slog.Info/Warn/Error` call across the framework and your services goes to every registered handler.
 - Config is `github.com/psyb0t/gonfiguration` — struct tags (`env:"MYWORKER_VALUE"`), `gonfiguration.Parse(&cfg)`, `gonfiguration.SetDefaults(map[string]any{...})`. Never `os.Getenv` directly.
 - Errors are wrapped with `github.com/psyb0t/ctxerrors` (`ctxerrors.Wrap(err, "doing X")`) for file/line/function context.
 

@@ -4,6 +4,20 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.2.21 — 2026-08-08
+
+The logging dependency was renamed upstream. No framework behaviour changed.
+
+- `github.com/psyb0t/slog-configurator` is now `github.com/psyb0t/slogging`, with
+  the configurator at `slogging/slogconf`. The blank import in `cmd/main.go` and
+  the vendor tree follow it. Every exported name is unchanged, so `AddHandler`,
+  `SetHandlers` and the `LOG_LEVEL` / `LOG_FORMAT` / `LOG_ADD_SOURCE` variables
+  behave exactly as before.
+- The docs that tell you what to import moved with it: the `cmd/init.go`
+  custom-handler example in the README and in `cmd/init.go`'s own comment, the
+  dependency list, the env-var section, and the skill under `.agents/`. These
+  matter more than the import itself here — scaffolded projects copy them.
+
 ## v1.2.20 — 2026-08-06
 
 Two concurrency bugs in the core, a broken quick start, and a command-injection

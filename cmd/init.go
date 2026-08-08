@@ -7,7 +7,7 @@ package main
 // Example - add a custom slog handler:
 //
 //	func init() {
-//		slogconfigurator.AddHandler(myCustomHandler)
+//		slogconf.AddHandler(myCustomHandler)
 //	}
 
 //nolint:gochecknoinits

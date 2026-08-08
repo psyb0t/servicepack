@@ -229,10 +229,10 @@ Then `./app seed` just works. These are standalone commands separate from servic
 // cmd/init.go
 package main
 
-import slogconfigurator "github.com/psyb0t/slog-configurator"
+import "github.com/psyb0t/slogging/slogconf"
 
 func init() {
-    slogconfigurator.AddHandler(myLokiHandler)
+    slogconf.AddHandler(myLokiHandler)
 }
 ```
 
@@ -445,7 +445,7 @@ scripts/make/                        # Build script system
 The framework uses these:
 
 ```bash
-# Logging (via slog-configurator)
+# Logging (via slogging/slogconf)
 LOG_LEVEL=debug          # debug, info, warn, error
 LOG_FORMAT=json          # json, text
 LOG_ADD_SOURCE=true      # show file:line in logs
@@ -682,7 +682,7 @@ Tests are structured per component:
 
 Core dependencies:
 
-- `log/slog` with [`slog-configurator`](https://github.com/psyb0t/slog-configurator) - Logging
+- `log/slog` with [`slogging`](https://github.com/psyb0t/slogging) - Logging
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
 - [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
 - [`github.com/psyb0t/goenv`](https://github.com/psyb0t/goenv) - Environment detection (prod/dev)

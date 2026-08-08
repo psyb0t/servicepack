@@ -1,7 +1,10 @@
 # ctxerrors
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/psyb0t/ctxerrors.svg)](https://pkg.go.dev/github.com/psyb0t/ctxerrors)
-[![CI](https://img.shields.io/github/actions/workflow/status/psyb0t/ctxerrors/pipeline.yml?branch=main)](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml)
+[![CI](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml)
+[![coverage](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/coverage.svg)](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml)
+[![version](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/version.svg)](https://github.com/psyb0t/ctxerrors/tags)
+[![license](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/license.svg)](LICENSE)
 
 ```
  ####  ##### #    # ###### #####  #####   ####  #####   ####  
@@ -25,6 +28,7 @@ A Go library that wraps errors with context information (file, line, function) b
   - [Creating new errors](#creating-new-errors)
   - [Wrapping existing errors](#wrapping-existing-errors)
   - [Formatted wrapping](#formatted-wrapping)
+  - [Joining errors](#joining-errors)
 - [Error output](#error-output)
   - [Error chaining](#error-chaining)
   - [Stupid inline chaining](#stupid-inline-chaining)
@@ -51,6 +55,7 @@ This package automatically captures where your errors happen in your code. No mo
 - **New()** - Creates a new error with location context
 - **Wrap()** - Wraps existing errors with additional context and location
 - **Wrapf()** - Like Wrap() but with printf-style formatting because we're not animals
+- **Join()** - Squashes a pile of errors into one that still knows where they got squashed. For when one thing fans out and several bits can shit the bed independently — three log sinks, a batch of rows, whatever. See [Joining errors](#joining-errors).
 - **SetErrorMap() / MapError() / ClearErrorMap()** - Translate foreign sentinel errors (gorm, sql, redis...) into your own business errors at wrap time. See [Error mapping](#error-mapping).
 
 All functions return a `*CTXError` that implements the standard `error` interface and supports `errors.Unwrap()`, `errors.Is()`, and `errors.As()` because Go's error handling conventions aren't completely ass-backwards.
@@ -96,6 +101,26 @@ func connectToDatabase(host string, port int) error {
     return nil
 }
 ```
+
+### Joining errors
+
+Sometimes one operation fans out and more than one branch can fail on its own. Bailing on the first failure means the rest never even get attempted, and you find out about exactly one problem when there were three. Do all the work, collect what broke, hand it back as one error:
+
+```go
+func writeToAllSinks(sinks []Sink, record Record) error {
+    var errs []error
+
+    for i, sink := range sinks {
+        if err := sink.Write(record); err != nil {
+            errs = append(errs, ctxerrors.Wrapf(err, "sink %d failed", i))
+        }
+    }
+
+    return ctxerrors.Join(errs...)
+}
+```
+
+`Join()` ignores nil errors and returns nil when every one of them is nil, so you can hand it the slice without checking whether anything actually went wrong. The result unwraps to what the standard library's `errors.Join` produces, which means `errors.Is()` and `errors.As()` still find any of the individual errors you put in — and unlike the standard library version, the result knows the line where you joined them.
 
 ## Error output
 

@@ -1,9 +1,10 @@
-package slogconfigurator
+package slogconf
 
 import (
-	"fmt"
 	"log/slog"
 	"strings"
+
+	"github.com/psyb0t/ctxerrors"
 )
 
 type level string
@@ -27,5 +28,5 @@ func getSlogLevel(lvl level) (slog.Level, error) {
 		return slog.LevelError, nil
 	}
 
-	return 0, fmt.Errorf("%s: %w", lvl, ErrInvalidLogLevel)
+	return 0, ctxerrors.Wrapf(ErrInvalidLogLevel, "%s", lvl)
 }
