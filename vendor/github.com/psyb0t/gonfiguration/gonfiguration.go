@@ -1,13 +1,14 @@
 package gonfiguration
 
 import (
-	"fmt"
 	"maps"
 	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/psyb0t/ctxerrors"
 )
 
 //nolint:gochecknoglobals
@@ -29,18 +30,18 @@ func init() {
 func Parse(dst any) error {
 	envVars, err := getEnvVars()
 	if err != nil {
-		return fmt.Errorf("failed to get env vars: %w", err)
+		return ctxerrors.Wrap(err, "failed to get env vars")
 	}
 
 	gonfig.setEnvVars(envVars)
 
 	dstVal, err := getDstStructValue(dst)
 	if err != nil {
-		return fmt.Errorf("invalid destination: %w", err)
+		return ctxerrors.Wrap(err, "invalid destination")
 	}
 
 	if err := parseDstFields(dstVal, envVars); err != nil {
-		return fmt.Errorf("failed to parse fields: %w", err)
+		return ctxerrors.Wrap(err, "failed to parse fields")
 	}
 
 	return nil
@@ -108,7 +109,7 @@ func parseDstFields(
 		}
 
 		if err := fillFieldValue(fieldValue, key, required, envVars, tagDefault); err != nil {
-			return fmt.Errorf("failed to set field value: %w", err)
+			return ctxerrors.Wrap(err, "failed to set field value")
 		}
 	}
 
@@ -147,7 +148,7 @@ func fillFieldValue(
 	// Tag default has lowest priority
 	if tagDefault != nil {
 		if err := setEnvVarValue(fieldValue, *tagDefault); err != nil {
-			return fmt.Errorf("field %s: invalid default tag value %q: %w", key, *tagDefault, err)
+			return ctxerrors.Wrapf(err, "field %s: invalid default tag value %q", key, *tagDefault)
 		}
 	}
 
@@ -165,7 +166,7 @@ func fillFieldValue(
 	envVal, hasEnvVar := envVars[key]
 	if !hasEnvVar {
 		if required && !hasDefault {
-			return fmt.Errorf("field %s: %w", key, ErrRequiredFieldNotSet)
+			return ctxerrors.Wrapf(ErrRequiredFieldNotSet, "field %s", key)
 		}
 
 		return nil
@@ -218,7 +219,11 @@ func setEnvVarValue(
 	case reflect.Bool:
 		return setBool(fieldValue, envVal)
 	default:
-		return fmt.Errorf("FieldName: %s FieldType %s: %w", fieldValue.Type(), fieldValue.Kind(), ErrUnsupportedFieldType)
+		return ctxerrors.Wrapf(
+			ErrUnsupportedFieldType,
+			"FieldName: %s FieldType %s",
+			fieldValue.Type(), fieldValue.Kind(),
+		)
 	}
 
 	return nil
@@ -230,7 +235,7 @@ func setInt(
 ) error {
 	num, err := strconv.ParseInt(envVal, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse int: %w", err)
+		return ctxerrors.Wrap(err, "failed to parse int")
 	}
 
 	fieldValue.SetInt(num)
@@ -244,7 +249,7 @@ func setUint(
 ) error {
 	num, err := strconv.ParseUint(envVal, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse uint: %w", err)
+		return ctxerrors.Wrap(err, "failed to parse uint")
 	}
 
 	fieldValue.SetUint(num)
@@ -258,7 +263,7 @@ func setFloat(
 ) error {
 	num, err := strconv.ParseFloat(envVal, fieldValue.Type().Bits())
 	if err != nil {
-		return fmt.Errorf("failed to parse float: %w", err)
+		return ctxerrors.Wrap(err, "failed to parse float")
 	}
 
 	fieldValue.SetFloat(num)
@@ -272,7 +277,7 @@ func setBool(
 ) error {
 	b, err := strconv.ParseBool(envVal)
 	if err != nil {
-		return fmt.Errorf("failed to parse bool: %w", err)
+		return ctxerrors.Wrap(err, "failed to parse bool")
 	}
 
 	fieldValue.SetBool(b)
@@ -286,7 +291,7 @@ func setDuration(
 ) error {
 	d, err := time.ParseDuration(envVal)
 	if err != nil {
-		return fmt.Errorf("failed to parse duration: %w", err)
+		return ctxerrors.Wrap(err, "failed to parse duration")
 	}
 
 	fieldValue.Set(reflect.ValueOf(d))
@@ -320,7 +325,7 @@ func getDstStructValue(dst any) (reflect.Value, error) {
 	}
 
 	val := reflect.ValueOf(dst)
-	if val.Kind() != reflect.Ptr {
+	if val.Kind() != reflect.Pointer {
 		return reflect.Value{}, ErrTargetNotPointer
 	}
 
