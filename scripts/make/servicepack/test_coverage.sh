@@ -22,9 +22,14 @@ if ! go test -race -coverprofile=coverage.txt "${packages[@]}"; then
 	exit 1
 fi
 
-# Filter generated test doubles from the aggregate while keeping ordinary test
-# files in scope. awk is available in the Alpine dev image; GNU grep -P is not.
-awk '!/internal\/pkg\/service-manager\/mocks\.go:/' coverage.txt \
+# Filter generated code from the coverage aggregate while keeping ordinary test
+# files in scope: the framework's own service-manager mocks, plus any `*.gen.go`
+# a downstream commits (oapi-codegen servers, gorm-gen repositories, etc.).
+# Generated code is not hand-written, so it must not count toward — or dilute —
+# the coverage floor; this is why a downstream no longer needs to override this
+# script just to exclude its generated output. awk is available in the Alpine
+# dev image; GNU grep -P is not.
+awk '!/internal\/pkg\/service-manager\/mocks\.go:/ && !/\.gen\.go:/' coverage.txt \
 	>coverage_filtered.txt
 
 coverage_summary=$(go tool cover -func=coverage_filtered.txt | awk '$1 == "total:" { print $3 }')

@@ -38,3 +38,22 @@ section() {
 	echo -e "${BOLD}=== $1 ===${NC}" >&2
 	echo "" >&2
 }
+
+# require_cmds — fail fast if any required external tool is missing, and list
+# EVERY missing one at once so a single run surfaces them all. Call this BEFORE
+# a script mutates any state (backups, branches, file writes). It is what keeps
+# `servicepack-update` from stranding a repo on a half-made update branch
+# because rsync / jq / etc. was only discovered missing partway through.
+require_cmds() {
+	local missing=()
+	local cmd
+	for cmd in "$@"; do
+		command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+	done
+
+	if [ "${#missing[@]}" -gt 0 ]; then
+		error "Missing required tools: ${missing[*]}"
+		warning "Install them and re-run — nothing has been changed yet."
+		exit 1
+	fi
+}

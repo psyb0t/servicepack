@@ -4,6 +4,26 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.4.0 — 2026-08-14
+
+Framework updates now fail fast on missing tools instead of stranding the repo
+on a half-made update branch, and the coverage gate no longer counts generated
+code — so a downstream that commits generated servers/repositories doesn't have
+to override the coverage script just to exclude them.
+
+- `servicepack-update` now preflights every external tool the update shells out
+  to — `git`, `tar`, `rsync`, `jq`, `docker`, `go` — BEFORE creating the backup
+  and update branch, and reports every missing one at once. Previously a missing
+  `rsync` / `jq` surfaced only mid-update, after the branch had already been
+  created, leaving a dirty tree to clean up by hand. A shared `require_cmds`
+  helper in `common.sh` makes the same preflight available to any script.
+- `make test-coverage` now also filters `*.gen.go` out of the coverage profile
+  (alongside the framework's service-manager mocks). Generated code is not
+  hand-written and must not count toward — or dilute — the coverage floor, so a
+  downstream committing generated servers/repositories no longer needs to
+  override the coverage script. Lint already skips generated files via the
+  golangci-lint `generated: lax` setting.
+
 ## v1.3.4 — 2026-08-14
 
 The `make build` / `make run-dev` build target no longer breaks in a project

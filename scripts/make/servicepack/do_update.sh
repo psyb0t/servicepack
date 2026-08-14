@@ -31,6 +31,13 @@ source "$SCRIPT_DIR/common.sh"
 # All git + file operations run against the downstream project.
 cd "$REPO_ROOT"
 
+# Preconditions FIRST — before the backup + update branch below. The whole
+# update flow shells out to these: tar (backup), rsync (the sync), git (branch
+# + commit), plus docker/go/jq for the dev-image build and service registration
+# that run at the end. Discovering one missing halfway through would strand the
+# repo on a half-made update branch, which is exactly what this guards against.
+require_cmds git tar rsync jq docker go
+
 CURRENT_BRANCH=$(git branch --show-current)
 
 section "Preparing Update"
