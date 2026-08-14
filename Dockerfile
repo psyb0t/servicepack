@@ -29,7 +29,7 @@ COPY . .
 RUN APP_NAME="$(head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')" && \
     CGO_ENABLED=0 go build -a \
     -ldflags "-X main.appName=${APP_NAME} -X main.buildCommit=${BUILD_COMMIT}" \
-    -o ./build/app ./cmd/...
+    -o ./build/app ./cmd
 
 # Final stage - minimal runtime image
 # Pinned by digest, not by tag: a tag is mutable, so `alpine:latest` lets an

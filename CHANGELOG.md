@@ -4,6 +4,19 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.3.4 — 2026-08-14
+
+The `make build` / `make run-dev` build target no longer breaks in a project
+that adds a second `cmd/` main (a codegen tool such as `cmd/repogen`).
+
+- Build `./cmd` instead of `./cmd/...` in `build.sh`, `run_dev.sh`, `Dockerfile`
+  and `Dockerfile.servicepack`. `./cmd/...` compiled every `main` under `cmd/`
+  into a single `-o` output, which fails ("cannot write multiple packages to a
+  non-directory") the moment a downstream drops a tool binary next to the app
+  entrypoint. `./cmd` builds only the app package in `cmd/`; a repo-local tool
+  belongs in the `go.mod` `tool` block and is run via `go tool`, never built
+  into the app image.
+
 ## v1.3.3 — 2026-08-14
 
 Dependency maintenance now works correctly in repositories that commit their

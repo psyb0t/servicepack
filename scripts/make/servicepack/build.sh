@@ -36,7 +36,7 @@ docker run --rm \
         apk add --no-cache gcc musl-dev && \
         CGO_ENABLED=0 go build -a \
         -ldflags "-X main.appName=${APP_NAME} -X main.buildCommit=${BUILD_COMMIT}" \
-        -o "./build/${APP_NAME}" ./cmd/... && \
+        -o "./build/${APP_NAME}" ./cmd && \
         chown "${USER_UID}:${USER_GID}" "./build/${APP_NAME}"
     '
 
