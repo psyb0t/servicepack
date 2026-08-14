@@ -1,7 +1,7 @@
 {
   "name": "servicepack",
-  "version": "1.3.0",
-  "description": "Go service framework — clone-and-own template with a concurrent service manager, retry/dependency/readiness semantics, and CLI scaffolding via make service",
+  "version": "1.3.1",
+  "description": "Clone-and-own Go service framework: debug related services together locally, then ship one binary or split them into microservices with lifecycle, retry, readiness, and CLI scaffolding.",
   "author": { "name": "psyb0t", "url": "https://github.com/psyb0t" },
   "homepage": "https://github.com/psyb0t/servicepack",
   "repository": "https://github.com/psyb0t/servicepack",

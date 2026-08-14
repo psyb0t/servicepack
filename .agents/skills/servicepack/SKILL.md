@@ -1,6 +1,6 @@
 ---
 name: servicepack
-description: Build a Go service on psyb0t/servicepack — clone-and-own framework (not a `go get` library) providing a Service interface (Name/Run/Stop), a singleton ServiceManager that runs services concurrently with dependency-ordered topological start, automatic retry (Retryable), non-fatal failures (AllowedFailure), readiness gating (ReadyNotifier), per-service CLI subcommands (Commander), an App singleton with OnPreRun/OnPostStop lifecycle hooks, gofindimpl-based service auto-discovery codegen, ctxscope/slogging structured logging, and a graceful-shutdown Runner. Import path github.com/psyb0t/servicepack. Use when the user wants to build a Go service/daemon with concurrent long-running workers, retry/dependency/readiness semantics, or a `make service NAME=x` scaffolded multi-service binary.
+description: Build a Go service on psyb0t/servicepack — clone-and-own framework (not a `go get` library) providing a Service interface (Name/Run/Stop), a singleton ServiceManager that runs services concurrently with dependency-ordered topological start, automatic retry (Retryable), non-fatal failures (AllowedFailure), readiness gating (ReadyNotifier), per-service CLI subcommands (Commander), an App singleton with OnPreRun/OnPostStop lifecycle hooks, gofindimpl-based service auto-discovery codegen, ctxscope/slogging structured logging, and a graceful-shutdown Runner. Import path github.com/psyb0t/servicepack. Use when the user wants related Go services debugged together locally, then deployed as one binary or split into separate microservices, with retry/dependency/readiness semantics.
 homepage: https://github.com/psyb0t/servicepack
 user-invocable: true
 permissions:
@@ -16,20 +16,22 @@ permissions:
       - "cmd/init.go"
       - "cmd/commands.go"
   shell:
-    - "go build ./..."
-    - "go test ./..."
-    - "go vet ./..."
+    - "make dev-image"
     - "make service NAME=*"
     - "make service-registration"
     - "make build"
     - "make test"
+    - "make test-integration"
+    - "make test-coverage"
     - "make lint"
+    - "make format"
+    - "make audit"
 metadata:
   openclaw:
     emoji: "📦"
     requires:
       bins:
-        - go
+        - docker
 ---
 
 # servicepack — build a Go service on the framework
@@ -254,4 +256,4 @@ export SERVICES_ENABLED="my-worker,another-service"   # comma-separated; unset/e
 
 ## Further reading
 
-`references/setup.md` has the install/module details, required Go version, and a fuller worked example with `Retryable` + `Dependent` + `ReadyNotifier` combined.
+`references/setup.md` has the install/module details, Docker/toolchain requirements, and a fuller worked example with `Retryable` + `Dependent` + `ReadyNotifier` combined.

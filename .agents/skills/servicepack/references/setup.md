@@ -15,14 +15,19 @@ make own MODNAME=github.com/yourname/yourproject
 - nukes `.git`, runs `git init` fresh on `main`
 - rewrites the module name everywhere (`go.mod` + every import)
 - replaces `README.md` with a stub for your project name
-- runs `go mod tidy` / `go mod vendor`
+- runs the Docker-backed dependency and registration targets
 - creates the initial commit
 
 Your binary name is derived from `go.mod`'s module name (last path segment) at build time — no separate app-name config.
 
-## Required Go version
+## Go and Docker requirements
 
-`go.mod` pins `go 1.26.4`. `make own` checks your local `go version` against this and refuses to proceed if you're older. Bump the pin in `go.mod` yourself if you need a newer toolchain; it flows through on the next `make servicepack-update`.
+`go.mod` declares Go `1.26.4`. The supported Make targets run that project
+toolchain in the development/build Docker images, so `make own` does not reject
+an older host Go installation. Docker must be available for normal dependency,
+generation, build, lint, and test work. Keep the `go.mod` declaration aligned
+with the framework version you are updating to; do not treat an arbitrary host
+Go version as the project contract.
 
 ## Module path / import path
 

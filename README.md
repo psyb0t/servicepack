@@ -13,780 +13,111 @@ ___ ___ _____   _____ ___ ___ ___  _   ___ _  __
 [![version](https://raw.githubusercontent.com/psyb0t/servicepack/badges/version.svg)](https://github.com/psyb0t/servicepack/tags)
 [![license](https://raw.githubusercontent.com/psyb0t/servicepack/badges/license.svg)](LICENSE)
 
-A Go service framework that runs your shit concurrently without fucking around.
+Clone-and-own Go service framework: run related services together locally so
+you can debug the whole fucking thing in one process, then deploy it as one
+binary or split those services into separate microservices when that makes
+sense.
 
-## Table of Contents
+This is a template repo, not a `go get` library. It gives a new Go project a
+concurrent service supervisor, lifecycle runner, Docker-first build/test
+workflow, generated service registration, and sane places to customize it.
 
-**Getting Started**
+## Quick start
 
-- [What is this?](#what-is-this)
-- [Quick Start (Make It Your Own in 30 Seconds)](#quick-start-make-it-your-own-in-30-seconds)
-- [Just Want to Try It First?](#just-want-to-try-it-first)
-
-**Core Concepts**
-
-- [Creating Services](#creating-services)
-- [Service Interface](#service-interface)
-  - [Optional Interfaces](#optional-interfaces)
-  - [Custom CLI Commands](#custom-cli-commands)
-  - [Custom Initialization](#custom-initialization)
-  - [Lifecycle Hooks](#lifecycle-hooks)
-- [How Services Actually Work](#how-services-actually-work)
-  - [Service Filtering](#service-filtering)
-
-**Essential Tools**
-
-- [The Makefile (Your New Best Friend)](#the-makefile-your-new-best-friend)
-  - [Basic Commands](#basic-commands)
-  - [Service Management](#service-management)
-  - [Development](#development)
-  - [Framework Management](#framework-management)
-  - [Backup Management](#backup-management)
-  - [Script Customization](#script-customization)
-
-**System Details**
-
-- [Architecture](#architecture)
-  - [Key Components](#key-components)
-- [Environment Variables](#environment-variables)
-- [Build System Details](#build-system-details)
-  - [Build Process](#build-process)
-
-**Framework Management**
-
-- [Framework Updates](#framework-updates)
-  - [Review and Apply Updates](#review-and-apply-updates)
-  - [Customizing Updates with .servicepackupdateignore](#customizing-updates-with-servicepackupdateignore)
-
-**Internals**
-
-- [Concurrency Model](#concurrency-model)
-- [Error Handling](#error-handling)
-- [Testing](#testing)
-  - [Test Isolation](#test-isolation)
-- [Pre-commit Hook](#pre-commit-hook)
-
-**Reference**
-
-- [Dependencies](#dependencies)
-- [Directory Structure](#directory-structure)
-- [Example Services](#example-services)
-- [Agent integrations](#agent-integrations)
-- [Changelog](#changelog)
-- [License](#license)
-
-## What is this?
-
-You write services, this thing runs them. All your services go into one binary so you can debug the fuck out of service-to-service calls without dealing with distributed bullshit. Run everything locally, then deploy individual services as microservices when you're ready. Or just fuckin' deploy everything together, y not.
-
-## Quick Start (Make It Your Own in 30 Seconds)
+Use a fresh clone—`make own` deliberately removes the clone's Git history,
+rewrites its module path, removes shipped example services (except
+`hello-world`), initializes a new repository, and creates its first commit.
 
 ```bash
-# Clone this shit
-git clone https://github.com/psyb0t/servicepack
-cd servicepack
-
-# Make it yours
-make own MODNAME=github.com/yourname/yourproject
-
-# Build and run
+git clone https://github.com/psyb0t/servicepack.git my-service
+cd my-service
+make own MODNAME=github.com/yourname/my-service
+make service NAME=worker
 make build
-./build/yourproject run
+./build/my-service run
 ```
 
-This will:
+The normal Make targets use Docker, so you do not need a matching host Go
+toolchain for `make build`, `make test`, or `make lint`. Docker must be
+available. See [getting started](docs/getting-started.md) before pointing it
+at a clone you care about.
 
-- Nuke the .git directory
-- Replace the module name everywhere
-- Set you up with a fresh go.mod
-- Replace README with just your project name
-- Run `git init` to start fresh
-- Setup dependencies
-- Create initial commit on main branch
-
-You'll see the hello-world service spamming "Hello, World!" every 5 seconds. Hit Ctrl+C to stop it cleanly.
-
-## Just Want to Try It First?
+Want to poke the shipped examples first?
 
 ```bash
-git clone https://github.com/psyb0t/servicepack
+git clone https://github.com/psyb0t/servicepack.git
 cd servicepack
 make run-dev
 ```
 
-This builds a dev Docker image and runs it with debug logging. You'll see all the example services in action - retries, dependencies, allowed failures, one-shot jobs, and a crasher that takes everything down after ~30 seconds.
-
-## Creating Services
-
-Create a new service:
-
-```bash
-make service NAME=my-cool-service
-```
-
-This shits out a skeleton service at `internal/pkg/services/my-cool-service/`. Edit the generated file, put your logic in the `Run()` method. Done - your service starts automatically.
-
-Remove a service:
-
-```bash
-make service-remove NAME=my-cool-service
-```
-
-## Service Interface
-
-Every service implements this interface:
-
-```go
-type Service interface {
-    Name() string                        // Return service name
-    Run(ctx context.Context) error      // Your service logic goes here
-    Stop(ctx context.Context) error     // Cleanup logic (optional)
-}
-```
-
-The `Run()` method should:
-
-- Listen for `ctx.Done()` and return cleanly when cancelled
-- Return an error if something goes wrong (this will stop all services)
-- Do whatever the fuck your service is supposed to do
-
-The `Stop()` method is for cleanup - it runs when the app is shutting down.
-
-### Optional Interfaces
-
-Services can opt into advanced behavior by implementing these:
-
-```go
-// Retryable - service gets restarted on failure
-type Retryable interface {
-    MaxRetries() int
-    RetryDelay() time.Duration  // e.g. 5*time.Second
-}
-
-// AllowedFailure - service can die without killing everything
-type AllowedFailure interface {
-    IsAllowedFailure() bool
-}
-
-// Dependent - service waits for other services to start first
-type Dependent interface {
-    Dependencies() []string  // service names
-}
-
-// ReadyNotifier - signal when actually ready to serve
-type ReadyNotifier interface {
-    Ready() <-chan struct{}
-}
-
-// Commander - expose CLI subcommands
-type Commander interface {
-    Commands() []*cobra.Command
-}
-```
-
-**Retry**: When `Run()` returns an error, the service manager retries up to `MaxRetries()` times with `RetryDelay()` between attempts. If context is cancelled during the delay, it bails cleanly.
-
-**Allowed Failure**: When a service fails (even after retries), its error gets logged but doesn't propagate - other services keep running. Perfect for non-critical shit like cache warmers or metrics exporters.
-
-**Dependencies**: The service manager resolves a dependency graph using topological sort. Services with no deps start first, then their dependents, etc. Cyclic dependencies are detected and rejected. Dependencies on services not in the current process (external databases, services on other servers) are skipped with a debug log.
-
-**Ready Notification**: Services that implement `ReadyNotifier` signal when they're actually ready (listening, connected, etc.). The service manager waits for the Ready channel before starting dependent services. Services without it are considered ready as soon as their goroutine launches.
-
-**CLI Commands**: Services that implement `Commander` get their own CLI namespace: `./app <servicename> <subcommand>`. Only that service gets instantiated - no other services are touched. Returns standard cobra commands so you get flags, args, help, everything for free.
-
-You can combine them - a service can be retryable AND an allowed failure AND have dependencies AND signal readiness AND expose CLI commands.
-
-### Custom CLI Commands
-
-`cmd/commands.go` is your hook to add CLI commands. It's never touched by framework updates:
-
-```go
-// cmd/commands.go
-package main
-
-import "github.com/spf13/cobra"
-
-func commands() []*cobra.Command {
-    return []*cobra.Command{
-        {
-            Use:   "seed",
-            Short: "Seed the database",
-            Run: func(_ *cobra.Command, _ []string) {
-                // your logic
-            },
-        },
-    }
-}
-```
-
-Then `./app seed` just works. These are standalone commands separate from service commands.
-
-### Custom Initialization
-
-`cmd/init.go` is your hook to run shit before the app starts. It's never touched by framework updates. Use it to add custom slog handlers, set up global config, or anything else:
-
-```go
-// cmd/init.go
-package main
-
-import "github.com/psyb0t/slogging/slogconf"
-
-func init() {
-    slogconf.AddSink(myLokiHandler)
-}
-```
-
-Every log line goes through the handlers you register. Framework and generated services use `ctxscope.GetLogger(ctx)`, which carries the binary, commit, and current service as structured fields. For your own identity fields, derive a context with `ctxscope.Set(ctx, ctxscope.Attr("key", value))` before getting its logger. Want Loki? Datadog? Elasticsearch? Just write a `slog.Handler` and plug it in here.
-
-### Lifecycle Hooks
-
-The `App` exposes hooks so you can run custom logic at specific points in the lifecycle without touching framework files:
-
-```go
-// cmd/init.go
-package main
-
-import (
-    "context"
-
-    "github.com/yourname/yourproject/internal/app"
-    "github.com/yourname/yourproject/internal/pkg/metrics"
-)
-
-func init() {
-    // Runs before any service starts — use it to launch background
-    // goroutines, set up metrics pushers, warm caches, etc.
-    app.GetInstance().OnPreRun(func(ctx context.Context) {
-        go metrics.StartPush(ctx, "myapp")
-    })
-
-    // Runs after all services have stopped — use it for final
-    // cleanup, flushing buffers, closing connections, etc.
-    app.GetInstance().OnPostStop(func(ctx context.Context) {
-        metrics.Flush()
-    })
-}
-```
-
-Hooks execute sequentially in registration order. Pre-run hooks receive the app context so spawned goroutines respect the app lifecycle. Multiple hooks can be registered — they all run.
-
-## How Services Actually Work
-
-1. Services are auto-discovered using the [`gofindimpl`](https://github.com/psyb0t/gofindimpl) tool
-2. The `scripts/make/servicepack/service_registration.sh` script finds all Service implementations
-3. It generates `internal/pkg/services/services.gen.go` with a `services.Init()` function
-4. `services.Init()` registers service factories (cheap, no connections) at startup
-5. Factories are only called when actually needed: `./app run` instantiates all (filtered by `SERVICES_ENABLED`), `./app <service> <subcommand>` instantiates only that service
-
-### Service Filtering
-
-By default, all services run. To run specific services:
-
-```bash
-export SERVICES_ENABLED="hello-world,my-cool-service"
-./build/servicepack run
-```
-
-Leave `SERVICES_ENABLED` empty or unset to run all services.
-
-## The Makefile (Your New Best Friend)
-
-### Basic Commands
-
-- `make all` - Full pipeline: dep → lint-fix → test-coverage → build
-- `make build` - Build the binary using Docker (static linking)
-- `make dep` - Get dependencies with `go mod tidy` and `go mod vendor`
-- `make test` - Run all tests with race detection in the dev container, with the Docker socket mounted for Testcontainers
-- `make test-unit` - Run the framework unit-test suite
-- `make test-integration` - Run uncached race-enabled integration tests in the socket-mounted dev container
-- `make test-coverage` - Run tests in the socket-mounted dev container with a 90% coverage requirement (excludes `/cmd` and the entire `internal/pkg/services` tree — every user service, not just the examples — and filters `service-manager/mocks.go` out of the coverage profile)
-- `make lint` - Run `shfmt`, shellcheck, `go fix` (diff-only), and golangci-lint in the dev container
-- `make lint-fix` - Format shell scripts, then apply `go fix` modernizations + golangci-lint auto-fixes
-- `make format` - Format Go source with gofumpt and shell scripts with shfmt
-- `make audit` - Scan reachable code for known Go vulnerabilities
-- `make generate` - Run every package-local `go:generate` directive
-- `make pkg-add PKG=module@version` - Age-gate, add, tidy, and vendor one module
-- `make pkg-update PKG=module` - Age-gate and update one module
-- `make pkg-upgrade` - Age-gate and update direct modules
-- `make pkg-remove PKG=module` - Remove one module, then tidy and vendor
-- `make pkg-add-tool MODULE=module@version TOOL=package` - Add a pinned Go tool
-- `make pkg-remove-tool TOOL=package` - Remove a Go tool
-- `make clean` - Clean build artifacts and coverage files
-
-### Service Management
-
-- `make service NAME=foo` - Create new service
-- `make service-remove NAME=foo` - Remove service
-- `make service-registration` - Regenerate service discovery
-
-### Development
-
-- `make run-dev` - Run in development Docker container
-- `make docker-build-dev` - Build dev image
-
-### Docker
-
-- `make docker-build` - Build production Docker image
-- `make docker-build-dev` - Build development Docker image
-
-### Framework Management
-
-- `make servicepack-update` - Update to latest servicepack framework (creates backup first)
-- `make servicepack-update-review` - Review pending framework update changes
-- `make servicepack-update-merge` - Merge pending framework update
-- `make servicepack-update-revert` - Revert pending framework update
-- `make own MODNAME=github.com/you/project` - Make this framework your own
-
-### Backup Management
-
-- `make backup` - Create timestamped backup in `/tmp` and `.backup/`
-- `make backup-restore [BACKUP=filename.tar.gz]` - Restore from backup (defaults to latest, nukes everything first)
-- `make backup-clear` - Delete all backup files
-
-**Note**: Framework updates (`make servicepack-update`) automatically create backups before making changes.
-
-### Script Customization
-
-You can override any framework script by creating a user version:
-
-```bash
-# Create custom script (will override framework version)
-cp scripts/make/servicepack/test.sh scripts/make/test.sh
-# Edit your custom version
-vim scripts/make/test.sh
-```
-
-The Makefile checks for user scripts first (`scripts/make/`), then falls back to framework scripts (`scripts/make/servicepack/`). This lets you customize any build step while preserving the ability to update the framework without conflicts.
-
-**Framework scripts** (in `scripts/make/servicepack/`):
-
-- Get updated when you run `make servicepack-update`
-- Always preserved - your customizations won't get overwritten
-
-**User scripts** (in `scripts/make/`):
-
-- Take priority over framework scripts
-- Never touched by framework updates
-- Perfect for project-specific build customizations
-
-### Makefile Customization
-
-The build system uses a split Makefile approach:
-
-```bash
-# Override any framework command by defining it in your Makefile
-build: ## Custom build command
-	@echo "Running my custom build..."
-	@docker build -t myapp .
-
-# Add your own custom commands
-deploy: ## Deploy to production
-	@./deploy.sh
-```
-
-**How it works:**
-
-- `Makefile.servicepack` - Contains all framework commands (updated by framework)
-- `Makefile` - Your file that includes servicepack + allows custom commands (never touched)
-- User commands override framework commands automatically
-- `make help` shows both user and framework commands
-
-### Dockerfile Customization
-
-Both development and production Docker environments use the override pattern:
-
-```bash
-# Customize development environment
-cp Dockerfile.servicepack.dev Dockerfile.dev
-vim Dockerfile.dev
-
-# Customize production environment
-cp Dockerfile.servicepack Dockerfile
-vim Dockerfile
-```
-
-**How it works:**
-
-- `Dockerfile.servicepack.dev` - Framework development image (updated by framework)
-- `Dockerfile.dev` - Your custom development image (never touched)
-- `Dockerfile.servicepack` - Framework production image (updated by framework)
-- `Dockerfile` - Your custom production image (never touched)
-- `make docker-build-dev` automatically uses your custom development version if it exists
-
-## Architecture
+The examples show retries, dependency ordering, readiness, allowed failures,
+and a deliberate crash that stops the process after roughly 36 seconds.
+
+## Why this exists
+
+Local composition is the useful bit: workers, API servers, migrations, and
+other process-level services can run together with one signal path and one
+structured log stream. That is not a lifetime commitment to a monolith.
+
+- **One binary:** ship the related services together when they genuinely share
+  a release cadence and operational boundary.
+- **Separate deployables:** move a service behind HTTP, gRPC, a queue, or
+  another process boundary when it needs independent scaling, ownership, or
+  failure isolation. Servicepack's in-process `Dependent` contract only
+  coordinates services present in that binary; external dependencies belong in
+  the service's own connection and retry logic.
+
+## Everyday workflow
+
+| Command | What it does |
+| --- | --- |
+| `make service NAME=worker` | Scaffold a service and regenerate registration. |
+| `make test` | Run race-enabled tests in the development container. |
+| `make test-integration` | Run uncached, race-enabled tests with Docker available to Testcontainers. |
+| `make test-coverage` | Enforce the default 90% framework coverage floor. |
+| `make lint` | Run shell and Go linting in Docker. |
+| `make build` | Produce a static binary in `build/`, with binary name and source commit in log scope. |
+| `make docker-build` | Build the production image. |
+| `make help` | List every available target. |
+
+`make servicepack-update` updates the framework copy in a project made from
+this template. Read [framework updates](docs/framework-updates.md) first; it
+expects a clean repository and creates a backup/update branch.
+
+## Documentation
+
+| Read this | For |
+| --- | --- |
+| [Getting started](docs/getting-started.md) | Turning a fresh clone into your project, then adding and running a service. |
+| [Services and lifecycle](docs/services-and-lifecycle.md) | Interface contracts, dependencies, retries, commands, filtering, logging, and shutdown. |
+| [Development](docs/development.md) | Docker-first Make targets, Testcontainers, coverage, builds, and overrides. |
+| [Architecture](docs/architecture.md) | The process topology, ownership boundaries, generated registration, and deployment choices. |
+| [Framework updates](docs/framework-updates.md) | Updating a clone safely and keeping project customizations out of the blast radius. |
+| [Service manager deep dive](internal/pkg/service-manager/README.md) | Exact orchestration semantics and test conventions. |
+| [Runner deep dive](pkg/runner/README.md) | Signals, parent contexts, and shutdown deadline behavior. |
+| [Framework Make scripts](scripts/make/servicepack/README.md) | The updateable script layer and user overrides. |
+
+## Project layout
 
 ```
-cmd/main.go                          # Entry point, CLI setup
-internal/app/                        # Application layer
-├── app.go                          # Main app orchestration
-internal/pkg/
-├── service-manager/                 # Framework service orchestration
-│   ├── service_manager.go          # Concurrent service runner
-│   ├── errors.go                   # Framework error definitions
-│   └── *_test.go                   # Framework tests
-└── services/                       # User service space
-    ├── services.gen.go             # Auto-generated services.Init() function
-    ├── hello-world/                # Example: basic long-running service
-    ├── example-database/           # Example: retryable service
-    ├── example-api/                # Example: service with dependencies
-    ├── example-migrator/           # Example: one-shot with allowed failure
-    ├── example-optional/           # Example: allowed failure
-    ├── example-flaky/              # Example: fails then recovers
-    ├── example-crasher/            # Example: crashes and kills everything
-    └── your-service/               # Your services go here
-scripts/make/                        # Build script system
-├── servicepack/                    # Framework scripts (updated by framework)
-│   ├── build.sh                   # Docker build script
-│   ├── dep.sh                     # Dependency management
-│   ├── test.sh                    # Test runner
-│   └── *.sh                       # Other framework scripts
-└── [custom scripts]               # User overrides (take priority)
+cmd/                            entry point plus your init/CLI extension points
+internal/app/                   application lifecycle wrapper
+internal/pkg/service-manager/   concurrent service orchestration
+internal/pkg/services/          your services and generated registration
+pkg/runner/                     signal-aware lifecycle runner
+scripts/make/servicepack/       updateable framework Make scripts
+scripts/make/                   project-specific script overrides
+docs/                           operational and architectural documentation
 ```
-
-### Key Components
-
-**ServiceManager**: Runs your services concurrently with dependency ordering, automatic retries, and allowed failures. Handles shutdown and error propagation. It's a singleton because globals are fine when you know what you're doing.
-
-**Service Registration**: Auto-discovery using [`gofindimpl`](https://github.com/psyb0t/gofindimpl) finds all your Service implementations and generates a `services.Init()` function that registers factories. No manual registration bullshit. Services are only instantiated when needed - `run` creates all, CLI commands create only the one they need.
-
-**App**: Wrapper that runs the ServiceManager and handles the lifecycle shit. Exposes `OnPreRun` and `OnPostStop` hooks so downstream projects can inject custom logic without modifying framework files.
-
-## Environment Variables
-
-The framework uses these:
-
-```bash
-# Logging (via slogging/slogconf)
-LOG_LEVEL=debug          # debug, info, warn, error
-LOG_FORMAT=json          # json, text
-LOG_ADD_SOURCE=true      # show file:line in logs
-
-# Environment (via goenv)
-ENV=dev                  # dev, prod (default: prod)
-
-# Runner
-RUNNER_SHUTDOWNTIMEOUT=10s   # graceful shutdown timeout (default: 10s)
-
-# Service filtering
-SERVICES_ENABLED=service1,service2   # comma-separated, empty = all
-
-# Your services can define their own env vars
-```
-
-## Build System Details
-
-The build system is dynamic as fuck:
-
-1. App name is extracted from `go.mod` automatically
-2. Binary gets built with static linking (no external deps)
-3. App name is injected at build time via ldflags
-4. Docker builds ensure consistent environment
-
-### Build Process
-
-```makefile
-APP_NAME := $(shell head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')
-
-build:
-    docker run --rm -v $(PWD):/app -w /app golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 \
-        sh -c "apk add --no-cache gcc musl-dev && \
-               CGO_ENABLED=0 go build -a \
-               -ldflags '-extldflags \"-static\" -X main.appName=$(APP_NAME)' \
-               -o ./build/$(APP_NAME) ./cmd/..."
-```
-
-This means your binary name matches your module name automatically.
-
-## Framework Updates
-
-Keep your servicepack framework up to date:
-
-```bash
-make servicepack-update
-```
-
-This runs a thin bootstrap (`servicepack_update.sh`) that:
-
-1. Checks for uncommitted changes (fails if found)
-2. Compares current version with latest
-3. Downloads the latest framework
-4. Hands off to `do_update.sh` **from the freshly downloaded copy** — so the
-   newest update logic always drives the update, even when it's the update
-   logic itself that changed (see note below)
-
-`do_update.sh` then:
-
-5. Creates a backup
-6. Creates update branch `servicepack_update_to_VERSION`
-7. Syncs framework files
-8. Merges the framework's `go.mod` dependencies into yours **upgrade-only** —
-   your own deps and `CHANGELOG.md` are never overwritten or downgraded (see
-   below)
-9. Commits changes to update branch for review
-10. Leaves you on update branch to review and test
-
-> **Why the split?** The updater updates itself. If all the logic lived in the
-> installed `servicepack_update.sh`, a fix to that logic could never protect the
-> update that installs it — you'd always run one-version-old update logic. By
-> keeping `servicepack_update.sh` a minimal bootstrap and running the real work
-> from the freshly downloaded `do_update.sh`, every future change to update
-> behavior takes effect on the first update that ships it.
-
-### Review and Apply Updates
-
-After running `make servicepack-update`:
-
-```bash
-# Review what changed
-make servicepack-update-review
-
-# Test the update
-make dep && make service-registration && make test
-
-# If satisfied, merge the update
-make servicepack-update-merge
-
-# If not satisfied, discard the update
-make servicepack-update-revert
-```
-
-### Customizing Updates with .servicepackupdateignore
-
-You already have one — it ships with the framework and it's yours from the
-moment you scaffold. The update never overwrites it, so your opt-outs are safe.
-Flip side: it never *adds* to it either, so when a servicepack release
-introduces a new default entry, existing projects copy that line across by hand.
-
-Add any framework file you've customized:
-
-```
-# Custom framework modifications
-.golangci.yml
-scripts/custom_*
-
-# Local configuration files
-*.local
-.env*
-```
-
-**What it already ignores for you, and why.** The update is an rsync of the
-framework tree over yours, so anything servicepack ships that isn't a baseline
-for *your* app doesn't get updated — it gets **added**. These entries exist to
-publish, fund and document servicepack itself, so they're wrong on arrival
-rather than a starting point you'd customize:
-
-| Entry | Why it's ignored by default |
-|---|---|
-| `.github/workflows/mirror-and-archive.yml` | Force-pushes the repo to public GitLab + Codeberg and saves it to the Wayback Machine. servicepack is public; **your project may not be** — inheriting this turns your next tag into a disclosure the archive won't forget. |
-| `.github/workflows/issue-pull.yml` | Relays issues back from those mirrors. With no mirrors it's a cron job that runs forever and finds nothing. |
-| `.github/workflows/pipeline.yml` | The framework's pipeline builds and releases *the framework*, including publishing its agent skill to ClawHub. Yours is yours: codegen gates, web builds, integration suites, image publishing. |
-| `.github/FUNDING.yml` | Sponsor links for servicepack's author, not yours. |
-| `.agents` | The agent skill describing *servicepack*. In your repo it tells an agent it's looking at the framework instead of your app. |
-| `.gitleaks.toml` | Allowlists are per-repo by nature — they name the untracked paths *this* tree has, not yours. |
-| `.dockerignore` | Pairs with `Dockerfile` / `Dockerfile.dev`, which are already yours. |
-| `.github/dependabot.yml` | Your dependency policy: which ecosystems, the cooldown window, the own-package excludes. |
-| `cmd/init.go`, `cmd/commands.go` | Your lifecycle and CLI hooks. |
-
-Delete any line you'd rather the framework keep pushing to you.
-
-**Framework vs User Files**:
-
-```
-cmd/                           # Framework files
-internal/app/                  # Framework files
-internal/pkg/service-manager/  # Framework files
-scripts/make/servicepack/      # Framework scripts (updated by servicepack-update)
-scripts/make/                  # User scripts (override framework, never touched)
-Makefile.servicepack           # Framework Makefile (updated by servicepack-update)
-Makefile                       # User Makefile (includes servicepack, never touched)
-Dockerfile.servicepack.dev     # Framework development image (updated by servicepack-update)
-Dockerfile.dev                 # User development image (overrides framework, never touched)
-Dockerfile.servicepack         # Framework production image (updated by servicepack-update)
-Dockerfile                     # User production image (never touched)
-.github/workflows/             # Framework CI baseline (collaborators-only, etc.)
-.github/workflows/pipeline.yml # Ignored by default - your pipeline is yours
-.github/dependabot.yml         # Starter config, ignored by default - yours to own
-.github/FUNDING.yml            # Ignored by default - the framework's sponsors
-.agents/                       # Ignored by default - the framework's agent skill
-.gitleaks.toml                 # Ignored by default - allowlists are per-repo
-.dockerignore                  # Ignored by default - pairs with your Dockerfile
-.gitignore                     # Yours - never synced at all (see note below)
-LICENSE                        # Your project license
-.golangci.yml                  # Framework files
-go.mod                         # Your deps preserved; framework deps merged upgrade-only
-go.sum                         # Regenerated by `make dep` (never clobbered first)
-CHANGELOG.md                   # Your project changelog - never touched
-README.md                      # Your project docs
-internal/pkg/services/         # Your services - never touched
-```
-
-**`.gitignore` is never synced — in either direction.** It's excluded outright,
-not via `.servicepackupdateignore`, so nothing you put in it can ever be
-clobbered by an update. The flip side is the one that bites: when a servicepack
-release adds a new entry to its own `.gitignore`, **your project never gets it**,
-and nothing tells you. If a release note mentions a `.gitignore` change, copy the
-line across by hand. Same deal as `.servicepackupdateignore` itself.
-
-**Your dependencies are safe.** `go.mod` / `go.sum` are never overwritten by
-the update. Instead the framework's own `require` entries and `tool` directives
-are merged into your `go.mod` upgrade-only: what's missing is added, what the
-framework raised is bumped, and anything you already pin at an equal-or-higher
-version is left alone. Framework dependency bumps land without ever downgrading
-or dropping the deps your app added on top.
-
-Use `.servicepackupdateignore` to exclude any framework files you've customized.
-
-## Pre-commit Hook
-
-There's a `pre-commit.sh` script that runs `make lint && make test-coverage`. You can:
-
-- Use your favorite pre-commit tool to manage hooks
-- Use [`ez-pre-commit`](https://github.com/psyb0t/ez-pre-commit) to auto-setup Git hooks that run this script
-- Just use the simple script as-is (it runs lint and coverage checks)
-
-## Testing
-
-Tests are structured per component:
-
-- `internal/app/app_test.go` - Application tests with mock services
-- `internal/pkg/service-manager/service_manager_test.go` - Unit tests for retry, allowed failure, dependencies, concurrency
-- `internal/pkg/service-manager/service_manager_integration_test.go` - Integration tests combining all features end-to-end
-- `internal/pkg/service-manager/errors_test.go` - Error definition and matching tests
-- Each service should have its own `*_test.go` files
-
-90% test coverage is required by default (excludes `/cmd` and the entire `internal/pkg/services` tree — every user service, not just the examples — and filters `service-manager/mocks.go` out of the coverage profile). The coverage check runs with race detection and fails if below threshold.
-
-### Test Isolation
-
-- `ResetInstance()` resets the singleton for clean test state
-- `ClearServices()` clears all registered services
-- Mock services implement the Service interface for testing
-- Tests should avoid calling `services.Init()` and manually add mock services instead
-
-## Concurrency Model
-
-- Each service runs in its own goroutine
-- ServiceManager uses sync.WaitGroup for coordination
-- Context cancellation for clean shutdown
-- Services are started in dependency order (topological sort)
-- Services in the same dependency group start concurrently
-- Retryable services get restarted automatically on failure
-- Allowed-failure services can die without killing everything
-- Graceful shutdown cancels context and calls Stop() in reverse dependency order
-- Per-service stop timeout (30s default) prevents hung shutdowns
-- Panics in services are recovered and treated as errors
-
-## Error Handling
-
-- Service errors bubble up through the ServiceManager
-- First non-allowed-failure error stops all services
-- Allowed failures are logged but don't propagate
-- Retryable services exhaust retries before propagating
-- Context errors (cancellation) are treated as clean shutdown
-- All errors use [`ctxerrors`](https://github.com/psyb0t/ctxerrors) for context preservation
-- `ErrNoEnabledServices` - no services registered
-- `ErrCyclicDependency` - circular dependency detected
-- `ErrServicePanic` - service panicked (recovered, treated as error)
-- `ErrStopTimeout` - service didn't stop within timeout
-
-## Dependencies
-
-Core dependencies:
-
-- [`ctxscope`](https://github.com/psyb0t/ctxscope) with [`slogging`](https://github.com/psyb0t/slogging) - Scoped structured logging
-- [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
-- [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
-- [`github.com/psyb0t/goenv`](https://github.com/psyb0t/goenv) - Environment detection (prod/dev)
-- [`github.com/psyb0t/gonfiguration`](https://github.com/psyb0t/gonfiguration) - Env-var config parsing (used by `pkg/runner` and every generated service)
-
-Development dependencies:
-
-- [`golangci-lint`](https://github.com/golangci/golangci-lint) - Comprehensive linting (80+ linters: errcheck, govet, staticcheck, gosec, etc.)
-- [`testify`](https://github.com/stretchr/testify) - Testing assertions and mocks
-- [`gofindimpl`](https://github.com/psyb0t/gofindimpl) - Service auto-discovery tool
-
-## Directory Structure
-
-```
-.
-├── cmd/
-│   ├── main.go                    # Entry point
-│   └── init.go                    # Your custom init hooks
-├── pkg/runner/                     # App lifecycle runner
-├── internal/
-│   ├── app/                        # Application layer
-│   └── pkg/services/               # Services
-├── scripts/make/                   # Build script system
-│   ├── servicepack/               # Framework scripts (auto-updated)
-│   └── [user scripts]             # User overrides (take priority)
-├── build/                          # Build output
-├── vendor/                         # Vendored dependencies
-├── Makefile                        # User Makefile (includes servicepack framework)
-├── Makefile.servicepack            # Framework Makefile (auto-updated)
-├── Dockerfile                      # User production image (optional override)
-├── Dockerfile.dev                  # User development image (optional override)
-├── Dockerfile.servicepack          # Framework production image (auto-updated)
-├── Dockerfile.servicepack.dev      # Framework development image (auto-updated)
-└── servicepack.version             # Framework version tracking
-```
-
-## Example Services
-
-The framework ships with example services that demonstrate every lifecycle pattern:
-
-| Service | Pattern |
-|---|---|
-| `hello-world` | Long-running, no deps, basic service |
-| `example-database` | Long-running, retryable (2 retries, 2s delay), signals ready after startup |
-| `example-api` | Long-running, depends on database + flaky |
-| `example-migrator` | One-shot, depends on database, allowed failure, CLI commands (up/down/status) |
-| `example-optional` | Allowed failure, fails immediately but app keeps running |
-| `example-flaky` | Retryable (2 retries, 1s delay), fails twice then recovers |
-| `example-crasher` | Retryable (2 retries, 3s delay), fails all retries and kills everything |
-| `example-nested/http` | Nested directory, shares package name `server` with grpc sibling |
-| `example-nested/grpc` | Nested directory, shares package name `server` with http sibling |
-
-Services can live in nested directories under `internal/pkg/services/`. The codegen derives unique import aliases from the directory path, so `example-nested/http` and `example-nested/grpc` both use `package server` but get aliases `examplenestedhttp` and `examplenestedgrpc` - no collisions.
-
-Run them all: `go run ./cmd run` or `make run-dev`
-
-The `example-*` services get removed when you run `make own`; `hello-world` stays as your starting point.
 
 ## Agent integrations
 
-The [skill](.agents/skills/servicepack) works in any agent that reads `.agents/skills/`, and
-installs natively in the clients below.
-
-### Claude Code
-
-```bash
-claude plugin marketplace add psyb0t/agents
-claude plugin install servicepack@psyb0t
-```
-
-### Codex
-
-```bash
-codex plugin marketplace add psyb0t/agents
-codex plugin add servicepack@psyb0t
-```
-
-Installed via the marketplace, the skill invokes as `$servicepack:servicepack`. Codex also
-picks the skill up automatically with no install in any repo containing `.agents/skills/`,
-where it invokes as plain `$servicepack`.
-
-### OpenClaw
-
-The skill is published to ClawHub on every release:
-
-```bash
-openclaw skills install @psyb0t/servicepack
-```
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for release notes.
+Agent-facing setup and conventions live under
+[`.agents/skills/servicepack/`](.agents/skills/servicepack/). The skill is
+available through the psyb0t agents marketplace for Claude Code, Codex, and
+OpenClaw-compatible setups.
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE). Release history lives in
+[CHANGELOG.md](CHANGELOG.md).

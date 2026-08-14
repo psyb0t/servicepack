@@ -4,6 +4,21 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.3.1 — 2026-08-14
+
+Documentation and agent guidance now explain the framework without burying the
+useful shit in the root README.
+
+- Rebuilt the documentation hierarchy: the concise README points to explicit
+  guides for getting started, service lifecycle, development, architecture, and
+  framework updates, with technical READMEs beside the service manager, runner,
+  and framework Make scripts.
+- Clarified the actual deployment choice: compose related services locally for
+  easier debugging, then ship one binary or split them into independent
+  microservices when their scaling, ownership, or failure boundaries demand it.
+- Corrected agent setup to use the Docker-backed Make targets and removed the
+  false claim that `make own` rejects an older host Go toolchain.
+
 ## v1.3.0 — 2026-08-14
 
 Scoped logs and a container-only development workflow, without breaking the
