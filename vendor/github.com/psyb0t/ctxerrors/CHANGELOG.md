@@ -4,6 +4,77 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking API changes (called out
 explicitly), patch bumps are docs / build / fixes only.
 
+## v0.7.1 — 2026-08-11
+
+Rewrites the `commerr` package doc comment. No code changed.
+
+- The old comment called commerr "the vocabulary ctxerrors' error map translates
+  foreign driver errors into" — implying it is the only set `SetErrorMap` can
+  target — and framed the sentinels as "shared across services", too narrow for a
+  public, general-purpose package. The new comment describes them as
+  general-purpose sentinels any Go code can return and match with `errors.Is`,
+  usable with any wrapping, and notes they work as `SetErrorMap` targets without
+  claiming to be the only ones.
+
+## v0.7.0 — 2026-08-10
+
+Removes `commerr.ErrUnexpectedHTTPStatusCode` — it is HTTP-specific (61 → 60).
+
+- **Breaking.** `ErrUnexpectedHTTPStatusCode` describes an HTTP status code
+  coming back wrong, which is not transport-agnostic — the bar for `commerr`. It
+  is removed. Code that needs an HTTP-status sentinel should define one in its
+  HTTP package (`aichteeteapee` already ships `ErrUnexpectedResponseStatus`).
+- Everything else stays: rate limiting and auth (`ErrRateLimited`,
+  `ErrNotAuthenticated`, `ErrPermissionDenied`) are not HTTP-only — you can be
+  rate-limited on gRPC or a queue and fail auth on any protocol — so they remain.
+
+## v0.6.0 — 2026-08-10
+
+Expands `commerr` with 16 more general-purpose sentinels (45 → 61).
+
+- **Operation symmetry:** `ErrReadFailed` (the counterpart the existing
+  `ErrWriteFailed` never had), plus `ErrOpenFailed`, `ErrCloseFailed` and
+  `ErrExecFailed`.
+- **Capability:** `ErrNotImplemented`, `ErrUnsupported`.
+- **Validation:** `ErrValidationFailed`, `ErrOutOfRange`.
+- **Lifecycle / state:** `ErrClosed` (resting state to the existing
+  `ErrClosing`), `ErrNotReady`, `ErrInvalidState`, `ErrExpired`.
+- **Concurrency / capacity:** `ErrLockHeld`, `ErrConflict`, `ErrExhausted`.
+- **Access:** `ErrPermissionDenied` (authorization, distinct from the existing
+  `ErrNotAuthenticated`).
+- All are transport- and domain-agnostic, plain `errors.New` values that hold
+  under `errors.Is` through any `Wrap` depth — same contract as the rest of the
+  package. Nothing existing changed.
+
+## v0.5.0 — 2026-08-10
+
+Adds `commerr`, a subpackage holding the common sentinel errors.
+
+- **`commerr`** ships the shared sentinel vocabulary — `ErrNotFound`,
+  `ErrAlreadyExists`, `ErrFetchFailed`, `ErrTimeout`, `ErrUnavailable`,
+  `ErrRateLimited`, and the rest — as plain `errors.New` values that survive any
+  number of `Wrap` layers under `errors.Is`. Full list in `commerr/commerr.go`.
+- These are the natural targets for `SetErrorMap`. The mapping example in the
+  README now maps gorm's driver errors into `commerr.ErrNotFound` /
+  `commerr.ErrAlreadyExists` rather than hand-declared locals, since the map and
+  its targets finally live in one module.
+- It is a subpackage, not the root package: importing `ctxerrors` for wrapping
+  alone does not compile `commerr`, so a consumer that only wants file/line
+  context pays nothing for the vocabulary.
+- These same sentinels are also published by `common-go/errors`. That package is
+  being turned into a thin, deprecated re-export of `commerr` — same error
+  values, so `errors.Is` holds across both import paths — so existing imports
+  keep working while the canonical home moves here.
+
+## v0.4.5 — 2026-08-08
+
+Documentation. No code change.
+
+- The README said "All functions return a `*CTXError`". Three of the seven
+  return nothing at all: `SetErrorMap`, `MapError` and `ClearErrorMap` manage the
+  translation map. Corrected to name the four that do — `New`, `Wrap`, `Wrapf`
+  and `Join` — and say what the other three are for.
+
 ## v0.4.4 — 2026-08-08
 
 CI only, no library change.

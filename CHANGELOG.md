@@ -4,6 +4,17 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.3.3 — 2026-08-14
+
+Dependency maintenance now works correctly in repositories that commit their
+Go vendor tree, and the bundled psyb0t libraries and tools are current.
+
+- Make `pkg-add`, `pkg-update`, `pkg-upgrade`, and `pkg-add-tool` resolve
+  modules with `-mod=mod` before regenerating `vendor/`, instead of letting Go
+  force those mutation commands into read-only vendor mode.
+- Updated `ctxerrors` to 0.7.1, `goenv` to 1.0.10, `gonfiguration` to 1.6.4,
+  `slogging` to 1.7.1, and the `gofindimpl` tool to 1.0.12.
+
 ## v1.3.2 — 2026-08-14
 
 Fresh clones can complete `make own` again, and the split test targets keep

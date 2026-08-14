@@ -2,3 +2,9 @@
 build
 *.html
 *.txt
+CLAUDE.md
+git-update.sh
+.plan-and-delegate/
+.telemetry/
+/gofindimpl
+coverage-percent.txt

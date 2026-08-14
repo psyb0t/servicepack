@@ -81,7 +81,7 @@ pkg-add: dev-image ## Add a module: make pkg-add PKG=module@version
 	@$(DEV_RUN) bash -ceu '\
 		[[ -n "$$PKG" ]] || { echo "PKG is required" >&2; exit 1; }; \
 		bash scripts/check-go-age.sh "$$PKG"; \
-		GOFLAGS= go get "$$PKG"; \
+		GOFLAGS=-mod=mod go get "$$PKG"; \
 		go mod tidy; \
 		go mod vendor'
 
@@ -89,18 +89,18 @@ pkg-update: export PKG := $(PKG)
 pkg-update: dev-image ## Update one module: make pkg-update PKG=module
 	@$(DEV_RUN) bash -ceu '\
 		[[ -n "$$PKG" ]] || { echo "PKG is required" >&2; exit 1; }; \
-		version="$$(GOFLAGS= go list -m -f "{{.Version}}" "$$PKG@latest")"; \
+		version="$$(GOFLAGS=-mod=mod go list -m -f "{{.Version}}" "$$PKG@latest")"; \
 		bash scripts/check-go-age.sh "$$PKG@$$version"; \
-		GOFLAGS= go get "$$PKG@$$version"; \
+		GOFLAGS=-mod=mod go get "$$PKG@$$version"; \
 		go mod tidy; \
 		go mod vendor'
 
 pkg-upgrade: dev-image ## Upgrade every direct module after the age gate
 	@$(DEV_RUN) bash -ceu '\
 		while IFS= read -r module; do \
-			version="$$(GOFLAGS= go list -m -f "{{.Version}}" "$$module@latest")"; \
+			version="$$(GOFLAGS=-mod=mod go list -m -f "{{.Version}}" "$$module@latest")"; \
 			bash scripts/check-go-age.sh "$$module@$$version"; \
-			GOFLAGS= go get "$$module@$$version"; \
+			GOFLAGS=-mod=mod go get "$$module@$$version"; \
 		done < <(go list -m -f "{{if not .Indirect}}{{.Path}}{{end}}" all | sed "/^$$/d"); \
 		go mod tidy; \
 		go mod vendor'
@@ -123,7 +123,7 @@ pkg-add-tool: dev-image ## Add a Go tool: make pkg-add-tool MODULE=module@versio
 		version="$${MODULE##*@}"; \
 		[[ "$$module" != "$$MODULE" && -n "$$version" ]] || { echo "MODULE must be module@version" >&2; exit 1; }; \
 		bash scripts/check-go-age.sh "$$module@$$version"; \
-		GOFLAGS= go get "$$MODULE"; \
+		GOFLAGS=-mod=mod go get "$$MODULE"; \
 		GOFLAGS= go mod edit -tool="$$TOOL"; \
 		go mod tidy; \
 		go mod vendor'

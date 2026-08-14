@@ -1,10 +1,11 @@
 package gonfiguration
 
 import (
-	"fmt"
 	"maps"
 	"os"
 	"strings"
+
+	"github.com/psyb0t/ctxerrors"
 )
 
 const (
@@ -45,7 +46,7 @@ func getEnvVars() (map[string]string, error) {
 	for _, rawVar := range rawVars {
 		parts := strings.SplitN(rawVar, "=", envVarNumParts)
 		if len(parts) != envVarNumParts {
-			return nil, fmt.Errorf("%s: %w", rawVar, ErrInvalidEnvVar)
+			return nil, ctxerrors.Wrapf(ErrInvalidEnvVar, "%s", rawVar)
 		}
 
 		envVars[parts[0]] = parts[1]

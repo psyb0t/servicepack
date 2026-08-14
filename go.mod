@@ -3,11 +3,11 @@ module github.com/psyb0t/servicepack
 go 1.26.4
 
 require (
-	github.com/psyb0t/ctxerrors v0.4.4
+	github.com/psyb0t/ctxerrors v0.7.1
 	github.com/psyb0t/ctxscope v1.0.3
-	github.com/psyb0t/goenv v1.0.3
-	github.com/psyb0t/gonfiguration v1.5.1
-	github.com/psyb0t/slogging v1.7.0
+	github.com/psyb0t/goenv v1.0.10
+	github.com/psyb0t/gonfiguration v1.6.4
+	github.com/psyb0t/slogging v1.7.1
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 )
@@ -151,7 +151,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/psyb0t/gofindimpl v1.0.0 // indirect
+	github.com/psyb0t/gofindimpl v1.0.12 // indirect
 	github.com/quasilyte/go-ruleguard v0.4.5 // indirect
 	github.com/quasilyte/go-ruleguard/dsl v0.3.23 // indirect
 	github.com/quasilyte/gogrep v0.5.0 // indirect

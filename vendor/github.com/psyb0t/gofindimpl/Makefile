@@ -8,16 +8,20 @@ all: dep lint-fix test-coverage build ## Run all tasks
 dep: ## Get project dependencies
 	@echo "Getting project dependencies..."
 	@go mod tidy
-	@go mod vendor
 
 lint: ## Lint all Golang files
 	@echo "Linting all Go files..."
-	@go run golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest -test ./...
+	@out=$$(go fix -diff ./... 2>&1); \
+	if [ -n "$$out" ]; then \
+		echo "$$out"; \
+		echo "go fix found issues. Run 'make lint-fix' to apply."; \
+		exit 1; \
+	fi
 	@go tool golangci-lint run --timeout=30m0s ./...
 
 lint-fix: ## Lint all Golang files and fix
 	@echo "Linting all Go files..."
-	@go run golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest -fix -test ./...
+	@go fix ./...
 	@go tool golangci-lint run --fix --timeout=30m0s ./...
 
 test: ## Run all tests
@@ -33,6 +37,8 @@ test-coverage: ## Run tests with coverage check. Fails if coverage is below the 
 		exit 1; \
 	fi; \
 	result=$$(go tool cover -func=coverage.txt | grep -oP 'total:\s+\(statements\)\s+\K\d+' || echo "0"); \
+	pct=$$(go tool cover -func=coverage.txt | grep -oP 'total:\s+\(statements\)\s+\K[0-9.]+' || echo "0"); \
+	echo "$$pct" > coverage-percent.txt; \
 	if [ $$result -eq 0 ]; then \
 		echo "No test coverage information available."; \
 		exit 0; \
@@ -40,6 +46,7 @@ test-coverage: ## Run tests with coverage check. Fails if coverage is below the 
 		echo "FAIL: Coverage $$result% is less than the minimum $(MIN_TEST_COVERAGE)%"; \
 		exit 1; \
 	fi
+
 
 build: ## Build the app binary using Docker (optimized, no debug info)
 	@echo "Building $(APP_NAME) binary (optimized)..."

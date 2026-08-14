@@ -1,7 +1,11 @@
 # goenv
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/psyb0t/goenv.svg)](https://pkg.go.dev/github.com/psyb0t/goenv)
-[![CI](https://img.shields.io/github/actions/workflow/status/psyb0t/goenv/pipeline.yml?branch=main)](https://github.com/psyb0t/goenv/actions/workflows/pipeline.yml)
+[![CI](https://github.com/psyb0t/goenv/actions/workflows/pipeline.yml/badge.svg?branch=main)](https://github.com/psyb0t/goenv/actions/workflows/pipeline.yml)
+[![coverage](https://raw.githubusercontent.com/psyb0t/goenv/badges/coverage.svg)](https://github.com/psyb0t/goenv/actions/workflows/pipeline.yml)
+[![version](https://raw.githubusercontent.com/psyb0t/goenv/badges/version.svg)](https://github.com/psyb0t/goenv/tags)
+[![license](https://raw.githubusercontent.com/psyb0t/goenv/badges/license.svg)](LICENSE)
+[![imported by](https://raw.githubusercontent.com/psyb0t/goenv/badges/importers.svg)](https://github.com/psyb0t/goenv/blob/badges/importers.md)
 
 The most over-engineered environment variable reader in the history of Go programming. A full-blown, battle-tested, enterprise-grade package that reads ONE environment variable and tells you if you're in prod or dev.
 
@@ -68,6 +72,36 @@ export ENV=      # also production, because paranoia is a feature
 | `EnvVarName` | `"ENV"` | None |
 | `Prod` | `"prod"` | None |
 | `Dev` | `"dev"` | None |
+
+## Agent integrations
+
+The [skill](.agents/skills/goenv) works in any agent that reads `.agents/skills/`, and installs natively in the clients below.
+
+### Claude Code
+
+```bash
+claude plugin marketplace add psyb0t/agents
+claude plugin install goenv@psyb0t
+```
+
+### Codex
+
+```bash
+codex plugin marketplace add psyb0t/agents
+codex plugin add goenv@psyb0t
+```
+
+Installed via the marketplace, the skill invokes as `$goenv:goenv`. Codex also
+picks the skill up automatically, with no install, in any repo containing
+`.agents/skills/` — there it invokes as plain `$goenv`.
+
+### OpenClaw
+
+The skill is published to ClawHub on every release:
+
+```bash
+openclaw skills install @psyb0t/goenv
+```
 
 ## FAQ
 
