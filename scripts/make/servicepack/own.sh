@@ -127,12 +127,12 @@ fi
 
 success "Module name replacement completed!"
 
-section "Downloading Framework Dependencies"
-make dep
-
 section "Regenerating Service Registration"
 info "Regenerating service registration without examples..."
 make service-registration
+
+section "Downloading Framework Dependencies"
+make dep
 
 cleanup_framework_go_mod
 trap - EXIT

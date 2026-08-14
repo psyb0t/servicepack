@@ -15,6 +15,7 @@ DOCKER_GID := $(shell stat -c '%g' $(DOCKER_SOCK) 2>/dev/null || echo 0)
 DEV_RUN := docker run --rm --init \
 	--user $(UID):$(GID) \
 	-e HOME=/tmp \
+	-e GOPATH=/tmp/go \
 	-e GOCACHE=/tmp/go-cache \
 	-e GOMODCACHE=/tmp/go-mod-cache \
 	-e PKG \
@@ -30,6 +31,7 @@ DEV_RUN_DIND := docker run --rm --init \
 	--user $(UID):$(GID) \
 	--group-add $(DOCKER_GID) \
 	-e HOME=/tmp \
+	-e GOPATH=/tmp/go \
 	-e GOCACHE=/tmp/go-cache \
 	-e GOMODCACHE=/tmp/go-mod-cache \
 	-e MIN_TEST_COVERAGE \
@@ -151,7 +153,8 @@ test: ## Run all tests
 	@$(MAKE) dev-image
 	@$(call run_dind_script,test.sh)
 
-test-unit: test ## Run the framework's unit test suite
+test-unit: dev-image ## Run the framework's unit test suite
+	@$(DEV_RUN) go test -race ./...
 
 test-integration: dev-image ## Run integration tests without cached results
 	@$(DEV_RUN_DIND) go test -race -count=1 -timeout=600s ./...

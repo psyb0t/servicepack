@@ -8,8 +8,8 @@ The Makefile has two execution shapes:
 
 - ordinary build, lint, formatting, dependency, and vulnerability work runs
   in the development container with the repository mounted at `/work`;
-- test targets mount the Docker socket as well, because integration tests can
-  use Testcontainers to start real infrastructure.
+- `make test-unit` uses the ordinary socketless container; full, integration,
+  and coverage targets mount the Docker socket for Testcontainers.
 
 The exact scripts and override lookup live in the
 [framework Make-script deep dive](../scripts/make/servicepack/README.md).
@@ -20,7 +20,7 @@ The exact scripts and override lookup live in the
 | --- | --- | --- |
 | `make dev-image` | Docker build | Build the development image used by normal tooling. |
 | `make test` | Docker + socket | Race-enabled `go test ./...`. |
-| `make test-unit` | Docker + socket | Alias of `make test`; it does not select a narrower package set. |
+| `make test-unit` | Docker | Race-enabled `go test ./...` without Docker-socket access. |
 | `make test-integration` | Docker + socket | Uncached, race-enabled test run with a ten-minute timeout. |
 | `make test-coverage` | Docker + socket | Race-enabled coverage check; default floor is `MIN_TEST_COVERAGE=90`. |
 | `make lint` | Docker | `shfmt`, ShellCheck, `go fix` diff check, and golangci-lint. |
@@ -42,6 +42,9 @@ toolchains two chances to disagree.
 Docker available for Testcontainers-backed tests. `make test-integration` uses
 the same package pattern but disables the Go test cache and applies a
 ten-minute timeout—use it when checking changes to real-infrastructure tests.
+Use `make test-unit` for the same race-enabled package walk without exposing
+the Docker socket; Testcontainers-backed cases cannot start infrastructure in
+that target.
 
 `make test-coverage` also runs the race detector. It calculates framework
 coverage after excluding `cmd/`, the complete `internal/pkg/services/` tree,

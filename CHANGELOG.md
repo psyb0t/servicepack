@@ -4,6 +4,18 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.3.2 — 2026-08-14
+
+Fresh clones can complete `make own` again, and the split test targets keep
+their intended Docker boundaries.
+
+- Regenerate `internal/pkg/services/services.gen.go` before dependency tidying,
+  so deleted example-service imports cannot make `make own` fail before it
+  initializes the new Git repository.
+- Give Dockerized Go commands an explicit writable `GOPATH`, and keep
+  `make test-unit` on the socketless unit-test path instead of routing it
+  through the Docker-enabled full test target.
+
 ## v1.3.1 — 2026-08-14
 
 Documentation and agent guidance now explain the framework without burying the

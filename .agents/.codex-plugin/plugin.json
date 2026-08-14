@@ -1,6 +1,6 @@
 {
   "name": "servicepack",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Clone-and-own Go service framework: debug related services together locally, then ship one binary or split them into microservices with lifecycle, retry, readiness, and CLI scaffolding.",
   "author": { "name": "psyb0t", "url": "https://github.com/psyb0t" },
   "homepage": "https://github.com/psyb0t/servicepack",
