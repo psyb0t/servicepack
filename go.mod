@@ -3,7 +3,7 @@ module github.com/psyb0t/servicepack
 go 1.26.4
 
 require (
-	github.com/psyb0t/ctxerrors v0.4.4
+	github.com/psyb0t/ctxerrors v0.7.1
 	github.com/psyb0t/ctxscope v1.0.3
 	github.com/psyb0t/goenv v1.0.3
 	github.com/psyb0t/gonfiguration v1.5.1
