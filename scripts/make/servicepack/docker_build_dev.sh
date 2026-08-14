@@ -12,11 +12,11 @@ section "Building Development Docker Image"
 
 # Check for user Dockerfile.dev first, then fall back to servicepack version
 if [ -f "Dockerfile.dev" ]; then
-    DOCKERFILE="Dockerfile.dev"
-    info "Using user Dockerfile.dev..."
+	DOCKERFILE="Dockerfile.dev"
+	info "Using user Dockerfile.dev..."
 else
-    DOCKERFILE="Dockerfile.servicepack.dev"
-    info "Using framework Dockerfile.servicepack.dev..."
+	DOCKERFILE="Dockerfile.servicepack.dev"
+	info "Using framework Dockerfile.servicepack.dev..."
 fi
 
 info "Building development Docker image: $APP_NAME-dev..."

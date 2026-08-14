@@ -22,7 +22,7 @@ Your binary name is derived from `go.mod`'s module name (last path segment) at b
 
 ## Required Go version
 
-`go.mod` pins `go 1.26.0`. `make own` checks your local `go version` against this and refuses to proceed if you're older. Bump the pin in `go.mod` yourself if you need a newer toolchain; it flows through on the next `make servicepack-update`.
+`go.mod` pins `go 1.26.4`. `make own` checks your local `go version` against this and refuses to proceed if you're older. Bump the pin in `go.mod` yourself if you need a newer toolchain; it flows through on the next `make servicepack-update`.
 
 ## Module path / import path
 
@@ -34,12 +34,13 @@ Core framework packages you'll reference directly:
 |---|---|
 | `<your-module>/internal/app` | `App` singleton — `GetInstance()`, `OnPreRun`, `OnPostStop` |
 | `<your-module>/internal/pkg/service-manager` (import alias `servicemanager`) | `Service`/`Retryable`/`AllowedFailure`/`Dependent`/`ReadyNotifier`/`Commander` interfaces, `GetInstance()` |
-| `<your-module>/pkg/runner` | `runner.Run(runnable)` — signal handling + graceful shutdown, used by `cmd/main.go` |
+| `<your-module>/pkg/runner` | `runner.RunContext(ctx, runnable)` — signal handling + graceful shutdown with a caller-supplied parent context; `runner.Run(runnable)` remains the background-context compatibility helper |
 | `<your-module>/internal/pkg/services` | generated `services.Init()` (via `services.gen.go`) |
 
 Third-party deps pulled in by the framework itself (already in `go.mod`, vendored):
 
 - `github.com/psyb0t/ctxerrors` — error wrapping with file/line/function capture
+- `github.com/psyb0t/ctxscope` — contextual structured logging
 - `github.com/psyb0t/goenv` — `dev`/`prod` environment detection
 - `github.com/psyb0t/gonfiguration` — env-var config parsing via struct tags
 - `github.com/psyb0t/slogging` — `log/slog` handler wiring (`slogging/slogconf`)
@@ -78,10 +79,10 @@ package exampledb
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 	"github.com/psyb0t/gonfiguration"
 )
 
@@ -134,7 +135,8 @@ func (s *ExampleDB) Ready() <-chan struct{} {
 }
 
 func (s *ExampleDB) Run(ctx context.Context) error {
-	slog.Info("starting service", "service", ServiceName)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	ctxscope.GetLogger(ctx).Info("starting service")
 
 	// connect, migrate, whatever "actually ready" means for you
 	close(s.readyCh)
@@ -144,8 +146,9 @@ func (s *ExampleDB) Run(ctx context.Context) error {
 	return nil
 }
 
-func (s *ExampleDB) Stop(_ context.Context) error {
-	slog.Info("stopping service", "service", ServiceName)
+func (s *ExampleDB) Stop(ctx context.Context) error {
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }
@@ -157,7 +160,8 @@ package exampleapi
 
 import (
 	"context"
-	"log/slog"
+
+	"github.com/psyb0t/ctxscope"
 )
 
 const ServiceName = "example-api"
@@ -179,14 +183,16 @@ func (s *ExampleAPI) Dependencies() []string {
 }
 
 func (s *ExampleAPI) Run(ctx context.Context) error {
-	slog.Info("starting service", "service", ServiceName)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	ctxscope.GetLogger(ctx).Info("starting service")
 	<-ctx.Done()
 
 	return nil
 }
 
-func (s *ExampleAPI) Stop(_ context.Context) error {
-	slog.Info("stopping service", "service", ServiceName)
+func (s *ExampleAPI) Stop(ctx context.Context) error {
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

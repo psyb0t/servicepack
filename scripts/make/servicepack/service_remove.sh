@@ -1,26 +1,34 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 # Source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-# Check if service name is provided
-if [ -z "$1" ]; then
-    error "Service name is required"
-    echo "Usage: $0 <service-name>"
-    echo "Example: $0 myservice"
-    exit 1
+trap 'error "command failed line=$LINENO exit=$?"' ERR
+
+if [[ "$#" -ne 1 || -z "$1" ]]; then
+	error "Service name is required"
+	printf 'Usage: %s <service-name>\n' "$0" >&2
+	printf 'Example: %s myservice\n' "$0" >&2
+	exit 1
 fi
 
-SERVICE_NAME="$1"
-SERVICE_DIR="internal/pkg/services/$SERVICE_NAME"
+readonly SERVICE_NAME="$1"
 
-# Check if service exists
-if [ ! -d "$SERVICE_DIR" ]; then
-    error "Service '$SERVICE_NAME' does not exist at $SERVICE_DIR"
-    exit 1
+if [[ ! "$SERVICE_NAME" =~ ^[a-z][a-z0-9-]*$ ||
+	"$SERVICE_NAME" == *--* ||
+	"$SERVICE_NAME" == *- ]]; then
+	error "Service name must use lowercase letters, digits, and single hyphens"
+	exit 1
+fi
+
+readonly SERVICE_DIR="internal/pkg/services/$SERVICE_NAME"
+
+if [[ ! -d "$SERVICE_DIR" ]]; then
+	error "Service '$SERVICE_NAME' does not exist at $SERVICE_DIR"
+	exit 1
 fi
 
 section "Removing Service"
@@ -31,4 +39,4 @@ success "Service '$SERVICE_NAME' removed from $SERVICE_DIR"
 
 # Regenerate service registration
 info "Regenerating service registration..."
-make service-registration
+bash "$SCRIPT_DIR/service_registration.sh"

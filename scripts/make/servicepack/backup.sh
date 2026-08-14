@@ -22,9 +22,9 @@ mkdir -p "$LOCAL_BACKUP"
 # Create the backup archive
 info "Archiving project..."
 tar --exclude='.backup' \
-    --exclude='build' \
-    --exclude='coverage.txt' \
-    -czf "$TMP_BACKUP/$BACKUP_NAME" .
+	--exclude='build' \
+	--exclude='coverage.txt' \
+	-czf "$TMP_BACKUP/$BACKUP_NAME" .
 
 # Copy to local backup directory
 cp "$TMP_BACKUP/$BACKUP_NAME" "$LOCAL_BACKUP/"
@@ -37,7 +37,7 @@ echo "  - local: $LOCAL_BACKUP/$BACKUP_NAME"
 info "Cleaning old backups (keeping latest 6)..."
 cd "$LOCAL_BACKUP"
 find . -name "*.tar.gz" -type f -printf '%T@ %p\n' 2>/dev/null | sort -nr | tail -n +7 | cut -d' ' -f2- | xargs -r rm -f
-cd - > /dev/null
+cd - >/dev/null
 
 BACKUP_COUNT=$(find "$LOCAL_BACKUP" -name "*.tar.gz" -type f 2>/dev/null | wc -l)
 info "Local backups: $BACKUP_COUNT/6"

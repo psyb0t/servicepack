@@ -2,8 +2,9 @@ package exampledatabase
 
 import (
 	"context"
-	"log/slog"
 	"time"
+
+	"github.com/psyb0t/ctxscope"
 )
 
 const ServiceName = "example-database"
@@ -47,14 +48,15 @@ func (d *ExampleDatabase) Ready() <-chan struct{} {
 func (d *ExampleDatabase) Run(
 	ctx context.Context,
 ) error {
-	slog.Info("starting service", "service", ServiceName)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("starting service")
 
 	// Simulate connection pool startup
 	startupDelay := 2 * time.Second //nolint:mnd
 
-	slog.Info("connecting to database",
-		"service", ServiceName,
-		"startupDelay", startupDelay,
+	logger.Info("connecting to database",
+		"startup_delay", startupDelay,
 	)
 
 	select {
@@ -63,9 +65,7 @@ func (d *ExampleDatabase) Run(
 	case <-time.After(startupDelay):
 	}
 
-	slog.Info("database ready, accepting connections",
-		"service", ServiceName,
-	)
+	logger.Info("database ready, accepting connections")
 
 	close(d.readyCh)
 
@@ -75,24 +75,21 @@ func (d *ExampleDatabase) Run(
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info(
-				"context cancelled, stopping service",
-				"service", ServiceName,
-			)
+			logger.Info("context cancelled, stopping service")
 
 			return nil
 		case <-ticker.C:
-			slog.Info("heartbeat",
-				"service", ServiceName,
-			)
+			logger.Info("heartbeat")
 		}
 	}
 }
 
 func (d *ExampleDatabase) Stop(
-	_ context.Context,
+	ctx context.Context,
 ) error {
-	slog.Info("stopping service", "service", ServiceName)
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

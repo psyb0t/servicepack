@@ -2,10 +2,10 @@ package app
 
 import (
 	"context"
-	"log/slog"
 	"sync"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 	"github.com/psyb0t/goenv"
 	servicemanager "github.com/psyb0t/servicepack/internal/pkg/service-manager"
 )
@@ -38,7 +38,7 @@ func GetInstance() *App {
 }
 
 func newApp() *App {
-	slog.Debug("initializing app")
+	ctxscope.GetLogger(context.Background()).Debug("initializing app")
 
 	return &App{
 		serviceManager: servicemanager.GetInstance(),
@@ -66,7 +66,7 @@ func (a *App) OnPostStop(fn HookFunc) {
 }
 
 func (a *App) Run(ctx context.Context) error {
-	slog.Info("running app", "env", goenv.Get())
+	ctxscope.GetLogger(ctx).Info("running app", "env", goenv.Get())
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -93,7 +93,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	defer func() {
 		if err := a.Stop(ctx); err != nil {
-			slog.Error("failed to stop app", "error", err)
+			ctxscope.GetLogger(ctx).Error("failed to stop app", "err", err)
 		}
 	}()
 
@@ -109,11 +109,11 @@ func (a *App) Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		slog.Debug("app context done")
+		ctxscope.GetLogger(ctx).Debug("app context done")
 
 		return nil
 	case err := <-errCh:
-		slog.Error("app run error", "error", err)
+		ctxscope.GetLogger(ctx).Error("app run error", "err", err)
 
 		return ctxerrors.Wrap(err, "failed to run app")
 	}
@@ -129,8 +129,8 @@ func (a *App) Stop(ctx context.Context) error {
 	a.cancelMu.Unlock()
 
 	a.stopOnce.Do(func() {
-		slog.Info("stopping app")
-		defer slog.Info("stopped app")
+		ctxscope.GetLogger(ctx).Info("stopping app")
+		defer ctxscope.GetLogger(ctx).Info("stopped app")
 
 		a.serviceManager.Stop(ctx)
 		a.wg.Wait()

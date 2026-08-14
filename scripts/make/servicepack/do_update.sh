@@ -38,8 +38,8 @@ warning "Update available! Creating backup before proceeding..."
 
 # Create backup before updating
 if ! make backup; then
-    error "Failed to create backup. Update cancelled."
-    exit 1
+	error "Failed to create backup. Update cancelled."
+	exit 1
 fi
 
 section "Creating Update Branch"
@@ -48,9 +48,9 @@ UPDATE_BRANCH="servicepack_update_to_${LATEST_VERSION}"
 info "Creating update branch: $UPDATE_BRANCH"
 
 if git show-ref --verify --quiet "refs/heads/$UPDATE_BRANCH"; then
-    error "Branch $UPDATE_BRANCH already exists."
-    warning "Delete it first with: git branch -D $UPDATE_BRANCH"
-    exit 1
+	error "Branch $UPDATE_BRANCH already exists."
+	warning "Delete it first with: git branch -D $UPDATE_BRANCH"
+	exit 1
 fi
 
 git checkout -b "$UPDATE_BRANCH"
@@ -58,8 +58,8 @@ git checkout -b "$UPDATE_BRANCH"
 # Backup user's go.mod module name
 USER_MODULE=""
 if [ -f "go.mod" ]; then
-    USER_MODULE=$(head -n 1 go.mod | awk '{print $2}')
-    info "Preserving user module name: $USER_MODULE"
+	USER_MODULE=$(head -n 1 go.mod | awk '{print $2}')
+	info "Preserving user module name: $USER_MODULE"
 fi
 
 section "Updating Framework Files"
@@ -109,32 +109,32 @@ section "Updating Framework Files"
 # its own pattern matching, and quoting is what guarantees the shell keeps its
 # hands off it.
 EXCLUDE_ARGS=(
-    "--exclude=internal/pkg/services/*"
-    "--exclude=README.md"
-    "--exclude=LICENSE"
-    "--exclude=CHANGELOG.md"
-    "--exclude=.git"
-    "--exclude=.gitignore"
-    "--exclude=.servicepackupdateignore"
-    "--exclude=Makefile"
-    "--exclude=Dockerfile"
-    "--exclude=Dockerfile.dev"
-    "--exclude=build/"
-    "--exclude=coverage.txt"
-    "--exclude=vendor/"
-    "--exclude=go.mod"
-    "--exclude=go.sum"
+	"--exclude=internal/pkg/services/*"
+	"--exclude=README.md"
+	"--exclude=LICENSE"
+	"--exclude=CHANGELOG.md"
+	"--exclude=.git"
+	"--exclude=.gitignore"
+	"--exclude=.servicepackupdateignore"
+	"--exclude=Makefile"
+	"--exclude=Dockerfile"
+	"--exclude=Dockerfile.dev"
+	"--exclude=build/"
+	"--exclude=coverage.txt"
+	"--exclude=vendor/"
+	"--exclude=go.mod"
+	"--exclude=go.sum"
 )
 
 # Add excludes from .servicepackupdateignore if it exists
 if [ -f ".servicepackupdateignore" ]; then
-    info "Using .servicepackupdateignore exclusions..."
-    while IFS= read -r line; do
-        # Skip comments (lines starting with #) and empty lines
-        [[ "$line" =~ ^[[:space:]]*# ]] && continue
-        [[ -z "${line// }" ]] && continue
-        EXCLUDE_ARGS+=("--exclude=$line")
-    done < .servicepackupdateignore
+	info "Using .servicepackupdateignore exclusions..."
+	while IFS= read -r line; do
+		# Skip comments (lines starting with #) and empty lines
+		[[ "$line" =~ ^[[:space:]]*# ]] && continue
+		[[ -z "${line// /}" ]] && continue
+		EXCLUDE_ARGS+=("--exclude=$line")
+	done <.servicepackupdateignore
 fi
 
 # Update core framework files with exclusions.
@@ -159,10 +159,10 @@ info "Executing post-update logic with latest framework code..."
 # the merge/commit logic is the latest too — not whatever the downstream had
 # before this update.
 bash "$SCRIPT_DIR/_post_update.sh" \
-    "$CURRENT_BRANCH" \
-    "$UPDATE_BRANCH" \
-    "$CURRENT_VERSION" \
-    "$LATEST_VERSION" \
-    "$USER_MODULE" \
-    "$TEMP_DIR" \
-    "$SYNCED_FILES"
+	"$CURRENT_BRANCH" \
+	"$UPDATE_BRANCH" \
+	"$CURRENT_VERSION" \
+	"$LATEST_VERSION" \
+	"$USER_MODULE" \
+	"$TEMP_DIR" \
+	"$SYNCED_FILES"

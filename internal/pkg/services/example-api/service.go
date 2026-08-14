@@ -2,9 +2,9 @@ package exampleapi
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
+	"github.com/psyb0t/ctxscope"
 	exampledatabase "github.com/psyb0t/servicepack/internal/pkg/services/example-database"
 	exampleflaky "github.com/psyb0t/servicepack/internal/pkg/services/example-flaky"
 )
@@ -37,7 +37,9 @@ func (a *ExampleAPI) Dependencies() []string {
 }
 
 func (a *ExampleAPI) Run(ctx context.Context) error {
-	slog.Info("starting service", "service", ServiceName)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("starting service")
 
 	ticker := time.NewTicker(10 * time.Second) //nolint:mnd
 	defer ticker.Stop()
@@ -45,22 +47,19 @@ func (a *ExampleAPI) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info(
-				"context cancelled, stopping service",
-				"service", ServiceName,
-			)
+			logger.Info("context cancelled, stopping service")
 
 			return nil
 		case <-ticker.C:
-			slog.Info("heartbeat",
-				"service", ServiceName,
-			)
+			logger.Info("heartbeat")
 		}
 	}
 }
 
-func (a *ExampleAPI) Stop(_ context.Context) error {
-	slog.Info("stopping service", "service", ServiceName)
+func (a *ExampleAPI) Stop(ctx context.Context) error {
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

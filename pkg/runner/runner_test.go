@@ -126,7 +126,7 @@ func TestWaitForShutdown_Signal(t *testing.T) {
 
 	sigCh <- syscall.SIGTERM
 
-	err := r.waitForShutdown(sigCh, errCh)
+	err := r.waitForShutdown(context.Background(), sigCh, errCh)
 	assert.NoError(t, err)
 }
 
@@ -138,7 +138,7 @@ func TestWaitForShutdown_Error(t *testing.T) {
 
 	errCh <- errTest
 
-	err := r.waitForShutdown(sigCh, errCh)
+	err := r.waitForShutdown(context.Background(), sigCh, errCh)
 	assert.ErrorIs(t, err, errTest)
 }
 
@@ -150,6 +150,16 @@ func TestWaitForShutdown_NilError(t *testing.T) {
 
 	errCh <- nil
 
-	err := r.waitForShutdown(sigCh, errCh)
+	err := r.waitForShutdown(context.Background(), sigCh, errCh)
+	assert.NoError(t, err)
+}
+
+func TestWaitForShutdown_ContextCancelled(t *testing.T) {
+	r := &appRunner{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := r.waitForShutdown(ctx, make(chan os.Signal), make(chan error))
 	assert.NoError(t, err)
 }

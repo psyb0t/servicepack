@@ -5,6 +5,7 @@
 [![coverage](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/coverage.svg)](https://github.com/psyb0t/ctxerrors/actions/workflows/pipeline.yml)
 [![version](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/version.svg)](https://github.com/psyb0t/ctxerrors/tags)
 [![license](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/license.svg)](LICENSE)
+[![imported by](https://raw.githubusercontent.com/psyb0t/ctxerrors/badges/importers.svg)](https://github.com/psyb0t/ctxerrors/blob/badges/importers.md)
 
 ```
  ####  ##### #    # ###### #####  #####   ####  #####   ####  

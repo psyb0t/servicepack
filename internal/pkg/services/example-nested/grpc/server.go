@@ -2,8 +2,9 @@ package server
 
 import (
 	"context"
-	"log/slog"
 	"time"
+
+	"github.com/psyb0t/ctxscope"
 )
 
 const ServiceName = "example-nested-grpc"
@@ -25,7 +26,9 @@ func (s *Server) Name() string {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	slog.Info("starting service", "service", ServiceName)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("starting service")
 
 	ticker := time.NewTicker(10 * time.Second) //nolint:mnd
 	defer ticker.Stop()
@@ -33,22 +36,19 @@ func (s *Server) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info(
-				"context cancelled, stopping service",
-				"service", ServiceName,
-			)
+			logger.Info("context cancelled, stopping service")
 
 			return nil
 		case <-ticker.C:
-			slog.Info("heartbeat",
-				"service", ServiceName,
-			)
+			logger.Info("heartbeat")
 		}
 	}
 }
 
-func (s *Server) Stop(_ context.Context) error {
-	slog.Info("stopping service", "service", ServiceName)
+func (s *Server) Stop(ctx context.Context) error {
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

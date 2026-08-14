@@ -1,12 +1,18 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 # Source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-section "Linting and Fixing Go Files"
+section "Linting and Fixing Go and Shell Files"
+
+mapfile -t shell_files < <(find scripts -type f -name '*.sh' -print)
+
+info "Formatting shell scripts..."
+shfmt -w "${shell_files[@]}"
+success "Shell formatting completed!"
 
 info "Running go fix..."
 go fix ./...

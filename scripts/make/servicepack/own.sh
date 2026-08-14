@@ -1,18 +1,25 @@
 #!/bin/bash
 
-set -e
+set -euo pipefail
 
 # Source common functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
-MODNAME="$1"
+MODNAME="${1:-}"
+readonly FRAMEWORK_GO_MOD=".servicepack-framework.go.mod"
+readonly FRAMEWORK_GO_SUM=".servicepack-framework.go.sum"
+
+cleanup_framework_go_mod() {
+	rm -f "$FRAMEWORK_GO_MOD"
+	rm -f "$FRAMEWORK_GO_SUM"
+}
 
 if [ -z "$MODNAME" ]; then
-    error "Module name is required"
-    echo "Usage: $0 <module-name>"
-    echo "Example: $0 github.com/foo/bar"
-    exit 1
+	error "Module name is required"
+	echo "Usage: $0 <module-name>"
+	echo "Example: $0 github.com/foo/bar"
+	exit 1
 fi
 
 section "Making Project Your Own"
@@ -24,33 +31,34 @@ section "Go Version Check"
 REQUIRED_GO_VERSION=$(grep "^go " go.mod | awk '{print $2}')
 info "Required Go version from current go.mod: $REQUIRED_GO_VERSION"
 
-# Get the user's Go version
-USER_GO_VERSION=$(go version | awk '{print $3}' | sed 's/go//')
-info "Your Go version: $USER_GO_VERSION"
+info "The Servicepack Make targets run Go in the development image."
 
-# Compare versions (simple string comparison works for Go versions)
-if [ "$(printf '%s\n' "$REQUIRED_GO_VERSION" "$USER_GO_VERSION" | sort -V | head -n1)" != "$REQUIRED_GO_VERSION" ]; then
-    error "Your Go version ($USER_GO_VERSION) is less than the required version ($REQUIRED_GO_VERSION)"
-    warning "Please upgrade to Go $REQUIRED_GO_VERSION or higher before proceeding."
-    exit 1
+if [ -e "$FRAMEWORK_GO_MOD" ] || [ -e "$FRAMEWORK_GO_SUM" ]; then
+	error "Refusing to overwrite an existing framework dependency manifest"
+	exit 1
 fi
 
-success "Go version check passed!"
+# `make own` deliberately starts a new module, but it must not rediscover
+# framework dependencies from the registry. Preserve the exact manifest first;
+# this keeps the scaffold's tested module graph and tool directives intact.
+cp go.mod "$FRAMEWORK_GO_MOD"
+cp go.sum "$FRAMEWORK_GO_SUM"
+trap cleanup_framework_go_mod EXIT
 
 section "Cleaning Project"
 
 # Remove example services (keep only hello-world)
 for dir in internal/pkg/services/example-*; do
-    if [ -d "$dir" ]; then
-        info "Removing example service: $dir"
-        rm -rf "$dir"
-    fi
+	if [ -d "$dir" ]; then
+		info "Removing example service: $dir"
+		rm -rf "$dir"
+	fi
 done
 
 # Remove .git directory
 if [ -d ".git" ]; then
-    info "Removing .git directory..."
-    rm -rf .git
+	info "Removing .git directory..."
+	rm -rf .git
 fi
 
 # Get the old module name before removing go.mod
@@ -59,31 +67,31 @@ info "Old module name: $OLD_MODULE"
 
 # Remove go.sum
 if [ -f "go.sum" ]; then
-    info "Removing go.sum..."
-    rm -f go.sum
+	info "Removing go.sum..."
+	rm -f go.sum
 fi
 
 # Remove go.mod
 if [ -f "go.mod" ]; then
-    info "Removing go.mod..."
-    rm -f go.mod
+	info "Removing go.mod..."
+	rm -f go.mod
 fi
 
 # Remove vendor directory
 if [ -d "vendor" ]; then
-    info "Removing vendor directory..."
-    rm -rf vendor
+	info "Removing vendor directory..."
+	rm -rf vendor
 fi
 
 section "Creating New Module"
 
-# Create new go.mod with the provided module name and current Go version
-info "Creating new go.mod with module name: $MODNAME"
-cat > go.mod << EOF
-module $MODNAME
-
-go $REQUIRED_GO_VERSION
-EOF
+# Retain every pinned framework dependency and tool directive while replacing
+# only the module declaration. `make dep` below tidies the graph after example
+# services have been removed.
+info "Creating new go.mod with module name and framework pins: $MODNAME"
+sed "s|^module $OLD_MODULE$|module $MODNAME|" \
+	"$FRAMEWORK_GO_MOD" >go.mod
+cp "$FRAMEWORK_GO_SUM" go.sum
 
 success "New go.mod created successfully!"
 
@@ -98,7 +106,7 @@ find . -type f -name "*.md" -exec sed -i "s|$OLD_MODULE|$MODNAME|g" {} \;
 # Replace README.md with just the project name
 PROJECT_NAME=$(echo "$MODNAME" | awk -F'/' '{print $NF}')
 info "Creating new README.md for project: $PROJECT_NAME"
-cat > README.md << EOF
+cat >README.md <<EOF
 # $PROJECT_NAME
 
 ---
@@ -108,37 +116,26 @@ EOF
 
 # Get current servicepack version and save it
 if [ -f "servicepack.version" ]; then
-    CURRENT_VERSION=$(cat servicepack.version)
-    info "Preserving servicepack version: $CURRENT_VERSION"
+	CURRENT_VERSION=$(cat servicepack.version)
+	info "Preserving servicepack version: $CURRENT_VERSION"
 else
-    # Get latest commit from servicepack repo to set as current version
-    LATEST_VERSION=$(git ls-remote https://github.com/psyb0t/servicepack HEAD | cut -f1)
-    printf "%s" "$LATEST_VERSION" > servicepack.version
-    info "Set servicepack version to: $LATEST_VERSION"
+	# Get latest commit from servicepack repo to set as current version
+	LATEST_VERSION=$(git ls-remote https://github.com/psyb0t/servicepack HEAD | cut -f1)
+	printf "%s" "$LATEST_VERSION" >servicepack.version
+	info "Set servicepack version to: $LATEST_VERSION"
 fi
 
 success "Module name replacement completed!"
 
-section "Installing Tools"
-
-# Install golangci-lint tool
-info "Installing golangci-lint tool..."
-go get -tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4
-
-# Install gofindimpl tool
-info "Installing gofindimpl tool..."
-go get -tool github.com/psyb0t/gofindimpl
-
-# Install goimports tool
-info "Installing goimports tool..."
-go get -tool golang.org/x/tools/cmd/goimports
+section "Downloading Framework Dependencies"
+make dep
 
 section "Regenerating Service Registration"
 info "Regenerating service registration without examples..."
 make service-registration
 
-section "Updating Dependencies"
-make dep
+cleanup_framework_go_mod
+trap - EXIT
 
 section "Initializing Git Repository"
 

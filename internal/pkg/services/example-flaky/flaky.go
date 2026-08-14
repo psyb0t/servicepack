@@ -3,12 +3,12 @@ package exampleflaky
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 )
 
 const ServiceName = "example-flaky"
@@ -49,18 +49,21 @@ func (f *ExampleFlaky) RetryDelay() time.Duration {
 func (f *ExampleFlaky) Run(
 	ctx context.Context,
 ) error {
-	attempt := readAttempts() + 1
-	writeAttempts(attempt)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
 
-	slog.Info("starting service",
-		"service", ServiceName,
+	attempt := readAttempts(ctx) + 1
+	if err := writeAttempts(attempt); err != nil {
+		return ctxerrors.Wrap(err, "write attempt count")
+	}
+
+	logger.Info("starting service",
 		"attempt", attempt,
-		"maxAttempts", maxRetries+1,
+		"max_attempts", maxRetries+1,
 	)
 
 	if attempt <= maxRetries {
-		slog.Warn("simulating failure",
-			"service", ServiceName,
+		logger.Warn("simulating failure",
 			"attempt", attempt,
 		)
 
@@ -71,12 +74,13 @@ func (f *ExampleFlaky) Run(
 		)
 	}
 
-	slog.Info("finally stable",
-		"service", ServiceName,
+	logger.Info("finally stable",
 		"attempt", attempt,
 	)
 
-	cleanupAttempts()
+	if err := cleanupAttempts(); err != nil {
+		return ctxerrors.Wrap(err, "clean up attempt count")
+	}
 
 	ticker := time.NewTicker(10 * time.Second) //nolint:mnd
 	defer ticker.Stop()
@@ -84,52 +88,69 @@ func (f *ExampleFlaky) Run(
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info(
-				"context cancelled, stopping service",
-				"service", ServiceName,
-			)
+			logger.Info("context cancelled, stopping service")
 
 			return nil
 		case <-ticker.C:
-			slog.Info("heartbeat",
-				"service", ServiceName,
-			)
+			logger.Info("heartbeat")
 		}
 	}
 }
 
 func (f *ExampleFlaky) Stop(
-	_ context.Context,
+	ctx context.Context,
 ) error {
-	slog.Info("stopping service", "service", ServiceName)
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
 
-	cleanupAttempts()
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
+
+	if err := cleanupAttempts(); err != nil {
+		return ctxerrors.Wrap(err, "clean up attempt count")
+	}
 
 	return nil
 }
 
-func readAttempts() int {
+func readAttempts(ctx context.Context) int {
 	data, err := os.ReadFile(attemptsFile)
 	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			ctxscope.GetLogger(ctx).Warn(
+				"read attempt count failed",
+				"err", err,
+			)
+		}
+
 		return 0
 	}
 
 	n, err := strconv.Atoi(string(data))
 	if err != nil {
+		ctxscope.GetLogger(ctx).Warn("parse attempt count failed", "err", err)
+
 		return 0
 	}
 
 	return n
 }
 
-func writeAttempts(n int) {
-	_ = os.WriteFile(
+func writeAttempts(n int) error {
+	if err := os.WriteFile(
 		attemptsFile,
 		[]byte(strconv.Itoa(n)),
 		attemptsFileMode,
-	)
+	); err != nil {
+		return ctxerrors.Wrap(err, "write attempts file")
+	}
+
+	return nil
 }
 
-func cleanupAttempts() {
-	_ = os.Remove(attemptsFile)
+func cleanupAttempts() error {
+	err := os.Remove(attemptsFile)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return ctxerrors.Wrap(err, "remove attempts file")
+	}
+
+	return nil
 }

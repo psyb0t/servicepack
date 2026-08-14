@@ -2,14 +2,13 @@ package servicemanager
 
 import (
 	"context"
-	"log/slog"
-	"os"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
+	"github.com/psyb0t/gonfiguration"
 	"github.com/spf13/cobra"
 )
 
@@ -70,6 +69,10 @@ type Commander interface {
 // ServiceFactory is a function that creates a service instance.
 type ServiceFactory func() (Service, error)
 
+type servicesConfig struct {
+	Enabled []string `env:"SERVICES_ENABLED"`
+}
+
 // serviceGroup is a set of services that can start concurrently.
 // Groups are ordered: group 0 starts first, then group 1, etc.
 type serviceGroup []Service
@@ -77,6 +80,7 @@ type serviceGroup []Service
 const (
 	defaultStopTimeout        = 30 * time.Second
 	envVarNameServicesEnabled = "SERVICES_ENABLED"
+	scopeKeyService           = "service"
 )
 
 type ServiceManager struct {
@@ -120,7 +124,8 @@ func (s *ServiceManager) Register(
 	s.factoriesMu.Lock()
 	defer s.factoriesMu.Unlock()
 
-	slog.Debug("registering service factory",
+	ctxscope.GetLogger(context.Background()).Debug(
+		"registering service factory",
 		"service", name,
 	)
 
@@ -164,17 +169,24 @@ func (s *ServiceManager) Instantiate(
 // instantiateAll calls all factories (filtered by
 // SERVICES_ENABLED) and adds them to the services map.
 func (s *ServiceManager) instantiateAll() error {
+	return s.instantiateAllContext(context.Background())
+}
+
+func (s *ServiceManager) instantiateAllContext(ctx context.Context) error {
 	s.factoriesMu.RLock()
 	defer s.factoriesMu.RUnlock()
 
-	enabledServices, allEnabled := parseEnabledServices()
+	enabledServices, allEnabled, err := parseEnabledServicesContext(ctx)
+	if err != nil {
+		return ctxerrors.Wrap(err, "parse enabled services")
+	}
 
 	for name, factory := range s.factories {
 		if !allEnabled &&
 			!slices.Contains(enabledServices, name) {
-			slog.Debug("service disabled, skipping",
-				"service", name,
-			)
+			ctxscope.GetLogger(
+				withServiceScope(ctx, name),
+			).Debug("service disabled, skipping")
 
 			continue
 		}
@@ -186,31 +198,45 @@ func (s *ServiceManager) instantiateAll() error {
 			)
 		}
 
-		s.Add(svc)
+		s.AddContext(ctx, svc)
 	}
 
 	return nil
 }
 
 func parseEnabledServices() ([]string, bool) {
-	env := os.Getenv(envVarNameServicesEnabled)
-	if env == "" {
+	enabledServices, allEnabled, err := parseEnabledServicesContext(
+		context.Background(),
+	)
+	if err != nil {
+		ctxscope.GetLogger(context.Background()).Error(
+			"failed to parse service filter; running all services",
+			"err", err,
+		)
+
 		return nil, true
 	}
 
-	var enabled []string
+	return enabledServices, allEnabled
+}
 
-	for part := range strings.SplitSeq(env, ",") {
-		enabled = append(
-			enabled, strings.TrimSpace(part),
-		)
+func parseEnabledServicesContext(
+	ctx context.Context,
+) ([]string, bool, error) {
+	cfg := servicesConfig{}
+	if err := gonfiguration.Parse(&cfg); err != nil {
+		return nil, false, ctxerrors.Wrap(err, "parse service config")
 	}
 
-	slog.Debug("service filter active",
-		"enabled", enabled,
+	if len(cfg.Enabled) == 0 {
+		return nil, true, nil
+	}
+
+	ctxscope.GetLogger(ctx).Debug("service filter active",
+		"enabled", cfg.Enabled,
 	)
 
-	return enabled, false
+	return cfg.Enabled, false, nil
 }
 
 // Commands returns lazy cobra commands for each registered
@@ -239,12 +265,13 @@ func (s *ServiceManager) buildServiceCommand(
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := withServiceScope(cmd.Context(), name)
+
 			svc, err := s.Instantiate(name)
 			if err != nil {
-				slog.Error("failed to instantiate service",
-					"service", name,
-					"error", err,
+				ctxscope.GetLogger(ctx).Error("failed to instantiate service",
+					"err", err,
 				)
 
 				return ctxerrors.Wrapf(
@@ -254,9 +281,7 @@ func (s *ServiceManager) buildServiceCommand(
 
 			cmdr, ok := svc.(Commander)
 			if !ok {
-				slog.Error("service has no commands",
-					"service", name,
-				)
+				ctxscope.GetLogger(ctx).Error("service has no commands")
 
 				return ctxerrors.Wrapf(
 					ErrNoCommands, "%s", name,
@@ -266,6 +291,7 @@ func (s *ServiceManager) buildServiceCommand(
 			sub := &cobra.Command{Use: name}
 			sub.AddCommand(cmdr.Commands()...)
 			sub.SetArgs(args)
+			sub.SetContext(ctx)
 
 			return sub.Execute()
 		},
@@ -284,18 +310,33 @@ func (s *ServiceManager) Add(services ...Service) {
 	defer s.servicesMutex.Unlock()
 
 	for _, service := range services {
-		slog.Debug("registering service",
-			"service", service.Name(),
-		)
-
 		s.services[service.Name()] = service
 	}
 }
 
-func (s *ServiceManager) Run(ctx context.Context) error {
-	slog.Info("running services")
+// AddContext registers services and records their registration in ctx's scope.
+func (s *ServiceManager) AddContext(ctx context.Context, services ...Service) {
+	for _, service := range services {
+		ctxscope.GetLogger(
+			withServiceScope(ctx, service.Name()),
+		).Debug("registering service")
+	}
 
-	if err := s.instantiateAll(); err != nil {
+	s.Add(services...)
+}
+
+func withServiceScope(ctx context.Context, service string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	return ctxscope.Set(ctx, ctxscope.Attr(scopeKeyService, service))
+}
+
+func (s *ServiceManager) Run(ctx context.Context) error {
+	ctxscope.GetLogger(ctx).Info("running services")
+
+	if err := s.instantiateAllContext(ctx); err != nil {
 		return ctxerrors.Wrap(
 			err, "failed to instantiate services",
 		)
@@ -321,14 +362,14 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 		return ErrNoEnabledServices
 	}
 
-	groups, err := resolveOrder(s.services)
+	groups, err := resolveOrderContext(ctx, s.services)
 	if err != nil {
 		return ctxerrors.Wrap(
 			err, "failed to resolve service order",
 		)
 	}
 
-	slog.Debug("resolved service order",
+	ctxscope.GetLogger(ctx).Debug("resolved service order",
 		"groups", len(groups),
 		"services", len(s.services),
 	)
@@ -337,7 +378,7 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		slog.Info("services run context done")
+		ctxscope.GetLogger(ctx).Info("services run context done")
 
 		return nil
 	case err := <-errCh:
@@ -359,7 +400,7 @@ func (s *ServiceManager) runServiceGroups(
 			names = append(names, svc.Name())
 		}
 
-		slog.Debug("starting service group",
+		ctxscope.GetLogger(ctx).Debug("starting service group",
 			"group", i,
 			"services", names,
 		)
@@ -374,7 +415,9 @@ func (s *ServiceManager) runServiceGroups(
 
 				launchedCh <- struct{}{}
 
-				s.runService(ctx, svc, errCh)
+				serviceCtx := withServiceScope(ctx, svc.Name())
+
+				s.runService(serviceCtx, svc, errCh)
 			}(service)
 		}
 
@@ -397,15 +440,13 @@ func (s *ServiceManager) waitGroupReady(
 			continue
 		}
 
-		slog.Debug("waiting for service ready",
-			"service", svc.Name(),
-		)
+		serviceCtx := withServiceScope(ctx, svc.Name())
+
+		ctxscope.GetLogger(serviceCtx).Debug("waiting for service ready")
 
 		select {
 		case <-rn.Ready():
-			slog.Debug("service ready",
-				"service", svc.Name(),
-			)
+			ctxscope.GetLogger(serviceCtx).Debug("service ready")
 		case <-ctx.Done():
 			return
 		}
@@ -427,24 +468,20 @@ func (s *ServiceManager) runService(
 	var lastErr error
 
 	for attempt := range maxRetries + 1 {
-		slog.Debug("running service",
-			"service", service.Name(),
+		ctxscope.GetLogger(ctx).Debug("running service",
 			"attempt", attempt+1,
 		)
 
 		lastErr = s.safeRun(ctx, service)
 		if lastErr == nil {
-			slog.Info("service exited cleanly",
-				"service", service.Name(),
-			)
+			ctxscope.GetLogger(ctx).Info("service exited cleanly")
 
 			return
 		}
 
 		if ctx.Err() != nil {
-			slog.Debug(
+			ctxscope.GetLogger(ctx).Debug(
 				"context cancelled during retry",
-				"service", service.Name(),
 				"attempt", attempt+1,
 			)
 
@@ -456,27 +493,25 @@ func (s *ServiceManager) runService(
 		}
 
 		if !s.waitRetryDelay(
-			ctx, service, retryable,
+			ctx, retryable,
 			attempt, maxRetries, lastErr,
 		) {
 			return
 		}
 	}
 
-	slog.Error("service failed",
-		"service", service.Name(),
+	ctxscope.GetLogger(ctx).Error("service failed",
 		"attempts", maxRetries+1,
-		"error", lastErr,
+		"err", lastErr,
 	)
 
-	s.handleServiceError(service, lastErr, errCh)
+	s.handleServiceError(ctx, service, lastErr, errCh)
 }
 
 // waitRetryDelay logs the retry and waits for the delay.
 // Returns false if context was cancelled during the wait.
 func (s *ServiceManager) waitRetryDelay(
 	ctx context.Context,
-	service Service,
 	retryable Retryable,
 	attempt int,
 	maxRetries int,
@@ -484,12 +519,11 @@ func (s *ServiceManager) waitRetryDelay(
 ) bool {
 	delay := retryable.RetryDelay()
 
-	slog.Warn("service failed, retrying",
-		"service", service.Name(),
+	ctxscope.GetLogger(ctx).Warn("service failed, retrying",
 		"attempt", attempt+1,
-		"maxRetries", maxRetries,
-		"retryDelay", delay,
-		"error", err,
+		"max_retries", maxRetries,
+		"retry_delay", delay,
+		"err", err,
 	)
 
 	if delay <= 0 {
@@ -509,15 +543,15 @@ func (s *ServiceManager) waitRetryDelay(
 }
 
 func (s *ServiceManager) handleServiceError(
+	ctx context.Context,
 	service Service,
 	err error,
 	errCh chan<- error,
 ) {
 	af, ok := service.(AllowedFailure)
 	if ok && af.IsAllowedFailure() {
-		slog.Warn("service failed (allowed failure)",
-			"service", service.Name(),
-			"error", err,
+		ctxscope.GetLogger(ctx).Warn("service failed (allowed failure)",
+			"err", err,
 		)
 
 		return
@@ -536,9 +570,9 @@ func (s *ServiceManager) handleServiceError(
 	select {
 	case errCh <- err:
 	default:
-		slog.Error("service failed after an earlier failure stopped the app",
-			"service", service.Name(),
-			"error", err,
+		ctxscope.GetLogger(ctx).Error(
+			"service failed after an earlier failure stopped the app",
+			"err", err,
 		)
 	}
 }
@@ -553,8 +587,7 @@ func (s *ServiceManager) safeRun(
 			return
 		}
 
-		slog.Error("service panicked",
-			"service", service.Name(),
+		ctxscope.GetLogger(ctx).Error("service panicked",
 			"panic", r,
 		)
 
@@ -576,8 +609,8 @@ func (s *ServiceManager) Stop(ctx context.Context) {
 	s.cancelMu.Unlock()
 
 	s.stopOnce.Do(func() {
-		slog.Info("stopping services")
-		defer slog.Info("stopped services")
+		ctxscope.GetLogger(ctx).Info("stopping services")
+		defer ctxscope.GetLogger(ctx).Info("stopped services")
 
 		s.startGroupsMu.RLock()
 		defer s.startGroupsMu.RUnlock()
@@ -600,11 +633,11 @@ func (s *ServiceManager) stopGroup(
 		go func(svc Service) {
 			defer wg.Done()
 
-			slog.Debug("stopping service",
-				"service", svc.Name(),
-			)
+			serviceCtx := withServiceScope(ctx, svc.Name())
 
-			s.stopServiceWithTimeout(ctx, svc)
+			ctxscope.GetLogger(serviceCtx).Debug("stopping service")
+
+			s.stopServiceWithTimeout(serviceCtx, svc)
 		}(service)
 	}
 
@@ -626,10 +659,9 @@ func (s *ServiceManager) stopServiceWithTimeout(
 		defer cancel()
 
 		if err := service.Stop(ctx); err != nil {
-			slog.Error(
+			ctxscope.GetLogger(ctx).Error(
 				"failed to stop service",
-				"service", service.Name(),
-				"error", err,
+				"err", err,
 			)
 		}
 	}()
@@ -640,8 +672,7 @@ func (s *ServiceManager) stopServiceWithTimeout(
 	select {
 	case <-done:
 	case <-timer.C:
-		slog.Error("service stop timed out",
-			"service", service.Name(),
+		ctxscope.GetLogger(ctx).Error("service stop timed out",
 			"timeout", s.stopTimeout,
 		)
 	}
@@ -650,12 +681,20 @@ func (s *ServiceManager) stopServiceWithTimeout(
 func resolveOrder(
 	services map[string]Service,
 ) ([]serviceGroup, error) {
-	inDegree, dependents := buildDepGraph(services)
+	return resolveOrderContext(context.Background(), services)
+}
+
+func resolveOrderContext(
+	ctx context.Context,
+	services map[string]Service,
+) ([]serviceGroup, error) {
+	inDegree, dependents := buildDepGraphContext(ctx, services)
 
 	return topoSort(services, inDegree, dependents)
 }
 
-func buildDepGraph(
+func buildDepGraphContext(
+	ctx context.Context,
 	services map[string]Service,
 ) (map[string]int, map[string][]string) {
 	inDegree := make(map[string]int, len(services))
@@ -675,9 +714,10 @@ func buildDepGraph(
 
 		for _, depName := range dep.Dependencies() {
 			if _, exists := services[depName]; !exists {
-				slog.Warn(
+				ctxscope.GetLogger(
+					withServiceScope(ctx, name),
+				).Warn(
 					"dependency not in process, skipping",
-					"service", name,
 					"dependency", depName,
 				)
 

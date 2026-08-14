@@ -22,65 +22,65 @@ section "Restoring User Configuration"
 
 # If user had a custom module name, restore it everywhere
 if [ -n "$USER_MODULE" ]; then
-    info "Restoring user module name in go.mod..."
-    sed -i "1s|.*|module $USER_MODULE|" go.mod
+	info "Restoring user module name in go.mod..."
+	sed -i "1s|.*|module $USER_MODULE|" go.mod
 
-    # Rewrite the framework's import path to yours -- but ONLY in the .go files
-    # this sync actually delivered, listed by rsync itself in $SYNCED_FILES.
-    #
-    # This used to be `find . -name '*.go' -not -path './vendor/*'`, which walks
-    # the WHOLE working tree. `find` knows nothing about .gitignore, so it also
-    # descended into scratch dirs, research checkouts and nested clones. In a real
-    # project that meant 62k files rewritten instead of ~50, and it silently
-    # rewrote the imports of an unrelated servicepack checkout that happened to
-    # live under the repo -- invisible in `git status`, because the wreckage was
-    # all gitignored.
-    #
-    # go.mod needs no walk of its own either: rsync never copies it (see
-    # do_update.sh), its module line is rewritten directly above, its requires are
-    # merged below, and `make dep` tidies and vendors the rest. The old
-    # `-name '*.mod'` find had no legitimate target at all.
-    FRAMEWORK_MODULE=$(head -n 1 "$TEMP_DIR/go.mod" | awk '{print $2}')
+	# Rewrite the framework's import path to yours -- but ONLY in the .go files
+	# this sync actually delivered, listed by rsync itself in $SYNCED_FILES.
+	#
+	# This used to be `find . -name '*.go' -not -path './vendor/*'`, which walks
+	# the WHOLE working tree. `find` knows nothing about .gitignore, so it also
+	# descended into scratch dirs, research checkouts and nested clones. In a real
+	# project that meant 62k files rewritten instead of ~50, and it silently
+	# rewrote the imports of an unrelated servicepack checkout that happened to
+	# live under the repo -- invisible in `git status`, because the wreckage was
+	# all gitignored.
+	#
+	# go.mod needs no walk of its own either: rsync never copies it (see
+	# do_update.sh), its module line is rewritten directly above, its requires are
+	# merged below, and `make dep` tidies and vendors the rest. The old
+	# `-name '*.mod'` find had no legitimate target at all.
+	FRAMEWORK_MODULE=$(head -n 1 "$TEMP_DIR/go.mod" | awk '{print $2}')
 
-    # Fail loudly rather than falling back to the old tree-wide find: a silent
-    # skip would leave the synced framework importing servicepack's own path and
-    # nothing would build, with no clue why.
-    if [ ! -f "$SYNCED_FILES" ]; then
-        error "No sync manifest at '$SYNCED_FILES'; cannot rewrite module paths."
-        exit 1
-    fi
+	# Fail loudly rather than falling back to the old tree-wide find: a silent
+	# skip would leave the synced framework importing servicepack's own path and
+	# nothing would build, with no clue why.
+	if [ ! -f "$SYNCED_FILES" ]; then
+		error "No sync manifest at '$SYNCED_FILES'; cannot rewrite module paths."
+		exit 1
+	fi
 
-    info "Replacing module references in synced framework files..."
+	info "Replacing module references in synced framework files..."
 
-    rewritten=0
-    while IFS= read -r synced_file; do
-        [ -f "$synced_file" ] || continue
-        sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" "$synced_file"
-        rewritten=$((rewritten + 1))
-    done < <(grep '\.go$' "$SYNCED_FILES" || true)  # no .go in the sync is valid
+	rewritten=0
+	while IFS= read -r synced_file; do
+		[ -f "$synced_file" ] || continue
+		sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" "$synced_file"
+		rewritten=$((rewritten + 1))
+	done < <(grep '\.go$' "$SYNCED_FILES" || true) # no .go in the sync is valid
 
-    info "Rewrote module references in $rewritten synced .go file(s)"
+	info "Rewrote module references in $rewritten synced .go file(s)"
 
-    # Belt and braces: nothing the repo actually owns may still import the
-    # framework path. `git ls-files -co --exclude-standard` is tracked plus
-    # untracked-but-not-ignored -- i.e. the real project, deliberately excluding
-    # the gitignored scratch the old `find` used to trash.
-    if [ "$FRAMEWORK_MODULE" != "$USER_MODULE" ]; then
-        leftovers=$(git ls-files -co --exclude-standard -- '*.go' 2>/dev/null |
-            xargs -r grep -l -- "$FRAMEWORK_MODULE" 2>/dev/null || true)
+	# Belt and braces: nothing the repo actually owns may still import the
+	# framework path. `git ls-files -co --exclude-standard` is tracked plus
+	# untracked-but-not-ignored -- i.e. the real project, deliberately excluding
+	# the gitignored scratch the old `find` used to trash.
+	if [ "$FRAMEWORK_MODULE" != "$USER_MODULE" ]; then
+		leftovers=$(git ls-files -co --exclude-standard -- '*.go' 2>/dev/null |
+			xargs -r grep -l -- "$FRAMEWORK_MODULE" 2>/dev/null || true)
 
-        if [ -n "$leftovers" ]; then
-            warning "These files still reference $FRAMEWORK_MODULE:"
-            while IFS= read -r leftover; do
-                printf '  %s\n' "$leftover" >&2
-            done <<< "$leftovers"
-            warning "The sync manifest may be incomplete; check before merging."
-        fi
-    fi
+		if [ -n "$leftovers" ]; then
+			warning "These files still reference $FRAMEWORK_MODULE:"
+			while IFS= read -r leftover; do
+				printf '  %s\n' "$leftover" >&2
+			done <<<"$leftovers"
+			warning "The sync manifest may be incomplete; check before merging."
+		fi
+	fi
 fi
 
 # Save the new version
-printf "%s" "$LATEST_VERSION" > servicepack.version
+printf "%s" "$LATEST_VERSION" >servicepack.version
 success "Updated servicepack.version to: $LATEST_VERSION"
 
 section "Merging Framework Dependencies (upgrade-only)"
@@ -99,55 +99,55 @@ section "Merging Framework Dependencies (upgrade-only)"
 # max over the union, so the framework's bumps land while the downstream's own
 # (possibly-newer) deps stay intact.
 merge_framework_deps() {
-    local framework_gomod="$TEMP_DIR/go.mod"
-    if [ ! -f "$framework_gomod" ] || [ ! -f "go.mod" ]; then
-        warning "Missing go.mod (framework or local); skipping dependency merge."
-        return 0
-    fi
+	local framework_gomod="$TEMP_DIR/go.mod"
+	if [ ! -f "$framework_gomod" ] || [ ! -f "go.mod" ]; then
+		warning "Missing go.mod (framework or local); skipping dependency merge."
+		return 0
+	fi
 
-    # Highest of two semver strings ("" counts as lowest so a missing local dep
-    # always takes the framework version).
-    _semver_max() {
-        if [ -z "$1" ]; then
-            printf '%s' "$2"
-            return
-        fi
-        printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1
-    }
+	# Highest of two semver strings ("" counts as lowest so a missing local dep
+	# always takes the framework version).
+	_semver_max() {
+		if [ -z "$1" ]; then
+			printf '%s' "$2"
+			return
+		fi
+		printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n1
+	}
 
-    # Direct (non-indirect) requires from the framework. Indirect deps are left
-    # to `go mod tidy` -- pinning them here would fight MVS.
-    local path version current desired
-    while IFS=' ' read -r path version; do
-        [ -z "$path" ] && continue
-        current=$(go mod edit -json | \
-            jq -r --arg p "$path" '(.Require // [])[] | select(.Path==$p) | .Version' | head -n1)
-        desired=$(_semver_max "$current" "$version")
+	# Direct (non-indirect) requires from the framework. Indirect deps are left
+	# to `go mod tidy` -- pinning them here would fight MVS.
+	local path version current desired
+	while IFS=' ' read -r path version; do
+		[ -z "$path" ] && continue
+		current=$(go mod edit -json |
+			jq -r --arg p "$path" '(.Require // [])[] | select(.Path==$p) | .Version' | head -n1)
+		desired=$(_semver_max "$current" "$version")
 
-        if [ "$current" = "$desired" ]; then
-            continue  # downstream already at >= framework version; leave it
-        fi
+		if [ "$current" = "$desired" ]; then
+			continue # downstream already at >= framework version; leave it
+		fi
 
-        if [ -z "$current" ]; then
-            info "add framework dep $path@$version"
-        else
-            info "bump framework dep $path $current -> $desired"
-        fi
-        go mod edit -require="${path}@${desired}"
-    done < <(go mod edit -json "$framework_gomod" | \
-        jq -r '(.Require // [])[] | select(.Indirect|not) | "\(.Path) \(.Version)"')
+		if [ -z "$current" ]; then
+			info "add framework dep $path@$version"
+		else
+			info "bump framework dep $path $current -> $desired"
+		fi
+		go mod edit -require="${path}@${desired}"
+	done < <(go mod edit -json "$framework_gomod" |
+		jq -r '(.Require // [])[] | select(.Indirect|not) | "\(.Path) \(.Version)"')
 
-    # Tool directives the framework declares but the downstream is missing
-    # (e.g. the linter / codegen tools). Adding a tool never downgrades anything.
-    local tool
-    while IFS= read -r tool; do
-        [ -z "$tool" ] && continue
-        if go mod edit -json | jq -e --arg t "$tool" '(.Tool // []) | any(.Path==$t)' >/dev/null; then
-            continue
-        fi
-        info "add framework tool $tool"
-        go mod edit -tool="$tool"
-    done < <(go mod edit -json "$framework_gomod" | jq -r '(.Tool // [])[].Path')
+	# Tool directives the framework declares but the downstream is missing
+	# (e.g. the linter / codegen tools). Adding a tool never downgrades anything.
+	local tool
+	while IFS= read -r tool; do
+		[ -z "$tool" ] && continue
+		if go mod edit -json | jq -e --arg t "$tool" '(.Tool // []) | any(.Path==$t)' >/dev/null; then
+			continue
+		fi
+		info "add framework tool $tool"
+		go mod edit -tool="$tool"
+	done < <(go mod edit -json "$framework_gomod" | jq -r '(.Tool // [])[].Path')
 }
 
 merge_framework_deps
@@ -165,7 +165,7 @@ section "Creating Post-Update Commands"
 mkdir -p scripts/.post-update-temp
 
 # Create review script
-cat > scripts/.post-update-temp/review.sh << EOF
+cat >scripts/.post-update-temp/review.sh <<EOF
 #!/bin/bash
 echo "=== Reviewing Servicepack Update ==="
 echo "Showing changes from $CURRENT_BRANCH to $UPDATE_BRANCH:"
@@ -180,7 +180,7 @@ echo "  make servicepack-update-revert  - to cancel and revert"
 EOF
 
 # Create merge script
-cat > scripts/.post-update-temp/merge.sh << EOF
+cat >scripts/.post-update-temp/merge.sh <<EOF
 #!/bin/bash
 echo "=== Merging Servicepack Update ==="
 git checkout $CURRENT_BRANCH
@@ -194,7 +194,7 @@ echo "✅ Update complete!"
 EOF
 
 # Create revert script
-cat > scripts/.post-update-temp/revert.sh << EOF
+cat >scripts/.post-update-temp/revert.sh <<EOF
 #!/bin/bash
 echo "=== Reverting Servicepack Update ==="
 git checkout $CURRENT_BRANCH

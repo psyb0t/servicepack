@@ -3,8 +3,9 @@ package examplecrasher
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"time"
+
+	"github.com/psyb0t/ctxscope"
 )
 
 const ServiceName = "example-crasher"
@@ -39,7 +40,9 @@ func (c *ExampleCrasher) RetryDelay() time.Duration {
 func (c *ExampleCrasher) Run(
 	ctx context.Context,
 ) error {
-	slog.Info("starting service", "service", ServiceName)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("starting service")
 
 	crashDelay := 10 * time.Second //nolint:mnd
 	timer := time.NewTimer(crashDelay)
@@ -48,25 +51,22 @@ func (c *ExampleCrasher) Run(
 
 	select {
 	case <-ctx.Done():
-		slog.Info(
-			"context cancelled, stopping service",
-			"service", ServiceName,
-		)
+		logger.Info("context cancelled, stopping service")
 
 		return nil
 	case <-timer.C:
-		slog.Error("crashing on purpose",
-			"service", ServiceName,
-		)
+		logger.Error("crashing on purpose")
 
 		return errCrash
 	}
 }
 
 func (c *ExampleCrasher) Stop(
-	_ context.Context,
+	ctx context.Context,
 ) error {
-	slog.Info("stopping service", "service", ServiceName)
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

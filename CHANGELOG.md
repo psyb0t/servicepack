@@ -4,6 +4,24 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.3.0 — 2026-08-14
+
+Scoped logs and a container-only development workflow, without breaking the
+existing service API.
+
+- Added `ctxscope` throughout the runner, application, service manager, bundled
+  examples, and generated-service template. Logs now carry the binary and build
+  commit globally, plus the current service where work runs.
+- Added `runner.RunContext(ctx, runnable)` for callers that need to preserve a
+  parent context. The existing `runner.Run(runnable)` keeps its background-context
+  behavior for compatibility.
+- `make test`, `make test-integration`, and `make test-coverage` execute in a
+  Docker dev container with the Docker socket available for Testcontainers;
+  coverage now enforces a 90% minimum. Shell formatting and ShellCheck run in
+  that same dev image.
+- Updated the pinned Go toolchain and build images to Go 1.26.4, including the
+  agent setup reference and generated-service documentation.
+
 ## v1.2.23 — 2026-08-08
 
 Documentation. No code change.

@@ -11,7 +11,6 @@ section "Cleaning Build Artifacts"
 info "Removing build directory..."
 rm -rf build/
 
-
 info "Removing coverage files..."
 rm -f coverage.txt
 

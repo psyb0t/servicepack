@@ -1,6 +1,6 @@
 ---
 name: servicepack
-description: Build a Go service on psyb0t/servicepack — clone-and-own framework (not a `go get` library) providing a Service interface (Name/Run/Stop), a singleton ServiceManager that runs services concurrently with dependency-ordered topological start, automatic retry (Retryable), non-fatal failures (AllowedFailure), readiness gating (ReadyNotifier), per-service CLI subcommands (Commander), an App singleton with OnPreRun/OnPostStop lifecycle hooks, gofindimpl-based service auto-discovery codegen, slogging/slogconf logging, and a graceful-shutdown Runner. Import path github.com/psyb0t/servicepack. Use when the user wants to build a Go service/daemon with concurrent long-running workers, retry/dependency/readiness semantics, or a `make service NAME=x` scaffolded multi-service binary.
+description: Build a Go service on psyb0t/servicepack — clone-and-own framework (not a `go get` library) providing a Service interface (Name/Run/Stop), a singleton ServiceManager that runs services concurrently with dependency-ordered topological start, automatic retry (Retryable), non-fatal failures (AllowedFailure), readiness gating (ReadyNotifier), per-service CLI subcommands (Commander), an App singleton with OnPreRun/OnPostStop lifecycle hooks, gofindimpl-based service auto-discovery codegen, ctxscope/slogging structured logging, and a graceful-shutdown Runner. Import path github.com/psyb0t/servicepack. Use when the user wants to build a Go service/daemon with concurrent long-running workers, retry/dependency/readiness semantics, or a `make service NAME=x` scaffolded multi-service binary.
 homepage: https://github.com/psyb0t/servicepack
 user-invocable: true
 permissions:
@@ -73,16 +73,16 @@ package myworker
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 	"github.com/psyb0t/gonfiguration"
 )
 
 const ServiceName = "my-worker"
 
 type Config struct {
-	Value string `env:"MYWORKER_VALUE"`
+	Value string `env:"MYWORKER_VALUE" default:"default-value"`
 }
 
 type MyWorker struct {
@@ -92,12 +92,8 @@ type MyWorker struct {
 func New() (*MyWorker, error) {
 	cfg := Config{}
 
-	gonfiguration.SetDefaults(map[string]any{
-		"MYWORKER_VALUE": "default-value",
-	})
-
 	if err := gonfiguration.Parse(&cfg); err != nil {
-		return nil, ctxerrors.Wrap(err, "failed to parse myworker config")
+		return nil, ctxerrors.Wrap(err, "parse my-worker config")
 	}
 
 	return &MyWorker{config: cfg}, nil
@@ -108,12 +104,19 @@ func (s *MyWorker) Name() string {
 }
 
 func (s *MyWorker) Run(ctx context.Context) error {
-	slog.Info("starting service", "service", ServiceName)
-	panic("TODO: Implement my-worker service logic")
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("starting service")
+
+	<-ctx.Done()
+	logger.Info("service context cancelled")
+
+	return nil
 }
 
-func (s *MyWorker) Stop(_ context.Context) error {
-	slog.Info("stopping service", "service", ServiceName)
+func (s *MyWorker) Stop(ctx context.Context) error {
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }
@@ -234,7 +237,7 @@ func commands() []*cobra.Command {
 
 ## Logging and config
 
-- Logging is `log/slog`, wired by `github.com/psyb0t/slogging/slogconf`. Add extra `slog.Handler`s (Loki, Datadog, etc.) in `cmd/init.go`; every `slog.Info/Warn/Error` call across the framework and your services goes to every registered handler.
+- Logging is `ctxscope` over `log/slog`, with `github.com/psyb0t/slogging/slogconf` wiring the default handler. Add extra `slog.Handler`s (Loki, Datadog, etc.) in `cmd/init.go`; set durable identity fields with `ctxscope.Set(ctx, ...)`, then log through `ctxscope.GetLogger(ctx)`.
 - Config is `github.com/psyb0t/gonfiguration` — struct tags (`env:"MYWORKER_VALUE"`), `gonfiguration.Parse(&cfg)`, `gonfiguration.SetDefaults(map[string]any{...})`. Never `os.Getenv` directly.
 - Errors are wrapped with `github.com/psyb0t/ctxerrors` (`ctxerrors.Wrap(err, "doing X")`) for file/line/function context.
 

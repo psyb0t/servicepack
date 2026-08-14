@@ -2,8 +2,8 @@ package examplemigrator
 
 import (
 	"context"
-	"log/slog"
 
+	"github.com/psyb0t/ctxscope"
 	exampledatabase "github.com/psyb0t/servicepack/internal/pkg/services/example-database"
 	"github.com/spf13/cobra"
 )
@@ -49,35 +49,42 @@ func (m *ExampleMigrator) Commands() []*cobra.Command {
 		{
 			Use:   "up",
 			Short: "Run all pending migrations",
-			Run: func(_ *cobra.Command, _ []string) {
-				slog.Info("running migrations up",
-					"service", ServiceName,
+			Run: func(cmd *cobra.Command, _ []string) {
+				ctx := ctxscope.Set(
+					cmd.Context(),
+					ctxscope.Attr("service", ServiceName),
 				)
+				logger := ctxscope.GetLogger(ctx)
 
-				slog.Info("migrations applied",
-					"service", ServiceName,
-				)
+				logger.Info("running migrations up")
+				logger.Info("migrations applied")
 			},
 		},
 		{
 			Use:   "down",
 			Short: "Rollback the last migration",
-			Run: func(_ *cobra.Command, _ []string) {
-				slog.Info("rolling back migration",
-					"service", ServiceName,
+			Run: func(cmd *cobra.Command, _ []string) {
+				ctx := ctxscope.Set(
+					cmd.Context(),
+					ctxscope.Attr("service", ServiceName),
 				)
+				logger := ctxscope.GetLogger(ctx)
 
-				slog.Info("migration rolled back",
-					"service", ServiceName,
-				)
+				logger.Info("rolling back migration")
+				logger.Info("migration rolled back")
 			},
 		},
 		{
 			Use:   "status",
 			Short: "Show migration status",
-			Run: func(_ *cobra.Command, _ []string) {
-				slog.Info("migration status: all up to date",
-					"service", ServiceName,
+			Run: func(cmd *cobra.Command, _ []string) {
+				ctx := ctxscope.Set(
+					cmd.Context(),
+					ctxscope.Attr("service", ServiceName),
+				)
+
+				ctxscope.GetLogger(ctx).Info(
+					"migration status: all up to date",
 				)
 			},
 		},
@@ -85,23 +92,23 @@ func (m *ExampleMigrator) Commands() []*cobra.Command {
 }
 
 func (m *ExampleMigrator) Run(
-	_ context.Context,
+	ctx context.Context,
 ) error {
-	slog.Info("running migrations",
-		"service", ServiceName,
-	)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("running migrations")
 
-	slog.Info("migrations completed",
-		"service", ServiceName,
-	)
+	logger.Info("migrations completed")
 
 	return nil
 }
 
 func (m *ExampleMigrator) Stop(
-	_ context.Context,
+	ctx context.Context,
 ) error {
-	slog.Info("stopping service", "service", ServiceName)
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

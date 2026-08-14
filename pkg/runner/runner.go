@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/psyb0t/ctxerrors"
+	"github.com/psyb0t/ctxscope"
 	"github.com/psyb0t/gonfiguration"
 )
 
@@ -26,12 +26,17 @@ type config struct {
 }
 
 func Run(runnable Runnable) error {
+	return RunContext(context.Background(), runnable)
+}
+
+// RunContext runs a lifecycle with ctx as the application context's parent.
+func RunContext(ctx context.Context, runnable Runnable) error {
 	cfg, err := getConfig()
 	if err != nil {
 		return ctxerrors.Wrap(err, "get runner config")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	r := &appRunner{
@@ -61,6 +66,8 @@ func getConfig() (*config, error) {
 
 func (r *appRunner) run(ctx context.Context) error {
 	sigCh := r.setupSignalHandling()
+	defer signal.Stop(sigCh)
+
 	errCh := make(chan error, 1)
 
 	var wg sync.WaitGroup
@@ -69,7 +76,7 @@ func (r *appRunner) run(ctx context.Context) error {
 
 	go r.runApp(ctx, &wg, errCh)
 
-	shutdownErr := r.waitForShutdown(sigCh, errCh)
+	shutdownErr := r.waitForShutdown(ctx, sigCh, errCh)
 
 	return r.gracefulShutdown(
 		ctx, &wg, shutdownErr,
@@ -96,18 +103,23 @@ func (r *appRunner) runApp(
 	defer wg.Done()
 	defer close(errCh)
 
-	slog.Info("starting application")
+	ctxscope.GetLogger(ctx).Info("starting application")
 
 	errCh <- r.runnable.Run(ctx)
 }
 
 func (r *appRunner) waitForShutdown(
+	ctx context.Context,
 	sigCh chan os.Signal,
 	errCh chan error,
 ) error {
 	select {
+	case <-ctx.Done():
+		ctxscope.GetLogger(ctx).Debug("runner context cancelled")
+
+		return nil
 	case sig := <-sigCh:
-		slog.Info("received signal",
+		ctxscope.GetLogger(ctx).Info("received signal",
 			"signal", sig.String(),
 		)
 
@@ -118,8 +130,8 @@ func (r *appRunner) waitForShutdown(
 		// bogus "Trying to wrap a nil error" line on every clean shutdown that
 		// arrives through this channel.
 		if err != nil {
-			slog.Error("application error",
-				"error", err,
+			ctxscope.GetLogger(ctx).Error("application error",
+				"err", err,
 			)
 
 			return ctxerrors.Wrap(err, "run application")
@@ -134,17 +146,17 @@ func (r *appRunner) gracefulShutdown(
 	wg *sync.WaitGroup,
 	shutdownErr error,
 ) error {
-	slog.Info("initiating graceful shutdown")
+	ctxscope.GetLogger(ctx).Info("initiating graceful shutdown")
 
 	shutdownCtx, cancel := context.WithTimeout(
-		ctx, r.shutdownTimeout,
+		context.WithoutCancel(ctx), r.shutdownTimeout,
 	)
 	defer cancel()
 
 	stopErrCh := make(chan error, 1)
 
 	wg.Go(func() {
-		if err := r.runnable.Stop(ctx); err != nil {
+		if err := r.runnable.Stop(shutdownCtx); err != nil {
 			stopErrCh <- err
 		}
 	})
@@ -158,15 +170,13 @@ func (r *appRunner) gracefulShutdown(
 
 	select {
 	case err := <-stopErrCh:
-		return ctxerrors.Wrap(
-			shutdownErr, err.Error(),
-		)
+		return ctxerrors.Wrap(errors.Join(shutdownErr, err), "stop application")
 	case <-shutdownCtx.Done():
 		return r.handleShutdownTimeout(
 			shutdownCtx, shutdownErr,
 		)
 	case <-doneCh:
-		slog.Info("shutdown completed")
+		ctxscope.GetLogger(ctx).Info("shutdown completed")
 	}
 
 	return shutdownErr
@@ -182,7 +192,7 @@ func (r *appRunner) handleShutdownTimeout(
 	}
 
 	if errors.Is(err, context.DeadlineExceeded) {
-		slog.Error("shutdown timeout exceeded")
+		ctxscope.GetLogger(shutdownCtx).Error("shutdown timeout exceeded")
 
 		return ErrShutdownTimeout
 	}

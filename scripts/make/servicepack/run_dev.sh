@@ -16,7 +16,7 @@ make docker-build-dev
 
 info "Starting containerized development environment..."
 docker run -i --rm \
-    --name "$APP_NAME-dev" \
-    "$APP_NAME-dev" sh -c "CGO_ENABLED=1 go build -race -o ./build/$APP_NAME ./cmd/... && ./build/$APP_NAME run"
+	--name "$APP_NAME-dev" \
+	"$APP_NAME-dev" sh -c "CGO_ENABLED=1 go build -race -o ./build/$APP_NAME ./cmd/... && ./build/$APP_NAME run"
 
 success "Development container finished"

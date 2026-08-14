@@ -236,7 +236,7 @@ func init() {
 }
 ```
 
-Every `slog.Info/Error/etc` call across the entire app - framework, services, everything - goes to all registered handlers. Want Loki? Datadog? Elasticsearch? Just write a `slog.Handler` and plug it in here.
+Every log line goes through the handlers you register. Framework and generated services use `ctxscope.GetLogger(ctx)`, which carries the binary, commit, and current service as structured fields. For your own identity fields, derive a context with `ctxscope.Set(ctx, ctxscope.Attr("key", value))` before getting its logger. Want Loki? Datadog? Elasticsearch? Just write a `slog.Handler` and plug it in here.
 
 ### Lifecycle Hooks
 
@@ -296,10 +296,21 @@ Leave `SERVICES_ENABLED` empty or unset to run all services.
 - `make all` - Full pipeline: dep → lint-fix → test-coverage → build
 - `make build` - Build the binary using Docker (static linking)
 - `make dep` - Get dependencies with `go mod tidy` and `go mod vendor`
-- `make test` - Run all tests with race detection
-- `make test-coverage` - Run tests with 90% coverage requirement (excludes `/cmd` and the entire `internal/pkg/services` tree — every user service, not just the examples — and filters `service-manager/mocks.go` out of the coverage profile)
-- `make lint` - Lint with `go fix` (diff-only) + golangci-lint (80+ linters)
-- `make lint-fix` - Apply `go fix` modernizations + golangci-lint auto-fixes
+- `make test` - Run all tests with race detection in the dev container, with the Docker socket mounted for Testcontainers
+- `make test-unit` - Run the framework unit-test suite
+- `make test-integration` - Run uncached race-enabled integration tests in the socket-mounted dev container
+- `make test-coverage` - Run tests in the socket-mounted dev container with a 90% coverage requirement (excludes `/cmd` and the entire `internal/pkg/services` tree — every user service, not just the examples — and filters `service-manager/mocks.go` out of the coverage profile)
+- `make lint` - Run `shfmt`, shellcheck, `go fix` (diff-only), and golangci-lint in the dev container
+- `make lint-fix` - Format shell scripts, then apply `go fix` modernizations + golangci-lint auto-fixes
+- `make format` - Format Go source with gofumpt and shell scripts with shfmt
+- `make audit` - Scan reachable code for known Go vulnerabilities
+- `make generate` - Run every package-local `go:generate` directive
+- `make pkg-add PKG=module@version` - Age-gate, add, tidy, and vendor one module
+- `make pkg-update PKG=module` - Age-gate and update one module
+- `make pkg-upgrade` - Age-gate and update direct modules
+- `make pkg-remove PKG=module` - Remove one module, then tidy and vendor
+- `make pkg-add-tool MODULE=module@version TOOL=package` - Add a pinned Go tool
+- `make pkg-remove-tool TOOL=package` - Remove a Go tool
 - `make clean` - Clean build artifacts and coverage files
 
 ### Service Management
@@ -477,7 +488,7 @@ The build system is dynamic as fuck:
 APP_NAME := $(shell head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')
 
 build:
-    docker run --rm -v $(PWD):/app -w /app golang:1.26-alpine \
+    docker run --rm -v $(PWD):/app -w /app golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 \
         sh -c "apk add --no-cache gcc musl-dev && \
                CGO_ENABLED=0 go build -a \
                -ldflags '-extldflags \"-static\" -X main.appName=$(APP_NAME)' \
@@ -682,7 +693,7 @@ Tests are structured per component:
 
 Core dependencies:
 
-- `log/slog` with [`slogging`](https://github.com/psyb0t/slogging) - Logging
+- [`ctxscope`](https://github.com/psyb0t/ctxscope) with [`slogging`](https://github.com/psyb0t/slogging) - Scoped structured logging
 - [`github.com/spf13/cobra`](https://github.com/spf13/cobra) - CLI
 - [`github.com/psyb0t/ctxerrors`](https://github.com/psyb0t/ctxerrors) - Error handling
 - [`github.com/psyb0t/goenv`](https://github.com/psyb0t/goenv) - Environment detection (prod/dev)

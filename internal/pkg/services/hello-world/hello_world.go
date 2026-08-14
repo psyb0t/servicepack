@@ -2,8 +2,9 @@ package helloworld
 
 import (
 	"context"
-	"log/slog"
 	"time"
+
+	"github.com/psyb0t/ctxscope"
 )
 
 const ServiceName = "hello-world"
@@ -19,7 +20,9 @@ func (h *HelloWorld) Name() string {
 }
 
 func (h *HelloWorld) Run(ctx context.Context) error {
-	slog.Info("starting service", "service", ServiceName)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("starting service")
 
 	ticker := time.NewTicker(5 * time.Second) //nolint:mnd
 	defer ticker.Stop()
@@ -27,19 +30,19 @@ func (h *HelloWorld) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("context cancelled, stopping service",
-				"service", ServiceName,
-			)
+			logger.Info("context cancelled, stopping service")
 
 			return nil
 		case <-ticker.C:
-			slog.Info("Hello, World!")
+			logger.Info("hello world heartbeat")
 		}
 	}
 }
 
-func (h *HelloWorld) Stop(_ context.Context) error {
-	slog.Info("stopping service", "service", ServiceName)
+func (h *HelloWorld) Stop(ctx context.Context) error {
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

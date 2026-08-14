@@ -18,23 +18,23 @@ NC='\033[0m' # No Color
 # actually wanted. stdout is the script's OUTPUT; stderr is where the running
 # commentary belongs.
 info() {
-    echo -e "${BLUE}${BOLD}[INFO]${NC} $1" >&2
+	echo -e "${BLUE}${BOLD}[INFO]${NC} $1" >&2
 }
 
 success() {
-    echo -e "${GREEN}${BOLD}[SUCCESS]${NC} $1" >&2
+	echo -e "${GREEN}${BOLD}[SUCCESS]${NC} $1" >&2
 }
 
 warning() {
-    echo -e "${YELLOW}${BOLD}[WARNING]${NC} $1" >&2
+	echo -e "${YELLOW}${BOLD}[WARNING]${NC} $1" >&2
 }
 
 error() {
-    echo -e "${RED}${BOLD}[ERROR]${NC} $1" >&2
+	echo -e "${RED}${BOLD}[ERROR]${NC} $1" >&2
 }
 
 section() {
-    echo "" >&2
-    echo -e "${BOLD}=== $1 ===${NC}" >&2
-    echo "" >&2
+	echo "" >&2
+	echo -e "${BOLD}=== $1 ===${NC}" >&2
+	echo "" >&2
 }

@@ -3,7 +3,8 @@ package exampleoptional
 import (
 	"context"
 	"errors"
-	"log/slog"
+
+	"github.com/psyb0t/ctxscope"
 )
 
 const ServiceName = "example-optional"
@@ -33,23 +34,23 @@ func (o *ExampleOptional) IsAllowedFailure() bool {
 }
 
 func (o *ExampleOptional) Run(
-	_ context.Context,
+	ctx context.Context,
 ) error {
-	slog.Info("starting service",
-		"service", ServiceName,
-	)
+	ctx = ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+	logger := ctxscope.GetLogger(ctx)
+	logger.Info("starting service")
 
-	slog.Error("failing on purpose",
-		"service", ServiceName,
-	)
+	logger.Error("failing on purpose")
 
 	return errOptional
 }
 
 func (o *ExampleOptional) Stop(
-	_ context.Context,
+	ctx context.Context,
 ) error {
-	slog.Info("stopping service", "service", ServiceName)
+	serviceCtx := ctxscope.Set(ctx, ctxscope.Attr("service", ServiceName))
+
+	ctxscope.GetLogger(serviceCtx).Info("stopping service")
 
 	return nil
 }

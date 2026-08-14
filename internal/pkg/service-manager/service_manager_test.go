@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/psyb0t/ctxscope"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -152,6 +153,12 @@ func TestServiceManager_Add(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithServiceScope(t *testing.T) {
+	ctx := withServiceScope(context.Background(), "test-service")
+
+	assert.Equal(t, "test-service", ctxscope.Get(ctx)[scopeKeyService])
 }
 
 func TestServiceManager_Run(t *testing.T) {

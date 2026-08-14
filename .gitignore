@@ -1,4 +1,6 @@
 .vscode
+AGENTS.md
+CODEX.local.md
 .log
 __pycache__
 coverage.out
@@ -8,9 +10,19 @@ coverage_filtered.txt
 build
 CLAUDE.md
 .env
+.env.local
+.env.*
+!.env.example
 research_files
 # The dotted form is the one actually used; the bare name above never matched it.
 .research_files
+.agent_notes/
+.agent_knowledge/
+PLAN.md
+implplan.md
+NOTES.md
+TODO.md
+WIP.md
 .backup
 scripts/.post-update-temp
 git-update.sh
