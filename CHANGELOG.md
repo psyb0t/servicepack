@@ -4,6 +4,31 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.5.0 — 2026-08-15
+
+The coverage gate now covers **services**, so a service-heavy project no longer
+has to override `test_coverage.sh` just to gate its own code. Previously the
+script excluded every `internal/pkg/services/` package (and did no cross-package
+or integration coverage), which meant the bulk of a real app went unmeasured
+unless the downstream reimplemented the script.
+
+`test_coverage.sh` now:
+
+- instruments **every** module package (`-coverpkg=<module>/...`) and runs with
+  `-tags=integration`, so an integration test under `tests/` credits coverage to
+  the production package it drives — nothing is hand-selected;
+- merges native **covdata** from a service that runs out-of-process in a real
+  container. The script exports `SERVICEPACK_COVDATA_DIR`; a project's
+  integration test mounts it into that container as `GOCOVERDIR`, and the merge
+  folds it into the total (union of the highest hit count per block);
+- excludes from the floor only what is not a project's hand-written code under
+  test: `cmd/` mains, the `tests/` harness, generated `*.gen.go`, the framework
+  service-manager mocks, and the framework's own `example-*` / `hello-world`
+  demo services (which every real project deletes).
+
+Downstreams pick this up with `make servicepack-update`. A project whose
+services were not previously gated may need to add tests to clear the floor.
+
 ## v1.4.0 — 2026-08-14
 
 Framework updates now fail fast on missing tools instead of stranding the repo

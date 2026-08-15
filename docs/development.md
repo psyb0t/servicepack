@@ -46,11 +46,17 @@ Use `make test-unit` for the same race-enabled package walk without exposing
 the Docker socket; Testcontainers-backed cases cannot start infrastructure in
 that target.
 
-`make test-coverage` also runs the race detector. It calculates framework
-coverage after excluding `cmd/`, the complete `internal/pkg/services/` tree,
-and generated service-manager mocks. That keeps the template's quality gate on
-the reusable framework while leaving a downstream project free to establish
-coverage policy for its own services. Override the threshold deliberately:
+`make test-coverage` also runs the race detector. It instruments every module
+package (`-coverpkg=<module>/...`) and runs `-tags=integration`, so a test under
+`tests/` credits coverage to the production package it drives, and **services are
+covered** — a service-heavy project does not need to override the script to gate
+its own code. A service that runs out-of-process in a real container is covered
+too: the script exports `SERVICEPACK_COVDATA_DIR`, an integration test mounts it
+into that container as `GOCOVERDIR`, and the native covdata is merged into the
+total. Only what is not hand-written code under test is excluded from the floor:
+`cmd/` mains, the `tests/` harness, generated `*.gen.go`, the service-manager
+mocks, and the framework's own `example-*` / `hello-world` demo services.
+Override the threshold deliberately:
 
 ```bash
 make test-coverage MIN_TEST_COVERAGE=95
