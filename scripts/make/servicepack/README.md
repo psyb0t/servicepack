@@ -71,14 +71,15 @@ intentional framework release.
 
 ## Build contract
 
-`build.sh` derives the app name from the module path, resolves `HEAD` when
-available, runs the digest-pinned Go build image, and injects both values into
-`main.appName` and `main.buildCommit`. It writes a static binary to
+`build.sh` derives the app name from the module path, resolves `HEAD` and its
+exact tag when available, runs the digest-pinned Go build image, and injects
+the identity into `main.appName`, `main.buildCommit`, and `main.buildVersion`.
+It writes a static binary to
 `build/<app-name>` and changes ownership back to the invoking host user.
 
 The runtime entry point uses those values as global log-scope fields. If a
-source tree has no Git `HEAD`, the binary still builds but omits the commit
-field.
+source tree has no Git `HEAD`, the binary still builds with `dev` as its
+version and omits the commit field.
 
 ## Updating this layer
 

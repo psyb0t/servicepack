@@ -14,21 +14,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// go build -ldflags "-X main.appName=userservice -X main.buildCommit=abc123".
+// go build -ldflags "-X main.appName=userservice -X main.buildCommit=abc123 -X main.buildVersion=v1.2.3".
 //
 //nolint:gochecknoglobals//need to be global bcuz ^.
 var (
-	appName     = "servicepack"
-	buildCommit string
+	appName      = "servicepack"
+	buildCommit  string
+	buildVersion = "dev"
 )
 
 const (
-	scopeKeyBinary = "binary"
-	scopeKeyCommit = "commit"
+	scopeKeyBinary  = "binary"
+	scopeKeyCommit  = "commit"
+	scopeKeyVersion = "version"
 )
 
 func main() {
-	setProcessScope(appName, buildCommit)
+	setProcessScope(appName, buildCommit, buildVersion)
 	services.Init()
 
 	rootCmd := buildRootCommand()
@@ -42,13 +44,19 @@ func main() {
 	}
 }
 
-func setProcessScope(binary, commit string) {
+func setProcessScope(binary, commit, version string) {
 	attrs := []ctxscope.Attribute{ctxscope.Attr(scopeKeyBinary, binary)}
 
 	if commit == "" {
 		ctxscope.RemoveGlobal(scopeKeyCommit)
 	} else {
 		attrs = append(attrs, ctxscope.Attr(scopeKeyCommit, commit))
+	}
+
+	if version == "" {
+		ctxscope.RemoveGlobal(scopeKeyVersion)
+	} else {
+		attrs = append(attrs, ctxscope.Attr(scopeKeyVersion, version))
 	}
 
 	ctxscope.SetGlobal(attrs...)

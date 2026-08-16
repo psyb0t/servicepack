@@ -2,6 +2,7 @@
 FROM golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS builder
 
 ARG BUILD_COMMIT=""
+ARG BUILD_VERSION="dev"
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -30,7 +31,7 @@ COPY . .
 # produced differently-named binaries from the same source.
 RUN APP_NAME="$(head -n 1 go.mod | awk '{print $2}' | awk -F'/' '{print $NF}')" && \
     CGO_ENABLED=0 go build -a \
-    -ldflags "-X main.appName=${APP_NAME} -X main.buildCommit=${BUILD_COMMIT}" \
+    -ldflags "-X main.appName=${APP_NAME} -X main.buildCommit=${BUILD_COMMIT} -X main.buildVersion=${BUILD_VERSION}" \
     -o ./build/app ./cmd
 
 # Final stage - minimal runtime image

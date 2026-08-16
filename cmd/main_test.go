@@ -8,19 +8,21 @@ import (
 )
 
 const (
-	testBinary = "test-binary"
-	testCommit = "deadbeef"
+	testBinary  = "test-binary"
+	testCommit  = "deadbeef"
+	testVersion = "v1.2.3"
 )
 
 func TestSetProcessScope(t *testing.T) {
-	ctxscope.RemoveGlobal(scopeKeyBinary, scopeKeyCommit)
+	ctxscope.RemoveGlobal(scopeKeyBinary, scopeKeyCommit, scopeKeyVersion)
 	t.Cleanup(func() {
-		ctxscope.RemoveGlobal(scopeKeyBinary, scopeKeyCommit)
+		ctxscope.RemoveGlobal(scopeKeyBinary, scopeKeyCommit, scopeKeyVersion)
 	})
 
-	setProcessScope(testBinary, testCommit)
+	setProcessScope(testBinary, testCommit, testVersion)
 
 	scope := ctxscope.GetGlobal()
 	assert.Equal(t, testBinary, scope[scopeKeyBinary])
 	assert.Equal(t, testCommit, scope[scopeKeyCommit])
+	assert.Equal(t, testVersion, scope[scopeKeyVersion])
 }

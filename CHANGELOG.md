@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.6.0 — 2026-08-16
+
+Every Servicepack binary now carries a build version alongside its existing
+binary name and commit identity. Release builds use the exact tag at `HEAD`;
+untagged source builds use `dev`. The three values are available in the global
+log scope as `binary`, `commit`, and `version`, and the framework Docker build
+paths pass all three linker flags consistently.
+
 ## v1.5.0 — 2026-08-15
 
 The coverage gate now covers **services**, so a service-heavy project no longer
