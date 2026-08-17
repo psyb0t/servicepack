@@ -48,7 +48,11 @@ scripts portable to the development environment and fail on errors.
 Most normal targets run in the development image through `DEV_RUN`, with the
 repository mounted at `/work` and container UID/GID mapped back to the host.
 Test targets use `DEV_RUN_DIND`: they also mount Docker access because Go tests
-may launch Testcontainers infrastructure.
+may launch Testcontainers infrastructure. It passes the mounted socket path to
+Testcontainers and disables Ryuk; the test suite owns teardown because Ryuk
+cannot reliably call back into a Dockerized test process. A project that needs
+additional test-container arguments defines `DEV_RUN_DIND_EXTRA_ARGS` before
+using the shared runner instead of copying it.
 
 `build.sh`, Docker image targets, lifecycle/update tooling, and backup tooling
 are host-side shell entry points that invoke Docker or Git as their job

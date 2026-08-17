@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.6.3 — 2026-08-17
+
+Docker-backed Testcontainers targets now pass the socket path explicitly and
+disable Ryuk inside the test container. The test suite still owns explicit
+teardown; this avoids Ryuk's unreachable callback path when `make` runs from a
+container while keeping `make test-coverage` portable across host, container,
+and GitHub Actions runners. Projects can append narrowly scoped Docker run
+arguments through `DEV_RUN_DIND_EXTRA_ARGS` instead of copying the runner.
+
 ## v1.6.2 — 2026-08-17
 
 Builds now use Go 1.26.6 everywhere: development and production Dockerfiles,

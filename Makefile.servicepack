@@ -11,6 +11,7 @@ UID := $(shell id -u)
 GID := $(shell id -g)
 DOCKER_SOCK := /var/run/docker.sock
 DOCKER_GID := $(shell stat -c '%g' $(DOCKER_SOCK) 2>/dev/null || echo 0)
+DEV_RUN_DIND_EXTRA_ARGS ?=
 
 DEV_RUN := docker run --rm --init \
 	--user $(UID):$(GID) \
@@ -27,7 +28,7 @@ DEV_RUN := docker run --rm --init \
 
 # Testcontainers talks to the host daemon. Keep the workspace at its host path
 # so bind mounts requested by a sibling test container resolve correctly.
-DEV_RUN_DIND := docker run --rm --init \
+DEV_RUN_DIND = docker run --rm --init \
 	--user $(UID):$(GID) \
 	--group-add $(DOCKER_GID) \
 	-e HOME=/tmp \
@@ -35,6 +36,9 @@ DEV_RUN_DIND := docker run --rm --init \
 	-e GOCACHE=/tmp/go-cache \
 	-e GOMODCACHE=/tmp/go-mod-cache \
 	-e MIN_TEST_COVERAGE \
+	-e TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=$(DOCKER_SOCK) \
+	-e TESTCONTAINERS_RYUK_DISABLED=true \
+	$(DEV_RUN_DIND_EXTRA_ARGS) \
 	-v "$(CURDIR):$(CURDIR)" \
 	-v "$(DOCKER_SOCK):$(DOCKER_SOCK)" \
 	-w "$(CURDIR)" \
