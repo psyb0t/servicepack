@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.6.2 — 2026-08-17
+
+Builds now use Go 1.26.6 everywhere: development and production Dockerfiles,
+the framework Dockerfiles copied to downstream projects, and `make build`.
+This fixes projects that require Go 1.26.6 failing because the framework build
+container was still pinned to Go 1.26.4.
+
 ## v1.6.1 — 2026-08-17
 
 Lint fix only, no behavior change.

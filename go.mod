@@ -1,6 +1,6 @@
 module github.com/psyb0t/servicepack
 
-go 1.26.4
+go 1.26.6
 
 require (
 	github.com/psyb0t/ctxerrors v0.7.1

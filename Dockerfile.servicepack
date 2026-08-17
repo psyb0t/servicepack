@@ -1,5 +1,5 @@
 # Production Dockerfile - Multi-stage build
-FROM golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS builder
+FROM golang:1.26.6-alpine@sha256:af8d6740070b8906d12eae1c3e3ea0957fb63f492051ea05e354c38ef9fe88df AS builder
 
 ARG BUILD_COMMIT=""
 ARG BUILD_VERSION="dev"
