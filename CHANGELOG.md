@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.6.1 — 2026-08-17
+
+Lint fix only, no behavior change.
+
+- Reflowed the `-ldflags` build-example comment in `cmd/main.go` to satisfy the
+  golangci-lint `lll` 80-column limit (the single-line example was 106 chars),
+  keeping the command copyable as a tabbed godoc code block.
+
 ## v1.6.0 — 2026-08-16
 
 Every Servicepack binary now carries a build version alongside its existing
