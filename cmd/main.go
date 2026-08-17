@@ -14,7 +14,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// go build -ldflags "-X main.appName=userservice -X main.buildCommit=abc123 -X main.buildVersion=v1.2.3".
+//	go build -ldflags \
+//	  "-X main.appName=userservice \
+//	   -X main.buildCommit=abc123 \
+//	   -X main.buildVersion=v1.2.3".
 //
 //nolint:gochecknoglobals//need to be global bcuz ^.
 var (
