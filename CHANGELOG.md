@@ -4,6 +4,12 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.6.4 — 2026-08-17
+
+The GitHub Actions caller now requests Go 1.26.6 exactly. Previously the
+minor-only `1.26` selector resolved to the runner's Go 1.26.5 cache, so the
+security scan could not load this module after its Go 1.26.6 requirement.
+
 ## v1.6.3 — 2026-08-17
 
 Docker-backed Testcontainers targets now pass the socket path explicitly and
