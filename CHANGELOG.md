@@ -4,6 +4,17 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.8.1 (2026-08-20)
+
+Fix: anchor the `build` gitignore so the vendored dependency tree is complete.
+
+- The `build` ignore pattern (for the `build/` output directory) was unanchored,
+  so it also matched `vendor/github.com/moby/moby/api/types/build/` and dropped
+  that package from git. testcontainers-go pulls that package in, so the tree
+  built locally but CI, which checks out only what git tracks, failed with
+  `cannot find module providing package github.com/moby/moby/api/types/build`.
+  Anchored it to `/build/`.
+
 ## v1.8.0 (2026-08-20)
 
 Make the framework testcontainers-ready and ship an extendable integration-test
