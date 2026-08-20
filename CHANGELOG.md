@@ -4,6 +4,10 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.7.1 (2026-08-20)
+
+Docs: list `make sec` in the development command reference.
+
 ## v1.7.0 (2026-08-20)
 
 New `make sec` security scan and a migration to the `code-workflow` reusable flow.
