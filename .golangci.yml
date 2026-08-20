@@ -108,6 +108,9 @@ linters:
             - github.com/psyb0t
             - github.com/joho/godotenv
             - github.com/spf13/cobra
+            # Integration-test harness under tests/ that builds and runs the app
+            # image via testcontainers-go. Test-only; production never imports it.
+            - github.com/testcontainers/testcontainers-go
 
   exclusions:
     generated: lax

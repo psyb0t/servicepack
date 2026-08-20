@@ -26,11 +26,15 @@ DEV_RUN := docker run --rm --init \
 	-w /work \
 	$(DEV_IMAGE)
 
-# Testcontainers talks to the host daemon. Keep the workspace at its host path
-# so bind mounts requested by a sibling test container resolve correctly.
+# Integration tests use testcontainers, which drive the host docker daemon to
+# start sibling containers. --network host puts the test process in the host's
+# network namespace so those containers' host-published ports are reachable at
+# localhost:<mapped> (dev/CI test runs only, never prod). The workspace stays at
+# its host path so bind mounts a sibling container requests resolve correctly.
 DEV_RUN_DIND = docker run --rm --init \
 	--user $(UID):$(GID) \
 	--group-add $(DOCKER_GID) \
+	--network host \
 	-e HOME=/tmp \
 	-e GOPATH=/tmp/go \
 	-e GOCACHE=/tmp/go-cache \

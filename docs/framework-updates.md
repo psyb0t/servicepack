@@ -62,7 +62,7 @@ metadata. It also prevents Servicepack's own mirror/archive workflows from
 accidentally publishing a downstream project.
 
 That ignore file belongs to your project after `make own`. New exclusions added
-upstream later are not silently forced into an existing downstream—compare the
+upstream later are not silently forced into an existing downstream. Compare the
 new template when you update if you want its newer defaults.
 
 ## Customize the boundary deliberately

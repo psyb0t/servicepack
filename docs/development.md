@@ -42,7 +42,7 @@ toolchains two chances to disagree.
 `make test` is the standard full suite. It enables Go's race detector and has
 Docker available for Testcontainers-backed tests. `make test-integration` uses
 the same package pattern but disables the Go test cache and applies a
-ten-minute timeout—use it when checking changes to real-infrastructure tests.
+ten-minute timeout. Use it when checking changes to real-infrastructure tests.
 Use `make test-unit` for the same race-enabled package walk without exposing
 the Docker socket; Testcontainers-backed cases cannot start infrastructure in
 that target.
@@ -50,7 +50,7 @@ that target.
 `make test-coverage` also runs the race detector. It instruments every module
 package (`-coverpkg=<module>/...`) and runs `-tags=integration`, so a test under
 `tests/` credits coverage to the production package it drives, and **services are
-covered** — a service-heavy project does not need to override the script to gate
+covered**. A service-heavy project does not need to override the script to gate
 its own code. A service that runs out-of-process in a real container is covered
 too: the script exports `SERVICEPACK_COVDATA_DIR`, an integration test mounts it
 into that container as `GOCOVERDIR`, and the native covdata is merged into the
@@ -68,16 +68,27 @@ the temporary coverage profiles. Testcontainers needs access to the Docker
 daemon; if Docker cannot create containers, fix Docker access rather than
 working around the integration tests.
 
+Integration tests live under `tests/`. `tests/testinfra` is the harness: its
+baseline `Setup` builds the servicepack image from the repo `Dockerfile` and
+runs it, and `tests/integration` boots that image to confirm the app comes up
+with whatever services are registered. Both are a starting point you grow.
+Extend `Infra` with the real dependencies your services need (a database, a
+cache, a broker via testcontainers-go) and add tests that drive them. `tests/`
+is listed in `.servicepackupdateignore`, so a framework update never overwrites
+your copy. The Docker runner already supports this: `DEV_RUN_DIND` runs on the
+host network, so testcontainers' host-published ports are reachable from the
+test process.
+
 ## Build outputs and runtime identity
 
 `make build` uses the pinned Go build image, installs the static-build
 requirements inside that temporary container, and writes `build/<module-tail>`
 back with your host UID/GID. It injects three values with linker flags:
 
-- `main.appName` — the final segment of the module path; it sets the binary
+- `main.appName`: the final segment of the module path; it sets the binary
   name and root Cobra command name;
-- `main.buildCommit` — the checked-out `HEAD` commit when available.
-- `main.buildVersion` — the exact Git tag at `HEAD`, or `dev` for an untagged
+- `main.buildCommit`: the checked-out `HEAD` commit when available.
+- `main.buildVersion`: the exact Git tag at `HEAD`, or `dev` for an untagged
   source build.
 
 `cmd/main.go` puts those into the global log scope as `binary`, `commit`, and
@@ -126,7 +137,7 @@ Likewise, project `Dockerfile`, `Dockerfile.dev`, `cmd/init.go`, and
 ## Before you hand off a change
 
 For a normal code change, run the narrowest useful target first, then the
-relevant full check—for example `make test`, `make lint`, and
+relevant full check, for example `make test`, `make lint`, and
 `make test-coverage` when a framework behavior changes. The repository's
 pre-commit hook calls `make lint && make test-coverage`, so it will repeat
 those checks during the project's normal commit flow.

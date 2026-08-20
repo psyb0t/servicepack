@@ -4,6 +4,27 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.8.0 (2026-08-20)
+
+Make the framework testcontainers-ready and ship an extendable integration-test
+harness.
+
+- `DEV_RUN_DIND` now runs on the host network, so a test process inside the dev
+  image can reach testcontainers' host-published ports at `localhost:<mapped>`.
+  Integration and coverage runs that start real sibling containers now work
+  without each project patching the runner. It applies to dev/CI test runs only,
+  never production.
+- New `tests/testinfra` harness and a `tests/integration` boot smoke that builds
+  the servicepack image from the repo `Dockerfile` and runs it, confirming the
+  app boots with whatever services are registered. Both are a starting point:
+  extend `Infra` with the real dependencies your services need (a database, a
+  cache, a broker via testcontainers-go) and add tests that drive them.
+- `tests/` is now in `.servicepackupdateignore`, so a framework update never
+  overwrites your integration tests once you have extended them.
+- Added `testcontainers-go` as a test-only dependency for the harness. A
+  downstream that imports none of it drops it on the next `make dep` tidy.
+- Documented the harness in `docs/development.md`.
+
 ## v1.7.2 (2026-08-20)
 
 Fix: `make servicepack-update` re-formats the framework files it rewrites, so a

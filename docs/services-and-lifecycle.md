@@ -70,7 +70,7 @@ Implement any combination of these interfaces on the same service.
 
 `Dependent` only controls launch order. A dependency that does not implement
 `ReadyNotifier` is considered ready as soon as its goroutine has been
-launched—not once it has opened a socket or established a database connection.
+launched, not once it has opened a socket or established a database connection.
 
 If `api` cannot operate before `database` is usable, `database` should expose a
 channel and close it only after connecting, while `api` declares the name as a
@@ -157,7 +157,7 @@ Keep services together when shared release cadence, shared local debugging,
 and in-process coordination are the simplest honest design. Split them when
 they need independent scaling, ownership, security boundaries, or failure
 isolation. The split point means replacing in-process contracts with explicit
-network/message contracts—not pretending a `Dependent` declaration will order
+network/message contracts, not pretending a `Dependent` declaration will order
 another deployment.
 
 Read [architecture](architecture.md) for the process-level picture and

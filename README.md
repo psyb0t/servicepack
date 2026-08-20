@@ -24,7 +24,7 @@ workflow, generated service registration, and sane places to customize it.
 
 ## Quick start
 
-Use a fresh clone—`make own` deliberately removes the clone's Git history,
+Use a fresh clone. `make own` deliberately removes the clone's Git history,
 rewrites its module path, removes shipped example services (except
 `hello-world`), initializes a new repository, and creates its first commit.
 

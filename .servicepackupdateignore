@@ -20,6 +20,13 @@
 cmd/init.go
 cmd/commands.go
 
+# The integration-test tree. servicepack ships tests/testinfra (a testcontainers
+# harness) and tests/integration (a boot smoke that builds and runs the app
+# image) as a starting point you extend with your own dependencies and service
+# tests. Once scaffolded it is yours, so framework updates never overwrite it.
+# Delete this line if you'd rather keep pulling the framework's baseline harness.
+tests/
+
 # Dependabot config - your own dependency policy (which deps, the cooldown
 # window, the own-package excludes). Ignored by default so a framework update
 # never clobbers your tweaks. Delete this line if you'd rather the framework
