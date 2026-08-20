@@ -3,18 +3,22 @@ name: pipeline
 on: [push]
 
 jobs:
-  call-go-workflow:
-    uses: psyb0t/reusable-github-workflows/.github/workflows/go-workflow.yml@master
+  code:
+    permissions:
+      contents: read
+      security-events: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/code-workflow.yml@master
     with:
-      go_version: "1.26.6"
-      dep_command: "make dep"
       lint_command: "make lint"
       test_command: "make test-coverage"
-      is_vendored: true
+      sec_command: "make sec"
+      generate_command: "make generate"
       coverage_file: "coverage-percent.txt"
+      sarif_file: "sec.sarif"
+      sarif_category: "go"
 
   badges:
-    needs: [call-go-workflow]
+    needs: [code]
     if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
@@ -22,10 +26,17 @@ jobs:
     with:
       coverage: true
 
+  release:
+    needs: [code]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    uses: psyb0t/reusable-github-workflows/.github/workflows/release-workflow.yml@master
+
   # Publish the skill (.agents/skills/) to ClawHub. Tag pushes ONLY, after the
-  # Go lint/test/release workflow has succeeded.
+  # checks pass.
   publish-to-clawhub:
-    needs: [call-go-workflow]
+    needs: [code]
     if: startsWith(github.ref, 'refs/tags/')
     uses: psyb0t/reusable-github-workflows/.github/workflows/clawhub-publish.yml@master
     secrets:

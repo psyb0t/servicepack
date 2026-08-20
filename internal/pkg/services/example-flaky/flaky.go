@@ -135,6 +135,11 @@ func readAttempts(ctx context.Context) int {
 }
 
 func writeAttempts(n int) error {
+	// This example service persists a restart-surviving attempt counter at a
+	// FIXED path on purpose so readAttempts and cleanupAttempts can find it
+	// again; a random os.CreateTemp name would defeat that. Demo code, not a
+	// real attack surface.
+	// nosemgrep: go.lang.security.bad_tmp.bad-tmp-file-creation
 	if err := os.WriteFile(
 		attemptsFile,
 		[]byte(strconv.Itoa(n)),

@@ -28,6 +28,7 @@ scripts/.post-update-temp
 git-update.sh
 .telemetry/
 coverage-percent.txt
+sec.sarif
 .testing/
 .anustimes/
 .brutal_reviews/

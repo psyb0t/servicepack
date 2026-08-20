@@ -13,7 +13,12 @@ RUN apk add --no-cache \
     git \
     jq \
     shellcheck \
-    shfmt
+    shfmt \
+    python3 \
+    py3-pip
+
+# semgrep for the security scan (make sec). Modern semgrep works on alpine musl.
+RUN pip install --break-system-packages --no-cache-dir semgrep==1.173.0
 
 # Set working directory
 WORKDIR /app

@@ -170,6 +170,9 @@ test-coverage: ## Run tests with coverage check. Fails if coverage is below the 
 audit: dev-image ## Scan the codebase for known Go vulnerabilities
 	@$(DEV_RUN) go tool govulncheck ./...
 
+sec: dev-image ## Full security scan (govulncheck + semgrep) writing a merged SARIF to sec.sarif
+	@$(call run_dev_script,sec.sh)
+
 generate: dev-image ## Regenerate all generated Go code
 	@$(DEV_RUN) go generate ./...
 

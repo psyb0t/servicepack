@@ -4,6 +4,23 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.7.0 (2026-08-20)
+
+New `make sec` security scan and a migration to the `code-workflow` reusable flow.
+
+- `make sec` runs govulncheck (via `go tool`) and semgrep, merging both into
+  `sec.sarif` for the GitHub Security tab and failing on any finding. The
+  development image now ships semgrep.
+- The CI pipeline moves off `go-workflow` onto `code-workflow` (checks) plus
+  `release-workflow` (the tag release), chaining `make lint` / `make
+  test-coverage` / `make sec` / `make generate`, and uploads the `sec` SARIF to
+  the Security tab.
+- Suppressed a benign semgrep finding in the example-flaky service, which writes
+  a restart-surviving attempt counter to a fixed path on purpose.
+
+Downstream projects get `make sec` and the semgrep-equipped dev image on the next
+`make servicepack-update`; their own pipeline keeps running until they migrate it.
+
 ## v1.6.4 — 2026-08-17
 
 The GitHub Actions caller now requests Go 1.26.6 exactly. Previously the
