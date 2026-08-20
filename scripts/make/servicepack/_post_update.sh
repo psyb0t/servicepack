@@ -20,6 +20,10 @@ source "$SCRIPT_DIR/common.sh"
 
 section "Restoring User Configuration"
 
+# Collected below: the synced .go files whose module path we rewrite. They get
+# re-formatted after `make dep` so a renamed import path lands correctly sorted.
+rewritten_go_files=""
+
 # If user had a custom module name, restore it everywhere
 if [ -n "$USER_MODULE" ]; then
 	info "Restoring user module name in go.mod..."
@@ -56,6 +60,7 @@ if [ -n "$USER_MODULE" ]; then
 	while IFS= read -r synced_file; do
 		[ -f "$synced_file" ] || continue
 		sed -i "s|$FRAMEWORK_MODULE|$USER_MODULE|g" "$synced_file"
+		rewritten_go_files="$rewritten_go_files $synced_file"
 		rewritten=$((rewritten + 1))
 	done < <(grep '\.go$' "$SYNCED_FILES" || true) # no .go in the sync is valid
 
@@ -158,6 +163,20 @@ make dep
 # Regenerate service registration after dependency updates
 info "Regenerating service registration..."
 make service-registration
+
+# Re-sort imports in the just-rewritten framework files. The module-path
+# substitution above renames import paths but leaves their physical order
+# untouched, and import order is alphabetical on the FULL path -- so renaming
+# .../servicepack/... to .../<downstream>/... can move where those imports sort
+# and leave the synced file mis-ordered. gci/gofumpt would then flag it under
+# `make lint` even though servicepack shipped the file clean. Re-run the
+# downstream's own formatters (the exact ones `make lint` checks) over just
+# those files, so nothing downstream-owned or generated is touched. Runs here,
+# after `make dep`, because it needs the vendored go tools.
+if [ -n "$rewritten_go_files" ] && [ "$FRAMEWORK_MODULE" != "$USER_MODULE" ]; then
+	section "Reformatting Rewritten Framework Files"
+	make servicepack-reformat REFORMAT_FILES="$rewritten_go_files"
+fi
 
 section "Creating Post-Update Commands"
 

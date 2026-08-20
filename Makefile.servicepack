@@ -62,7 +62,7 @@ endef
 
 # Framework PHONY targets
 .PHONY: all dev-image shell pkg-lock pkg-add pkg-update pkg-upgrade pkg-remove \
-	pkg-add-tool pkg-remove-tool audit dep lint lint-fix format test test-unit \
+	pkg-add-tool pkg-remove-tool audit dep lint lint-fix format servicepack-reformat test test-unit \
 	test-integration test-coverage generate build clean \
 	service service-remove service-registration servicepack-update \
 	servicepack-update-review servicepack-update-merge servicepack-update-revert \
@@ -152,6 +152,14 @@ lint-fix: ## Lint all Golang files and fix
 
 format: dev-image ## Format Go source files
 	@$(DEV_RUN) sh -ceu 'go tool gofumpt -w .; shfmt -w $$(find scripts -type f -name "*.sh")'
+
+# Internal: used by servicepack-update after the module-path rewrite. Runs the
+# project's own formatters (gci/gofumpt/goimports via golangci-lint, i.e. exactly
+# what `make lint` checks) over just the files in REFORMAT_FILES, so a renamed
+# import path lands correctly sorted. Scoped to a file list on purpose: never
+# touches downstream-owned or generated code.
+servicepack-reformat: dev-image ## Re-format the files named in REFORMAT_FILES (internal, used by servicepack-update)
+	@[ -n "$(REFORMAT_FILES)" ] && $(DEV_RUN) go tool golangci-lint fmt $(REFORMAT_FILES) || true
 
 test: ## Run all tests
 	@$(MAKE) dev-image

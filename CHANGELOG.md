@@ -4,6 +4,21 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.7.2 (2026-08-20)
+
+Fix: `make servicepack-update` re-formats the framework files it rewrites, so a
+renamed import path stays correctly sorted and passes the downstream's `make lint`.
+
+- The update rewrites the framework module path into each synced `.go` file with
+  a plain string substitution, which renames imports but leaves their order
+  alone. gci/gofumpt sort imports alphabetically on the full path, so swapping
+  `github.com/psyb0t/servicepack/...` for a downstream module can move where
+  those imports sort and leave a file such as `cmd/main.go` mis-ordered. The
+  update now re-runs the project formatters over exactly the rewritten files.
+- Added an internal `make servicepack-reformat` target that formats a given file
+  list (gci/gofumpt/goimports via `golangci-lint fmt`); the update calls it after
+  `make dep`.
+
 ## v1.7.1 (2026-08-20)
 
 Docs: list `make sec` in the development command reference.
