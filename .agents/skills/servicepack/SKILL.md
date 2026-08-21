@@ -245,7 +245,7 @@ func commands() []*cobra.Command {
 
 ## Framework boundaries — never hand-edit these
 
-`internal/app/`, `internal/pkg/service-manager/`, `pkg/runner/`, `cmd/main.go`, `Makefile.servicepack`, `scripts/make/servicepack/`, `Dockerfile.servicepack*`, `servicepack.version` are all overwritten by `make servicepack-update`. Customize behavior through the lifecycle hooks above, not by patching these files. Everything under `internal/pkg/services/`, plus `Makefile`, `Dockerfile`, `Dockerfile.dev`, `cmd/init.go`, `cmd/commands.go`, is yours and never touched by updates.
+`internal/app/`, `internal/pkg/service-manager/`, `pkg/runner/`, `cmd/main.go`, `Makefile.servicepack`, `scripts/make/servicepack/`, `Dockerfile.servicepack*`, `servicepack.version` are all overwritten by `make servicepack-update`. Customize behavior through the lifecycle hooks above, not by patching these files. Everything under `internal/pkg/services/`, `docs/`, and `tests/`, plus `Makefile`, `Dockerfile`, `Dockerfile.dev`, `cmd/init.go`, `cmd/commands.go`, is yours and never touched by updates.
 
 ## Filtering which services run
 

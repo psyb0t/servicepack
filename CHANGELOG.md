@@ -4,6 +4,24 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.9.0 (2026-08-21)
+
+Framework updates now always protect a downstream's `docs/` and `tests/` trees.
+
+- `make servicepack-update` adds `docs/` and `tests/` to the rsync's mechanical
+  exclude floor, so an update can never overwrite a project's own docs or its
+  test tree (the testcontainers harness plus its service tests). Previously only
+  `tests/` was protected, and only as an optional line each project had to copy
+  into its `.servicepackupdateignore` by hand. A project that had not copied it
+  would have its `tests/testinfra` overwritten by the framework's baseline.
+- Removed the now-redundant `tests/` opt-out from the shipped
+  `.servicepackupdateignore` template. Pulling the framework's baseline test
+  harness on update is no longer offered, because the floor always protects
+  `tests/`.
+- Updated the ownership docs (README layout, getting-started, framework-updates,
+  development, and the agent skill) to state that `docs/` and `tests/` are yours
+  and are never touched by an update.
+
 ## v1.8.1 (2026-08-20)
 
 Fix: anchor the `build` gitignore so the vendored dependency tree is complete.

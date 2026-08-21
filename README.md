@@ -107,7 +107,8 @@ internal/pkg/services/          your services and generated registration
 pkg/runner/                     signal-aware lifecycle runner
 scripts/make/servicepack/       updateable framework Make scripts
 scripts/make/                   project-specific script overrides
-docs/                           operational and architectural documentation
+docs/                           your operational and architectural docs
+tests/                          your testcontainers harness and service tests
 ```
 
 ## Agent integrations

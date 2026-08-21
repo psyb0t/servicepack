@@ -74,8 +74,8 @@ runs it, and `tests/integration` boots that image to confirm the app comes up
 with whatever services are registered. Both are a starting point you grow.
 Extend `Infra` with the real dependencies your services need (a database, a
 cache, a broker via testcontainers-go) and add tests that drive them. `tests/`
-is listed in `.servicepackupdateignore`, so a framework update never overwrites
-your copy. The Docker runner already supports this: `DEV_RUN_DIND` runs on the
+is protected by the update's mechanical floor, so a framework update never
+overwrites your copy. The Docker runner already supports this: `DEV_RUN_DIND` runs on the
 host network, so testcontainers' host-published ports are reachable from the
 test process.
 

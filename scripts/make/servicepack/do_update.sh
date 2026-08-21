@@ -90,8 +90,9 @@ section "Updating Framework Files"
 # ITS OWN .servicepackupdateignore -- that is the intended opt-out, not a
 # blanket exclude baked into the framework.
 #
-# The list above is only the mechanical floor (git internals, the dependency
-# merge, per-project prose). The opt-outs that nearly every project wants ship
+# The list above is the mechanical floor (git internals, the dependency merge,
+# per-project prose, and the downstream-owned docs/ and tests/ trees). The
+# opt-outs that nearly every project wants ship
 # in the .servicepackupdateignore this repo hands you -- the framework's own
 # publication workflows, agent skill, funding links, secret-scanning allowlist
 # and docker context. Those are the framework's furniture rather than a
@@ -117,6 +118,14 @@ section "Updating Framework Files"
 # hands off it.
 EXCLUDE_ARGS=(
 	"--exclude=internal/pkg/services/*"
+	# A downstream owns its docs and its test tree outright. docs/ is prose it
+	# rewrites for its own app. tests/ is the testcontainers harness plus its
+	# own service tests. The framework ships both only as a scaffold, and an
+	# update overwriting either is never wanted, so this protection lives in the
+	# mechanical floor. It is not an optional per-project opt-out a downstream
+	# has to remember to copy into its .servicepackupdateignore.
+	"--exclude=docs/"
+	"--exclude=tests/"
 	"--exclude=README.md"
 	"--exclude=LICENSE"
 	"--exclude=CHANGELOG.md"

@@ -49,6 +49,8 @@ The implementation and per-target override rules live in the
 The framework always excludes application material such as:
 
 - `internal/pkg/services/*`;
+- your `docs/` prose and your `tests/` tree, which the framework ships only as
+  a scaffold starting point and an update never overwrites;
 - root `README.md`, `LICENSE`, `CHANGELOG.md`, `.gitignore`, `Makefile`, and
   project Dockerfiles;
 - your `go.mod`, `go.sum`, and vendored graph, which receive dependency-aware

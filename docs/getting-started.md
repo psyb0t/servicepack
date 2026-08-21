@@ -147,5 +147,8 @@ The framework-owned directories are deliberately replaceable by
 `Makefile.servicepack`, `scripts/make/servicepack/`, and
 `Dockerfile.servicepack*`. Do not put application-specific changes there.
 
+Your `docs/` and `tests/` trees are the opposite. The framework ships them as a
+scaffold, they become yours, and an update never overwrites them.
+
 Next: learn the [service lifecycle](services-and-lifecycle.md), then the
 [Docker-first development workflow](development.md).
