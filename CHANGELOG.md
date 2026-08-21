@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.9.2 (2026-08-21)
+
+Removes `make audit`; `make sec` is the single security-scan entry point.
+
+- `make audit` only ran govulncheck, and `make sec` already runs it (govulncheck
+  + semgrep, merged into `sec.sarif`). Keeping both was a redundant second way to
+  run the same scanner, so `make audit` is gone. Run `make sec` instead. CI
+  already used `make sec`, so the security gate is unchanged.
+
 ## v1.9.1 (2026-08-21)
 
 Hardens `make servicepack-update` against two ways it could break a downstream.

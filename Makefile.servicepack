@@ -66,7 +66,7 @@ endef
 
 # Framework PHONY targets
 .PHONY: all dev-image shell pkg-lock pkg-add pkg-update pkg-upgrade pkg-remove \
-	pkg-add-tool pkg-remove-tool audit dep lint lint-fix format servicepack-reformat test test-unit \
+	pkg-add-tool pkg-remove-tool dep lint lint-fix format servicepack-reformat test test-unit \
 	test-integration test-coverage generate build clean \
 	service service-remove service-registration servicepack-update \
 	servicepack-update-review servicepack-update-merge servicepack-update-revert \
@@ -178,9 +178,6 @@ test-integration: dev-image ## Run integration tests without cached results
 test-coverage: ## Run tests with coverage check. Fails if coverage is below the threshold.
 	@$(MAKE) dev-image
 	@MIN_TEST_COVERAGE=$(MIN_TEST_COVERAGE) $(call run_dind_script,test_coverage.sh)
-
-audit: dev-image ## Scan the codebase for known Go vulnerabilities
-	@$(DEV_RUN) go tool govulncheck ./...
 
 sec: dev-image ## Full security scan (govulncheck + semgrep) writing a merged SARIF to sec.sarif
 	@$(call run_dev_script,sec.sh)

@@ -26,7 +26,6 @@ The exact scripts and override lookup live in the
 | `make lint` | Docker | `shfmt`, ShellCheck, `go fix` diff check, and golangci-lint. |
 | `make lint-fix` | Docker | Apply supported formatting and lint fixes. Review its diff. |
 | `make format` | Docker | Run gofumpt and shfmt. |
-| `make audit` | Docker | Run `govulncheck` over reachable Go code. |
 | `make sec` | Docker | Full security scan: `govulncheck` + semgrep, merged into `sec.sarif` for the Security tab. Fails on any finding. |
 | `make generate` | Docker | Execute package-local `go:generate` directives. |
 | `make build` | Docker | Build a static executable under `build/`. |

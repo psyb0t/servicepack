@@ -25,7 +25,6 @@ permissions:
     - "make test-coverage"
     - "make lint"
     - "make format"
-    - "make audit"
 metadata:
   openclaw:
     emoji: "📦"
