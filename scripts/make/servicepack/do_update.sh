@@ -153,6 +153,27 @@ if [ -f ".servicepackupdateignore" ]; then
 	done <.servicepackupdateignore
 fi
 
+# Guard against a silent time bomb: a framework file rsync would deliver but the
+# downstream's .gitignore hides. rsync ignores .gitignore and writes the file, so
+# it builds locally, but the `git add -A` in _post_update.sh honors .gitignore
+# and never stages it. The commit then ships without it and CI or a fresh clone
+# comes up missing framework code. Compute the would-sync set with a dry run and
+# fail now, before writing anything or mutating go.mod.
+info "Checking no synced framework file is hidden by .gitignore..."
+WOULD_SYNC=$(mktemp)
+rsync -an --out-format='%n' "${EXCLUDE_ARGS[@]}" "$TEMP_DIR/" ./ >"$WOULD_SYNC"
+IGNORED_SYNCED=$(git check-ignore --stdin <"$WOULD_SYNC" 2>/dev/null || true)
+rm -f "$WOULD_SYNC"
+if [ -n "$IGNORED_SYNCED" ]; then
+	error "Your .gitignore hides framework files this update would sync:"
+	while IFS= read -r ignored_path; do
+		printf '  %s\n' "$ignored_path" >&2
+	done <<<"$IGNORED_SYNCED"
+	error "git add -A would silently drop them: builds locally, breaks CI and fresh clones."
+	warning "Un-ignore or anchor those patterns, then re-run after: git checkout $CURRENT_BRANCH && git branch -D $UPDATE_BRANCH"
+	exit 1
+fi
+
 # Update core framework files with exclusions.
 #
 # Capture rsync's own transfer list as it runs. _post_update.sh has to rewrite the

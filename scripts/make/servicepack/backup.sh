@@ -19,12 +19,19 @@ info "Backup name: $BACKUP_NAME"
 mkdir -p "$TMP_BACKUP"
 mkdir -p "$LOCAL_BACKUP"
 
-# Create the backup archive
-info "Archiving project..."
-tar --exclude='.backup' \
-	--exclude='build' \
-	--exclude='coverage.txt' \
-	-czf "$TMP_BACKUP/$BACKUP_NAME" .
+# Create the backup archive.
+#
+# Back up exactly the restore-worthy set: what git tracks plus untracked files
+# that are not gitignored. A blind `tar .` also sweeps in gitignored local state
+# (build caches, a dev stack's runtime dirs, a privileged container's root-owned
+# files). That state is regenerable, is never touched by an update, and when it
+# is root-owned it makes tar fail outright. This selector is the same one
+# _post_update.sh trusts for its leftover check. The `--exclude=.backup` guards
+# against archiving the backup directory itself when it is not gitignored.
+info "Archiving project (tracked plus untracked-not-ignored files)..."
+git ls-files -co --exclude-standard -z |
+	tar --null --no-recursion --exclude='.backup' \
+		-czf "$TMP_BACKUP/$BACKUP_NAME" -T -
 
 # Copy to local backup directory
 cp "$TMP_BACKUP/$BACKUP_NAME" "$LOCAL_BACKUP/"

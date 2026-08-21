@@ -4,6 +4,24 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.9.1 (2026-08-21)
+
+Hardens `make servicepack-update` against two ways it could break a downstream.
+
+- The pre-update backup now archives only what git tracks plus untracked files
+  that are not gitignored, instead of a blind `tar .` of the whole tree. The old
+  backup swept in gitignored local state (build caches, a dev stack's runtime
+  dirs, a privileged container's root-owned files) and failed outright when any
+  of it was unreadable, cancelling the update on exactly the machines that run a
+  dev stack. The new backup captures the same set the update can affect and never
+  chokes on regenerable local state.
+- The update now fails before touching anything if the downstream's `.gitignore`
+  hides a framework file the sync would deliver. rsync ignores `.gitignore` and
+  writes the file, but the update's `git add -A` honors it and silently skips it,
+  so the file would build locally yet never land in the commit, breaking CI and
+  fresh clones. A dry run now checks the would-sync set with `git check-ignore`
+  and stops with the offending paths.
+
 ## v1.9.0 (2026-08-21)
 
 Framework updates now always protect a downstream's `docs/` and `tests/` trees.
