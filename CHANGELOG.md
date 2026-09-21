@@ -4,6 +4,20 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.9.3 (2026-09-21)
+
+Closes reachable dependency vulnerabilities and removes a race from the retry
+test suite.
+
+- Updated `golang.org/x/crypto` to v0.57.0, fixing the reachable SSH
+  authorization and certificate validation vulnerabilities GO-2026-6354 and
+  GO-2026-6355.
+- Updated `github.com/moby/go-archive` to v0.3.3, fixing the reachable archive
+  extraction vulnerability GO-2026-6253.
+- Retry tests now synchronize cancellation to observed service runs instead of
+  relying on wall-clock sleeps that could expire before the service goroutine
+  started under load.
+
 ## v1.9.2 (2026-08-21)
 
 Removes `make audit`; `make sec` is the single security-scan entry point.

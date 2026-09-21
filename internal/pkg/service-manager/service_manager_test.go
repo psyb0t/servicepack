@@ -516,7 +516,8 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 		setupService func() Service
 		expectError  bool
 		expectedRuns int
-		cancelAfter  time.Duration
+		cancelOnRun  int
+		cancelDelay  time.Duration
 	}{
 		{
 			name: "service succeeds first try",
@@ -527,7 +528,7 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 			},
 			expectError:  false,
 			expectedRuns: 1,
-			cancelAfter:  20 * time.Millisecond,
+			cancelOnRun:  1,
 		},
 		{
 			name: "service fails all retries",
@@ -554,7 +555,7 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 			},
 			expectError:  false,
 			expectedRuns: 3,
-			cancelAfter:  50 * time.Millisecond,
+			cancelOnRun:  3,
 		},
 		{
 			name: "context cancelled during retry",
@@ -571,7 +572,7 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 			},
 			expectError:  false,
 			expectedRuns: -1,
-			cancelAfter:  30 * time.Millisecond,
+			cancelOnRun:  1,
 		},
 		{
 			name: "retry with delay",
@@ -590,7 +591,7 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 			},
 			expectError:  false,
 			expectedRuns: 2,
-			cancelAfter:  200 * time.Millisecond,
+			cancelOnRun:  2,
 		},
 		{
 			name: "ctx cancelled during retry delay",
@@ -605,7 +606,7 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 			},
 			expectError:  false,
 			expectedRuns: -1,
-			cancelAfter:  50 * time.Millisecond,
+			cancelDelay:  50 * time.Millisecond,
 		},
 		{
 			name: "non-retryable service fails",
@@ -631,10 +632,40 @@ func TestServiceManager_RunWithRetries(t *testing.T) {
 			)
 			defer cancel()
 
-			if tc.cancelAfter > 0 {
+			var observedRuns atomic.Int32
+
+			firstRun := make(chan struct{})
+
+			if retryable, ok := svc.(*RetryableMockService); ok &&
+				(tc.cancelOnRun > 0 || tc.cancelDelay > 0) {
+				retryable.WithOnRun(func() {
+					run := int(observedRuns.Add(1))
+					if run == 1 {
+						close(firstRun)
+					}
+
+					if run == tc.cancelOnRun {
+						cancel()
+					}
+				})
+			}
+
+			if tc.cancelDelay > 0 {
 				go func() {
-					time.Sleep(tc.cancelAfter)
-					cancel()
+					select {
+					case <-firstRun:
+					case <-ctx.Done():
+						return
+					}
+
+					timer := time.NewTimer(tc.cancelDelay)
+					defer timer.Stop()
+
+					select {
+					case <-timer.C:
+						cancel()
+					case <-ctx.Done():
+					}
 				}()
 			}
 
