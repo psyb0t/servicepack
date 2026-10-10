@@ -52,7 +52,16 @@ may launch Testcontainers infrastructure. It passes the mounted socket path to
 Testcontainers and disables Ryuk; the test suite owns teardown because Ryuk
 cannot reliably call back into a Dockerized test process. A project that needs
 additional test-container arguments defines `DEV_RUN_DIND_EXTRA_ARGS` before
-using the shared runner instead of copying it.
+using the shared runner instead of copying it. `DEV_RUN_EXTRA_ARGS` does the
+same for `DEV_RUN`.
+
+Both runners cap the container at the host thread count minus
+`DEV_CPUS_RESERVED` (default 2, never below 1 thread) with `--cpus`, so lint
+and tests do not starve the machine. `--cpus` is the hard quota, and Go 1.25+
+sizes `GOMAXPROCS` from it automatically. Containers that
+tests start themselves are not limited. Override the count with
+`make lint DEV_CPUS=4`, change the reserve with `DEV_CPUS_RESERVED=1`, or remove
+the limit with `DEV_CPU_LIMIT_ARGS=`.
 
 `build.sh`, Docker image targets, lifecycle/update tooling, and backup tooling
 are host-side shell entry points that invoke Docker or Git as their job

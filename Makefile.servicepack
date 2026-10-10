@@ -11,7 +11,21 @@ UID := $(shell id -u)
 GID := $(shell id -g)
 DOCKER_SOCK := /var/run/docker.sock
 DOCKER_GID := $(shell stat -c '%g' $(DOCKER_SOCK) 2>/dev/null || echo 0)
+DEV_RUN_EXTRA_ARGS ?=
 DEV_RUN_DIND_EXTRA_ARGS ?=
+
+# Dev containers may use every host thread except DEV_CPUS_RESERVED (never fewer
+# than 1 thread for the container), which keeps the machine responsive during
+# lint and tests. --cpus is the hard quota, and Go 1.25+ sizes GOMAXPROCS from
+# it automatically. Containers that tests start themselves are not covered.
+# Override the count with `make lint DEV_CPUS=4`, or drop the limit with
+# `DEV_CPU_LIMIT_ARGS=`.
+DEV_CPUS_RESERVED ?= 2
+DEV_CPUS ?= $(shell cpus=$$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN); \
+	cpus=$$((cpus - $(DEV_CPUS_RESERVED))); \
+	[ "$$cpus" -ge 1 ] || cpus=1; \
+	echo "$$cpus")
+DEV_CPU_LIMIT_ARGS ?= --cpus=$(DEV_CPUS)
 
 DEV_RUN := docker run --rm --init \
 	--user $(UID):$(GID) \
@@ -22,6 +36,8 @@ DEV_RUN := docker run --rm --init \
 	-e PKG \
 	-e MODULE \
 	-e TOOL \
+	$(DEV_CPU_LIMIT_ARGS) \
+	$(DEV_RUN_EXTRA_ARGS) \
 	-v "$(CURDIR):/work" \
 	-w /work \
 	$(DEV_IMAGE)
@@ -42,6 +58,7 @@ DEV_RUN_DIND = docker run --rm --init \
 	-e MIN_TEST_COVERAGE \
 	-e TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=$(DOCKER_SOCK) \
 	-e TESTCONTAINERS_RYUK_DISABLED=true \
+	$(DEV_CPU_LIMIT_ARGS) \
 	$(DEV_RUN_DIND_EXTRA_ARGS) \
 	-v "$(CURDIR):$(CURDIR)" \
 	-v "$(DOCKER_SOCK):$(DOCKER_SOCK)" \

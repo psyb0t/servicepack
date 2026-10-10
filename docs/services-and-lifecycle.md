@@ -85,6 +85,8 @@ func (s *API) Dependencies() []string { return []string{"database"} }
 Services in the same dependency group start concurrently. The manager waits
 for every `ReadyNotifier` in that group before starting the next group.
 
+The wait ends early in two cases. If a service fails with a non-allowed error before it is ready, `Run` returns that error and later groups are never started. If a service's `Run` returns for good (an allowed failure, or a clean exit) before it signals ready, the manager logs a warning and stops waiting for it, and later groups still start.
+
 Dependency names that are not registered in the current process are logged and
 ignored. That makes it possible to use the same business design in a composed
 local binary and in a separately deployed setup, but it also means an external

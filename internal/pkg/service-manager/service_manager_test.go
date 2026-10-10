@@ -985,6 +985,157 @@ func TestServiceManager_RunWithConcurrentFailures(t *testing.T) {
 	}
 }
 
+// startupFailureBound is the context deadline for the startup-failure tests.
+// Run must return well inside it; hitting it means Run was stuck waiting for a
+// ready signal that can never arrive.
+const startupFailureBound = 5 * time.Second
+
+type allowedFailureReadyService struct {
+	*ReadyMockService
+}
+
+func (a *allowedFailureReadyService) IsAllowedFailure() bool {
+	return true
+}
+
+// TestServiceManager_RunReturnsServiceFailureBeforeReady proves Run returns
+// the error of a ReadyNotifier service that fails before it signals ready.
+// waitGroupReady used to block on that service's Ready channel, which never
+// closes, so only context cancellation could end Run.
+func TestServiceManager_RunReturnsServiceFailureBeforeReady(
+	t *testing.T,
+) {
+	ResetInstance()
+
+	sm := GetInstance()
+	sm.Add(NewReadyMockService("db").WithRunError(errTestService))
+
+	ctx, cancel := context.WithTimeout(t.Context(), startupFailureBound)
+	defer cancel()
+
+	start := time.Now()
+	err := sm.Run(ctx)
+
+	require.ErrorIs(t, err, errTestService)
+	assert.Less(t, time.Since(start), startupFailureBound)
+	assert.NoError(t, ctx.Err())
+}
+
+func (r *ReadyMockService) WithRunError(err error) *ReadyMockService {
+	r.MockService.WithRunError(err)
+
+	return r
+}
+
+// TestServiceManager_FailureBeforeReadyStopsLaterGroups proves a group that
+// depends on a failed one is never started.
+func TestServiceManager_FailureBeforeReadyStopsLaterGroups(
+	t *testing.T,
+) {
+	ResetInstance()
+
+	sm := GetInstance()
+
+	db := NewReadyMockService("db").WithRunError(errTestService)
+	api := NewReadyMockService("api", "db")
+
+	sm.Add(db, api)
+
+	ctx, cancel := context.WithTimeout(t.Context(), startupFailureBound)
+	defer cancel()
+
+	err := sm.Run(ctx)
+
+	require.ErrorIs(t, err, errTestService)
+	assert.False(t, api.WasRunCalled(), "later group must not start")
+}
+
+// TestServiceManager_AllowedFailureBeforeReady proves an allowed-failure
+// service that exits before it signals ready neither fails Run nor blocks the
+// startup of the groups after it.
+func TestServiceManager_AllowedFailureBeforeReady(t *testing.T) {
+	ResetInstance()
+
+	sm := GetInstance()
+
+	optional := &allowedFailureReadyService{
+		ReadyMockService: NewReadyMockService("optional").
+			WithRunError(errTestService),
+	}
+	api := NewReadyMockService("api", "optional")
+
+	sm.Add(optional, api)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	api.WithOnRun(func() {
+		api.SignalReady()
+		cancel()
+	})
+
+	done := make(chan error, 1)
+
+	go func() {
+		done <- sm.Run(ctx)
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(startupFailureBound):
+		t.Fatal("Run blocked on the ready signal of an allowed failure")
+	}
+
+	assert.True(t, api.WasRunCalled(), "dependent group must still start")
+}
+
+// TestServiceManager_CleanExitBeforeReady proves a service that returns nil
+// before it signals ready does not block startup of the groups after it.
+func TestServiceManager_CleanExitBeforeReady(t *testing.T) {
+	ResetInstance()
+
+	sm := GetInstance()
+
+	api := NewReadyMockService("api", "exiter")
+
+	sm.Add(
+		&exitsCleanlyService{ReadyMockService: NewReadyMockService("exiter")},
+		api,
+	)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	api.WithOnRun(func() {
+		api.SignalReady()
+		cancel()
+	})
+
+	done := make(chan error, 1)
+
+	go func() {
+		done <- sm.Run(ctx)
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(startupFailureBound):
+		t.Fatal("Run blocked on the ready signal of a service that exited")
+	}
+
+	assert.True(t, api.WasRunCalled(), "dependent group must still start")
+}
+
+type exitsCleanlyService struct {
+	*ReadyMockService
+}
+
+func (e *exitsCleanlyService) Run(_ context.Context) error {
+	return nil
+}
+
 func TestServiceManager_PanicRecovery(t *testing.T) {
 	testCases := []struct {
 		name       string

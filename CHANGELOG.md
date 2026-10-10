@@ -4,6 +4,15 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.10.0 (2026-10-10)
+
+Dev containers get a CPU limit by default, and a service that fails during startup no longer hangs the app.
+
+- `make lint`, `make test`, and the other dev container targets now run with `--cpus` set to the host thread count minus two (never below 1), which keeps the machine responsive. Containers that tests start themselves are not limited. Override it with `make lint DEV_CPUS=4`, change the reserve with `DEV_CPUS_RESERVED`, or remove the limit with `DEV_CPU_LIMIT_ARGS=`.
+- New `DEV_RUN_EXTRA_ARGS` adds `docker run` arguments to `DEV_RUN`, matching the existing `DEV_RUN_DIND_EXTRA_ARGS`. Projects get both with `make servicepack-update`.
+- Fixed `Run` never returning when a service failed before signaling ready. It now returns the service's error and starts no later dependency groups.
+- A service that stops for good before signaling ready (an allowed failure, or a clean exit) no longer blocks startup. The manager logs a warning and starts the groups that depend on it.
+
 ## v1.9.4 (2026-10-10)
 
 Builds with Go 1.26.9, which fixes standard library vulnerabilities that `make sec` reports as reachable.

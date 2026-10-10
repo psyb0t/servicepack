@@ -374,7 +374,7 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 		"services", len(s.services),
 	)
 
-	s.runServiceGroups(ctx, groups, errCh)
+	s.runServiceGroups(ctx, groups, errCh, newFailureSignal())
 
 	select {
 	case <-ctx.Done():
@@ -386,15 +386,52 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 	}
 }
 
+// failureSignal is closed once, when the first non-allowed service failure is
+// reported. It wakes the startup sequence, which would otherwise wait on the
+// ready signal of a service that already died.
+type failureSignal struct {
+	once sync.Once
+	ch   chan struct{}
+}
+
+func newFailureSignal() *failureSignal {
+	return &failureSignal{ch: make(chan struct{})}
+}
+
+func (f *failureSignal) trigger() {
+	f.once.Do(func() { close(f.ch) })
+}
+
+func (f *failureSignal) failed() bool {
+	select {
+	case <-f.ch:
+		return true
+	default:
+		return false
+	}
+}
+
+// runServiceGroups starts the groups in order and stops starting new ones once
+// a non-allowed service has failed.
 func (s *ServiceManager) runServiceGroups(
 	ctx context.Context,
 	groups []serviceGroup,
 	errCh chan<- error,
+	failure *failureSignal,
 ) {
 	s.startGroupsMu.Lock()
 	defer s.startGroupsMu.Unlock()
 
 	for i, group := range groups {
+		if failure.failed() {
+			ctxscope.GetLogger(ctx).Debug(
+				"service failed during startup, not starting later groups",
+				"group", i,
+			)
+
+			return
+		}
+
 		names := make([]string, 0, len(group))
 		for _, svc := range group {
 			names = append(names, svc.Name())
@@ -406,18 +443,23 @@ func (s *ServiceManager) runServiceGroups(
 		)
 
 		launchedCh := make(chan struct{}, len(group))
+		exitedChs := make([]chan struct{}, len(group))
 
-		for _, service := range group {
+		for idx, service := range group {
 			s.wg.Add(1)
+
+			exitedCh := make(chan struct{})
+			exitedChs[idx] = exitedCh
 
 			go func(svc Service) {
 				defer s.wg.Done()
+				defer close(exitedCh)
 
 				launchedCh <- struct{}{}
 
 				serviceCtx := withServiceScope(ctx, svc.Name())
 
-				s.runService(serviceCtx, svc, errCh)
+				s.runService(serviceCtx, svc, errCh, failure)
 			}(service)
 		}
 
@@ -425,16 +467,22 @@ func (s *ServiceManager) runServiceGroups(
 			<-launchedCh
 		}
 
-		s.waitGroupReady(ctx, group)
+		s.waitGroupReady(ctx, group, exitedChs, failure)
 		s.startGroups = append(s.startGroups, group)
 	}
 }
 
+// waitGroupReady waits for every ReadyNotifier in the group to signal ready.
+// The wait for one service ends early when its Run has returned for good
+// (retries exhausted, so an allowed failure or a clean exit that never signals
+// ready), and the whole wait ends when any service failure is reported.
 func (s *ServiceManager) waitGroupReady(
 	ctx context.Context,
 	group serviceGroup,
+	exitedChs []chan struct{},
+	failure *failureSignal,
 ) {
-	for _, svc := range group {
+	for idx, svc := range group {
 		rn, ok := svc.(ReadyNotifier)
 		if !ok {
 			continue
@@ -447,6 +495,13 @@ func (s *ServiceManager) waitGroupReady(
 		select {
 		case <-rn.Ready():
 			ctxscope.GetLogger(serviceCtx).Debug("service ready")
+		case <-exitedChs[idx]:
+			ctxscope.GetLogger(serviceCtx).Warn(
+				"service exited before signaling ready",
+				"reason", "service_exited",
+			)
+		case <-failure.ch:
+			return
 		case <-ctx.Done():
 			return
 		}
@@ -457,6 +512,7 @@ func (s *ServiceManager) runService(
 	ctx context.Context,
 	service Service,
 	errCh chan<- error,
+	failure *failureSignal,
 ) {
 	maxRetries := 0
 
@@ -505,7 +561,7 @@ func (s *ServiceManager) runService(
 		"err", lastErr,
 	)
 
-	s.handleServiceError(ctx, service, lastErr, errCh)
+	s.handleServiceError(ctx, service, lastErr, errCh, failure)
 }
 
 // waitRetryDelay logs the retry and waits for the delay.
@@ -547,6 +603,7 @@ func (s *ServiceManager) handleServiceError(
 	service Service,
 	err error,
 	errCh chan<- error,
+	failure *failureSignal,
 ) {
 	af, ok := service.(AllowedFailure)
 	if ok && af.IsAllowedFailure() {
@@ -575,6 +632,9 @@ func (s *ServiceManager) handleServiceError(
 			"err", err,
 		)
 	}
+
+	// After the send, so Run finds the error in errCh once startup wakes up.
+	failure.trigger()
 }
 
 func (s *ServiceManager) safeRun(

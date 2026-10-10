@@ -36,6 +36,18 @@ Use `make help` as the current target list. Do not replace these calls with a
 host `go test` or host linter in project automation: that gives two different
 toolchains two chances to disagree.
 
+## CPU limit
+
+Every dev container runs with `--cpus` set to the host thread count minus two, never below 1, so lint and tests leave the machine responsive. `--cpus` is the hard quota, and Go 1.25+ sizes `GOMAXPROCS` from it automatically. Containers that tests start themselves are not limited. These Make variables change it:
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `DEV_CPUS_RESERVED` | `2` | Threads kept free for the host. |
+| `DEV_CPUS` | host threads minus `DEV_CPUS_RESERVED`, minimum 1 | Threads the container may use, for example `make lint DEV_CPUS=4`. |
+| `DEV_CPU_LIMIT_ARGS` | `--cpus=$(DEV_CPUS)` | The Docker flags added to `DEV_RUN` and `DEV_RUN_DIND`. Set it empty (`DEV_CPU_LIMIT_ARGS=`) to remove the limit. |
+| `DEV_RUN_EXTRA_ARGS` | empty | Extra `docker run` arguments for `DEV_RUN`. |
+| `DEV_RUN_DIND_EXTRA_ARGS` | empty | Extra `docker run` arguments for `DEV_RUN_DIND`. |
+
 ## Tests, integration tests, and coverage
 
 `make test` is the standard full suite. It enables Go's race detector and has

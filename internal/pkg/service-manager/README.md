@@ -92,6 +92,13 @@ logged rather than blocking on the already-full error channel, because the
 first failure is already causing application shutdown. This is an intentional
 anti-deadlock semantic, not lost success information.
 
+The first terminal failure also closes a failure signal that the startup
+sequence selects on. A failure while a group is still waiting for `Ready()`
+ends that wait, no later group is started, and `Run` returns the error. A
+service whose `Run` returned for good (allowed failure or clean exit) before
+signaling ready is logged and no longer waited on, so it cannot block startup
+either.
+
 ## Context and logging conventions
 
 The manager scopes every service run, command, registration log, and stop path
