@@ -16,7 +16,7 @@ readonly BUILD_VERSION
 # Pinned by digest, not by tag. This is the image `make build` actually uses --
 # the Dockerfiles are a separate path (`make docker-build`), so pinning them
 # alone leaves the default build consuming a mutable tag. Bump deliberately.
-readonly GO_BUILD_IMAGE="golang:1.26.6-alpine@sha256:af8d6740070b8906d12eae1c3e3ea0957fb63f492051ea05e354c38ef9fe88df"
+readonly GO_BUILD_IMAGE="golang:1.26.9-alpine@sha256:cdfd4fe2da6b225d8b40c6b7a105736e548e83ff56d5d8f9394446eeb5eb84e0"
 
 section "Building Application"
 info "Building $APP_NAME binary using Docker..."

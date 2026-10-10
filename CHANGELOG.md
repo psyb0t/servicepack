@@ -4,6 +4,14 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.9.4 (2026-10-10)
+
+Builds with Go 1.26.9, which fixes standard library vulnerabilities that `make sec` reports as reachable.
+
+- Moved the development, production, and framework Dockerfiles and `make build` to `golang:1.26.9-alpine`, and `go.mod` to Go 1.26.9. This fixes HTTP/2 server crashes and memory and CPU exhaustion, HTTP/1 connection desynchronization after `CONNECT`, malformed HTTP/2 transport headers, unbounded MIME header parsing in `net/textproto` and `mime/multipart`, and malformed ECH handling in `crypto/tls` (GO-2026-6603, GO-2026-6605, GO-2026-6607, GO-2026-6608, GO-2026-6610 through GO-2026-6613, and GO-2026-6617).
+- Projects built on servicepack get the new framework Dockerfiles with `make servicepack-update`. A project that keeps its own `Dockerfile` or `Dockerfile.dev` must move its `FROM` line to Go 1.26.9 itself.
+- Corrected the Go version in the agent setup reference, which still said 1.26.4.
+
 ## v1.9.3 (2026-09-21)
 
 Closes reachable dependency vulnerabilities and removes a race from the retry
