@@ -2,6 +2,12 @@
 
 All notable changes per release. Versions follow [semver](https://semver.org).
 
+## v1.0.11, 2026-10-10
+
+Documentation only. No code change.
+
+- The README's agent integrations section names [peen](https://github.com/psyb0t/peen) as an example of an agent that reads `.agents/skills/`.
+
 ## v1.0.10 — 2026-08-08
 
 Documentation. No code change.

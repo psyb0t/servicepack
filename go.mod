@@ -5,7 +5,7 @@ go 1.26.9
 require (
 	github.com/psyb0t/ctxerrors v0.7.1
 	github.com/psyb0t/ctxscope v1.0.3
-	github.com/psyb0t/goenv v1.0.10
+	github.com/psyb0t/goenv v1.0.11
 	github.com/psyb0t/gonfiguration v1.6.4
 	github.com/psyb0t/slogging v1.7.1
 	github.com/spf13/cobra v1.10.2

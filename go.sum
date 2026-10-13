@@ -567,8 +567,8 @@ github.com/psyb0t/ctxerrors v0.7.1 h1:x2CM3MggPk/W3IswfLxeDvNuVeOt11rbrYuKc14lEj
 github.com/psyb0t/ctxerrors v0.7.1/go.mod h1:h1V0vJtlXGn4H7RuHBtxdrdevBx3CmBTEyJXtFIIrk4=
 github.com/psyb0t/ctxscope v1.0.3 h1:VwI7JQPpT1ZwnBOMKigFgM5CluQ46zwrRkHfx7p67bY=
 github.com/psyb0t/ctxscope v1.0.3/go.mod h1:fP6HYWnSze45KVPceVdMRbupfK9ly/m6c5+DknmUYTU=
-github.com/psyb0t/goenv v1.0.10 h1:6hECZpebLN7JoZIpQOrvD+5BjDKxoFiiXATiDMxuAW4=
-github.com/psyb0t/goenv v1.0.10/go.mod h1:Ol/6C6q5MarjfdYQDqI0bEvdi/DCfkgyJmssZvAXJEY=
+github.com/psyb0t/goenv v1.0.11 h1:vSP/bJx+yXJE83aYKArfs6sMvAZ5Nz1K6E+8wWRIe7A=
+github.com/psyb0t/goenv v1.0.11/go.mod h1:Ol/6C6q5MarjfdYQDqI0bEvdi/DCfkgyJmssZvAXJEY=
 github.com/psyb0t/gofindimpl v1.0.12 h1:X0YW47nGInQdTYKaUgYdkhp0DdpHNelaOIzMnm0T+fQ=
 github.com/psyb0t/gofindimpl v1.0.12/go.mod h1:5WbTY/pJGir3VJygNJCvCNw5dhLx5vwKjc79feb931c=
 github.com/psyb0t/gonfiguration v1.6.4 h1:zvZbDoNrHxADYfk2rJHXj1NFib/1W6XQqQ8qKYKS1ws=
