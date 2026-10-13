@@ -876,7 +876,7 @@ github.com/psyb0t/ctxerrors
 # github.com/psyb0t/ctxscope v1.0.3
 ## explicit; go 1.26
 github.com/psyb0t/ctxscope
-# github.com/psyb0t/goenv v1.0.10
+# github.com/psyb0t/goenv v1.0.11
 ## explicit; go 1.26
 github.com/psyb0t/goenv
 # github.com/psyb0t/gofindimpl v1.0.12
