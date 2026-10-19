@@ -26,6 +26,7 @@ WIP.md
 .backup
 scripts/.post-update-temp
 git-update.sh
+git-update.sh.debot
 .telemetry/
 coverage-percent.txt
 sec.sarif
