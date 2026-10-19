@@ -4,6 +4,13 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.10.1 (2026-10-19)
+
+`make pkg-upgrade` upgrades modules again, and the dependencies are current.
+
+- Fixed `make pkg-upgrade` doing nothing. Its module list ran `go list -m all` against the vendor directory, which Go refuses, and the error was swallowed, so the target exited 0 without upgrading anything. It now lists modules with `-mod=mod`, fails when the list cannot be built, and skips the main module.
+- Updated `ctxerrors` to v0.9.0, `goenv` to v1.0.11 and `testify` to v1.12.1. `ctxerrors` v0.8.0 and v0.9.0 change how an error map translation behaves: `errors.Is` and `errors.As` now match both the mapped sentinel and the original error. Projects that call `SetErrorMap` should read its changelog.
+
 ## v1.10.0 (2026-10-10)
 
 Dev containers get a CPU limit by default, and a service that fails during startup no longer hangs the app.

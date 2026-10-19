@@ -50,7 +50,7 @@ func ClearErrorMap() {
 }
 
 // translate returns the mapped error if err matches a registered key via
-// errors.Is, else returns err unchanged. Single-pass — no recursive mapping.
+// errors.Is, else nil. Single-pass, with no recursive mapping.
 func translate(err error) error {
 	if err == nil {
 		return nil
@@ -65,5 +65,5 @@ func translate(err error) error {
 		}
 	}
 
-	return err
+	return nil
 }
