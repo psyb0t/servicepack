@@ -1,3 +1,9 @@
+---
+title: "Getting started"
+description: "Turn a fresh servicepack clone into your own Go project: make it yours, add a service, configure logging and run it locally or as one binary."
+nav_order: 2
+---
+
 # Getting started
 
 Servicepack is the starting point for a Go application with multiple
@@ -19,15 +25,19 @@ make own MODNAME=github.com/yourname/my-service
 Run that once, only in a disposable fresh clone. `make own`:
 
 1. removes shipped `example-*` services but leaves `hello-world`;
-2. removes the clone's `.git`, module manifests, and `vendor/` directory;
-3. recreates the module using the supplied `MODNAME` while retaining the
+2. removes servicepack's own agent instructions (`AGENTS.md`, `CLAUDE.md`,
+   `.claude`, `.agents`), its `.github/FUNDING.yml`, its mirror-and-archive
+   and issue-pull workflows, and the GitHub Pages files of its documentation
+   site, keeping the `docs/*.md` pages;
+3. removes the clone's `.git`, module manifests, and `vendor/` directory;
+4. recreates the module using the supplied `MODNAME` while retaining the
    framework's pinned dependency and tool declarations;
-4. rewrites framework imports to your module path;
-5. replaces this README with a project stub;
-6. records the framework revision in `servicepack.version` if it does not
+5. rewrites framework imports to your module path;
+6. replaces this README with a project stub;
+7. records the framework revision in `servicepack.version` if it does not
    already exist;
-7. runs dependency and service-registration targets; and
-8. initializes a new Git repository on `main` and creates an initial commit.
+8. runs dependency and service-registration targets; and
+9. initializes a new Git repository on `main` and creates an initial commit.
 
 It needs Git identity configured well enough for that initial commit. Its
 normal dependency and generation targets run in the Docker development image;
@@ -117,9 +127,9 @@ configuration names.
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `LOG_LEVEL` | `debug`, `info`, `warn`, or `error` logging threshold. | Handler default |
-| `LOG_FORMAT` | `json` or `text` output. | Handler default |
-| `LOG_ADD_SOURCE` | Include source location in log records. | Handler default |
+| `LOG_LEVEL` | `debug`, `info`, `warn`, or `error` logging threshold. | `info` |
+| `LOG_FORMAT` | `json` or `text` output. | `text` |
+| `LOG_ADD_SOURCE` | Include source location in log records. | `false` |
 | `ENV` | Environment selected by `goenv`. | `prod` |
 | `RUNNER_SHUTDOWNTIMEOUT` | Whole-application graceful shutdown deadline. | `10s` |
 | `SERVICES_ENABLED` | Comma-separated in-process service allowlist. Empty/unset means all registered services. | all |

@@ -90,17 +90,17 @@ section "Updating Framework Files"
 # ITS OWN .servicepackupdateignore -- that is the intended opt-out, not a
 # blanket exclude baked into the framework.
 #
-# The list above is the mechanical floor (git internals, the dependency merge,
-# per-project prose, and the downstream-owned docs/ and tests/ trees). The
-# opt-outs that nearly every project wants ship
+# The list below is the mechanical floor (git internals, the dependency merge,
+# per-project prose and agent instructions, and the downstream-owned docs/ and
+# tests/ trees). The opt-outs that nearly every project wants ship
 # in the .servicepackupdateignore this repo hands you -- the framework's own
-# publication workflows, agent skill, funding links, secret-scanning allowlist
+# publication workflows, funding links, secret-scanning allowlist
 # and docker context. Those are the framework's furniture rather than a
 # baseline you customize, so they start ignored instead of leaving each project
 # to find out the hard way. Read that file, not this list, when you want to
 # know what your project is keeping for itself.
 #
-# Note that file is excluded from the sync (above), so it is yours from the
+# Note that file is excluded from the sync (below), so it is yours from the
 # moment you scaffold: a framework update can never rewrite your opt-outs, and
 # equally never adds new default ones to an existing project. When a release
 # adds an entry, existing downstreams have to copy it over by hand.
@@ -127,6 +127,18 @@ EXCLUDE_ARGS=(
 	"--exclude=docs/"
 	"--exclude=tests/"
 	"--exclude=README.md"
+	# Agent instructions are per-project prose, like README.md. AGENTS.md and
+	# .agents/rules/ describe how to change THIS repo, and CLAUDE.md and .claude
+	# are committed symlinks onto them. Synced, they would replace a
+	# downstream's own instructions with servicepack's, or swap its real .claude
+	# directory for a link. .agents also holds the servicepack skill and plugin
+	# manifests. The shipped .servicepackupdateignore used to be the only guard
+	# on .agents, and a project scaffolded before that line existed has no copy
+	# of it, so the whole tree belongs in the floor rather than just its rules.
+	"--exclude=AGENTS.md"
+	"--exclude=CLAUDE.md"
+	"--exclude=.claude"
+	"--exclude=.agents"
 	"--exclude=LICENSE"
 	"--exclude=CHANGELOG.md"
 	"--exclude=.git"

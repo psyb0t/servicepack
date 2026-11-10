@@ -1,3 +1,9 @@
+---
+title: "Services and lifecycle"
+description: "The servicepack service contract: Run and Stop, dependencies, readiness, retries, allowed failures, commands, service filtering, logging and shutdown."
+nav_order: 3
+---
+
 # Services and lifecycle
 
 Servicepack supervises services that live in the same process. It provides
@@ -7,8 +13,8 @@ network protocol or solve distributed-systems concerns for services you split
 out later.
 
 For the implementation-level rules and test setup, see the
-[service-manager deep dive](../internal/pkg/service-manager/README.md) and
-[runner deep dive](../pkg/runner/README.md).
+[service-manager deep dive](https://github.com/psyb0t/servicepack/blob/main/internal/pkg/service-manager/README.md) and
+[runner deep dive](https://github.com/psyb0t/servicepack/blob/main/pkg/runner/README.md).
 
 ## The required contract
 
@@ -52,7 +58,7 @@ func (s *Worker) Run(ctx context.Context) error {
 ```
 
 The application entry point also sets process-wide `binary` and, for normal
-builds, `commit` attributes. Do not replace those with ad-hoc global logging.
+builds, `commit` and `version` attributes. Do not replace those with ad-hoc global logging.
 
 ## Optional contracts
 

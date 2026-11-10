@@ -39,7 +39,7 @@ make build
 
 The normal Make targets use Docker, so you do not need a matching host Go
 toolchain for `make build`, `make test`, or `make lint`. Docker must be
-available. See [getting started](docs/getting-started.md) before pointing it
+available. See [getting started](https://psyb0t.github.io/servicepack/getting-started/) before pointing it
 at a clone you care about.
 
 Want to poke the shipped examples first?
@@ -81,18 +81,20 @@ structured log stream. That is not a lifetime commitment to a monolith.
 | `make help` | List every available target. |
 
 `make servicepack-update` updates the framework copy in a project made from
-this template. Read [framework updates](docs/framework-updates.md) first; it
+this template. Read [framework updates](https://psyb0t.github.io/servicepack/framework-updates/) first; it
 expects a clean repository and creates a backup/update branch.
 
 ## Documentation
 
+The full documentation lives at **[https://psyb0t.github.io/servicepack/](https://psyb0t.github.io/servicepack/)**.
+
 | Read this | For |
 | --- | --- |
-| [Getting started](docs/getting-started.md) | Turning a fresh clone into your project, then adding and running a service. |
-| [Services and lifecycle](docs/services-and-lifecycle.md) | Interface contracts, dependencies, retries, commands, filtering, logging, and shutdown. |
-| [Development](docs/development.md) | Docker-first Make targets, Testcontainers, coverage, builds, and overrides. |
-| [Architecture](docs/architecture.md) | The process topology, ownership boundaries, generated registration, and deployment choices. |
-| [Framework updates](docs/framework-updates.md) | Updating a clone safely and keeping project customizations out of the blast radius. |
+| [Getting started](https://psyb0t.github.io/servicepack/getting-started/) | Turning a fresh clone into your project, then adding and running a service. |
+| [Services and lifecycle](https://psyb0t.github.io/servicepack/services-and-lifecycle/) | Interface contracts, dependencies, retries, commands, filtering, logging, and shutdown. |
+| [Development](https://psyb0t.github.io/servicepack/development/) | Docker-first Make targets, Testcontainers, coverage, builds, and overrides. |
+| [Architecture](https://psyb0t.github.io/servicepack/architecture/) | The process topology, ownership boundaries, generated registration, and deployment choices. |
+| [Framework updates](https://psyb0t.github.io/servicepack/framework-updates/) | Updating a clone safely and keeping project customizations out of the blast radius. |
 | [Service manager deep dive](internal/pkg/service-manager/README.md) | Exact orchestration semantics and test conventions. |
 | [Runner deep dive](pkg/runner/README.md) | Signals, parent contexts, and shutdown deadline behavior. |
 | [Framework Make scripts](scripts/make/servicepack/README.md) | The updateable script layer and user overrides. |
@@ -117,6 +119,10 @@ Agent-facing setup and conventions live under
 [`.agents/skills/servicepack/`](.agents/skills/servicepack/). The skill is
 available through the psyb0t agents marketplace for Claude Code, Codex, and
 OpenClaw-compatible setups.
+
+## Sponsor
+
+<a href="https://www.buymeacoffee.com/psyb0t"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-blue.png" alt="Buy Me a Coffee" height="60" width="217"></a>
 
 ## License
 

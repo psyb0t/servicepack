@@ -1,3 +1,9 @@
+---
+title: "Development"
+description: "The Docker-first servicepack Make targets: builds, lint, Testcontainers tests, the coverage gate, security checks, dependencies and overrides."
+nav_order: 4
+---
+
 # Development
 
 The supported everyday workflow runs Go tooling inside the project's Docker
@@ -12,7 +18,7 @@ The Makefile has two execution shapes:
   and coverage targets mount the Docker socket for Testcontainers.
 
 The exact scripts and override lookup live in the
-[framework Make-script deep dive](../scripts/make/servicepack/README.md).
+[framework Make-script deep dive](https://github.com/psyb0t/servicepack/blob/main/scripts/make/servicepack/README.md).
 
 ## Common targets
 

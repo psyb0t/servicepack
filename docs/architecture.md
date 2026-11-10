@@ -1,3 +1,9 @@
+---
+title: "Architecture"
+description: "How a servicepack process is laid out: the runner, the service manager, generated registration, ownership boundaries and deployment choices."
+nav_order: 5
+---
+
 # Architecture
 
 Servicepack is a clone-and-own application skeleton. It gives a project a
@@ -8,7 +14,7 @@ require every future deployment to stay inside one binary.
 
 ```
 cmd/main.go
-  ├─ set global log scope: binary, commit
+  ├─ set global log scope: binary, commit, version
   ├─ services.Init()                         generated factory registration
   └─ Cobra "run"
        └─ pkg/runner
@@ -22,11 +28,11 @@ cmd/main.go
 
 `cmd/main.go` is intentionally small: establish process identity, register
 generated service factories, expose `run` and command namespaces, then pass
-control to the runner. The [runner README](../pkg/runner/README.md) explains
+control to the runner. The [runner README](https://github.com/psyb0t/servicepack/blob/main/pkg/runner/README.md) explains
 the signal and deadline rules.
 
 `internal/app` owns application-level hooks and delegates service execution to
-the [service manager](../internal/pkg/service-manager/README.md). `App` is the
+the [service manager](https://github.com/psyb0t/servicepack/blob/main/internal/pkg/service-manager/README.md). `App` is the
 place for whole-process behavior; individual services should not reach across
 into siblings to create their own lifecycle graph.
 
@@ -101,12 +107,12 @@ That distinction matters:
 
 This keeps command execution from accidentally opening every database/client
 in the project. Details are in the
-[service-manager README](../internal/pkg/service-manager/README.md).
+[service-manager README](https://github.com/psyb0t/servicepack/blob/main/internal/pkg/service-manager/README.md).
 
 ## Observability and configuration
 
 Logging starts with the `slogging` handler setup and flows through `ctxscope`.
-The binary and build commit are global scope; the service manager adds a
+The binary, build commit and version are global scope; the service manager adds a
 `service` field while it runs or stops a service. Preserve and extend the
 context passed into `Run`; it carries cancellation and those fields together.
 
@@ -120,4 +126,4 @@ project's own docs and config examples.
 The Makefile runs tooling in Docker. Test targets additionally receive Docker
 access for Testcontainers. The development model, coverage boundary, and
 override mechanism are documented in [development](development.md), with the
-exact script behavior in the [Make-script README](../scripts/make/servicepack/README.md).
+exact script behavior in the [Make-script README](https://github.com/psyb0t/servicepack/blob/main/scripts/make/servicepack/README.md).

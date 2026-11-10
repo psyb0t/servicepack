@@ -1,5 +1,4 @@
 .vscode
-AGENTS.md
 CODEX.local.md
 .log
 __pycache__
@@ -8,7 +7,6 @@ coverage.html
 coverage.txt
 coverage_filtered.txt
 /build/
-CLAUDE.md
 .env
 .env.local
 .env.*
@@ -34,3 +32,4 @@ sec.sarif
 .anustimes/
 .brutal_reviews/
 .rule_audits/
+*.local.json

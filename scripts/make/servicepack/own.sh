@@ -55,6 +55,23 @@ for dir in internal/pkg/services/example-*; do
 	fi
 done
 
+# Remove servicepack's own repo furniture. These files describe and publish
+# the framework repo itself: its agent instructions, skill and plugin
+# manifests, its sponsor links, and the GitHub Pages config that publishes its
+# documentation site. Left in a new project they tell agents and readers they
+# are looking at servicepack. The mirror-and-archive workflow pushes every
+# commit and tag to public GitLab and Codeberg mirrors and the Wayback Machine,
+# which would publish a private project, and issue-pull only relays issues
+# back from those mirrors. The docs/*.md pages stay as the project's scaffold.
+for path in AGENTS.md CLAUDE.md .claude .agents .github/FUNDING.yml \
+	.github/workflows/mirror-and-archive.yml .github/workflows/issue-pull.yml \
+	docs/_config.yml docs/_sass docs/_includes docs/404.md docs/llms.txt docs/index.md; do
+	if [ -e "$path" ] || [ -L "$path" ]; then
+		info "Removing servicepack's own $path"
+		rm -rf "$path"
+	fi
+done
+
 # Remove .git directory
 if [ -d ".git" ]; then
 	info "Removing .git directory..."

@@ -4,6 +4,17 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.10.2 (2026-11-10)
+
+`make servicepack-update` no longer touches a project's agent instructions, and the images build with Go 1.26.10.
+
+- Fixed `make servicepack-update` overwriting a project's `AGENTS.md`, `CLAUDE.md`, `.claude` and `.agents` with servicepack's own. They are now in the update's built-in exclude list, so a project no longer needs a `.agents` line in its `.servicepackupdateignore`. Before, an update into a project with a real `.claude` directory failed in its dry run.
+- Changed `make own` to remove servicepack's own agent instructions (`AGENTS.md`, `CLAUDE.md`, `.claude`, `.agents`), its `.github/FUNDING.yml`, the mirror-and-archive workflow (which would push a private project to public mirrors) with the issue-pull workflow that relays issues from those mirrors, and the GitHub Pages files of its documentation site from the new project. The `docs/*.md` pages stay as the project's scaffold.
+- Updated the Docker images to Go 1.26.10 and `klauspost/compress` to v1.20.2, which clears the reachable `crypto/x509` and `compress` vulnerabilities `make sec` reported.
+- Added the documentation site at [psyb0t.github.io/servicepack](https://psyb0t.github.io/servicepack/), built from `docs/`. The README links to it.
+- Changed the pipeline: a release tag no longer reruns the checks. It waits for its commit's `main` run to pass, then cuts the release.
+- Added Buy Me a Coffee to the funding links, and committed `AGENTS.md` plus the project rules in `.agents/rules/` for coding agents.
+
 ## v1.10.1 (2026-10-19)
 
 `make pkg-upgrade` upgrades modules again, and the dependencies are current.

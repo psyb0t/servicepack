@@ -1,12 +1,22 @@
 name: pipeline
 
-on: [push]
+# Every branch push runs lint, tests with the coverage gate, the security scan
+# and the codegen drift check, all through the Makefile in the repo's dev
+# image. Default-branch runs then refresh the badges. A v* tag does not rerun
+# the checks: it waits for that commit's default-branch run to succeed, cuts
+# the GitHub release from the annotated tag message, publishes the agent skill
+# to ClawHub, and refreshes the badges with that run's coverage.
+on:
+  push:
+
+permissions: {}
 
 jobs:
   code:
+    if: "!startsWith(github.ref, 'refs/tags/')"
     permissions:
       contents: read
-      security-events: write
+      security-events: write # for the sec SARIF upload
     uses: psyb0t/reusable-github-workflows/.github/workflows/code-workflow.yml@master
     with:
       lint_command: "make lint"
@@ -17,27 +27,42 @@ jobs:
       sarif_file: "sec.sarif"
       sarif_category: "go"
 
-  badges:
-    needs: [code]
-    if: github.ref_name == github.event.repository.default_branch || startsWith(github.ref, 'refs/tags/')
+  wait:
+    if: startsWith(github.ref, 'refs/tags/')
     permissions:
-      contents: write
-    uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
-    with:
-      coverage: true
+      actions: read
+    uses: psyb0t/reusable-github-workflows/.github/workflows/wait-for-default-branch.yml@master
 
   release:
-    needs: [code]
+    needs: [wait]
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
       contents: write
     uses: psyb0t/reusable-github-workflows/.github/workflows/release-workflow.yml@master
 
-  # Publish the skill (.agents/skills/) to ClawHub. Tag pushes ONLY, after the
-  # checks pass.
+  # Tag runs read the coverage artifact from the default-branch run they
+  # release.
+  badges:
+    needs: [code, wait]
+    if: "always() && ((github.ref_name == github.event.repository.default_branch && needs.code.result == 'success') || (startsWith(github.ref, 'refs/tags/') && needs.wait.result == 'success'))"
+    permissions:
+      contents: write
+      actions: read # cross-run coverage artifact download on tags
+    uses: psyb0t/reusable-github-workflows/.github/workflows/create-badges.yml@master
+    with:
+      coverage: true
+      coverage_run_id: ${{ needs.wait.outputs.run_id }}
+
+  # Publish the skill in .agents/skills/ to ClawHub, after the release. The
+  # repo has no .agents/plugins/, so no plugin is selected.
   publish-to-clawhub:
-    needs: [code]
+    needs: [release]
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
     uses: psyb0t/reusable-github-workflows/.github/workflows/clawhub-publish.yml@master
+    with:
+      skill_names: '["servicepack"]'
+      plugin_names: "[]"
     secrets:
       clawhub_token: ${{ secrets.CLAWHUB_TOKEN }}

@@ -24,6 +24,11 @@ cmd/commands.go
 # so they never need an entry here. Both are yours from the moment you scaffold:
 # docs/ is prose you rewrite for your app, tests/ is the testcontainers harness
 # plus your own service tests. A framework update can never overwrite either.
+#
+# The same floor covers your agent instructions: AGENTS.md, CLAUDE.md, .claude
+# and the whole .agents tree (rules, skills, plugin manifests). servicepack's
+# own copies describe the framework repo, never your app, so an update never
+# brings them in and you never need an entry for them here.
 
 # Dependabot config - your own dependency policy (which deps, the cooldown
 # window, the own-package excludes). Ignored by default so a framework update
@@ -59,10 +64,6 @@ cmd/commands.go
 
 # Sponsor links for servicepack's author, not yours.
 .github/FUNDING.yml
-
-# The agent skill describing SERVICEPACK. Landing it in your repo tells any
-# agent reading it that it is looking at the framework rather than your app.
-.agents
 
 # Secret-scanning allowlist. Allowlists are per-repo by nature - they name the
 # untracked paths THIS tree has - so the framework's would silence the wrong
