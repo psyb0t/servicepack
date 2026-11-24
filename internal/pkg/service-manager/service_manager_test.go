@@ -1634,3 +1634,106 @@ func TestParseEnabledServices(t *testing.T) {
 		})
 	}
 }
+
+// stopContextService blocks in Run until cancelled and records the state of the
+// context its Stop receives.
+type stopContextService struct {
+	name    string
+	stopped chan error
+}
+
+func newStopContextService(name string) *stopContextService {
+	return &stopContextService{name: name, stopped: make(chan error, 1)}
+}
+
+func (s *stopContextService) Name() string { return s.name }
+
+func (s *stopContextService) Run(ctx context.Context) error {
+	<-ctx.Done()
+
+	return nil
+}
+
+func (s *stopContextService) Stop(ctx context.Context) error {
+	s.stopped <- ctx.Err()
+
+	return nil
+}
+
+// TestServiceManager_StopContextNotCancelled proves Stop receives a usable
+// context on the shutdown paths that start inside Run. The deferred Stop used
+// to pass Run's own context, which Stop cancels first, so a drain in Stop
+// returned at once and drained nothing.
+func TestServiceManager_StopContextNotCancelled(t *testing.T) {
+	testCases := []struct {
+		name         string
+		failingPeer  bool
+		cancelParent bool
+	}{
+		{name: "a sibling service fails", failingPeer: true},
+		{name: "the parent context is cancelled", cancelParent: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ResetInstance()
+
+			sm := GetInstance()
+			observer := newStopContextService("observer")
+			sm.Add(observer)
+
+			if tc.failingPeer {
+				sm.Add(NewMockService("failer").WithRunError(errTestService))
+			}
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			done := make(chan error, 1)
+
+			go func() { done <- sm.Run(ctx) }()
+
+			if tc.cancelParent {
+				waitForStartedServices(t, sm, 1)
+				cancel()
+			}
+
+			select {
+			case <-done:
+			case <-time.After(runReturnTimeout):
+				t.Fatal("Run never returned")
+			}
+
+			select {
+			case err := <-observer.stopped:
+				assert.NoError(t, err, "Stop received a cancelled context")
+			case <-time.After(runReturnTimeout):
+				t.Fatal("Stop was never called")
+			}
+		})
+	}
+}
+
+// TestServiceManager_NegativeMaxRetries proves a negative MaxRetries runs the
+// service once instead of never calling Run.
+func TestServiceManager_NegativeMaxRetries(t *testing.T) {
+	ResetInstance()
+
+	sm := GetInstance()
+	svc := NewRetryableMockService("negative", -1)
+	svc.WithRunError(errTestService)
+	sm.Add(svc)
+
+	done := make(chan error, 1)
+
+	go func() { done <- sm.Run(t.Context()) }()
+
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, errTestService)
+	case <-time.After(runReturnTimeout):
+		t.Fatal("Run never returned")
+	}
+
+	assert.Equal(t, 1, svc.RunCount())
+}

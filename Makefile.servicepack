@@ -124,11 +124,13 @@ pkg-upgrade: dev-image ## Upgrade every direct module after the age gate
 	@$(DEV_RUN) bash -ceu -o pipefail '\
 		modules="$$(GOFLAGS=-mod=mod go list -m -f "{{if not (or .Indirect .Main)}}{{.Path}}{{end}}" all | sed "/^$$/d")"; \
 		[[ -n "$$modules" ]] || { echo "no direct modules found" >&2; exit 1; }; \
+		targets=(); \
 		while IFS= read -r module; do \
 			version="$$(GOFLAGS=-mod=mod go list -m -f "{{.Version}}" "$$module@latest")"; \
 			bash scripts/check-go-age.sh "$$module@$$version"; \
-			GOFLAGS=-mod=mod go get "$$module@$$version"; \
+			targets+=("$$module@$$version"); \
 		done <<< "$$modules"; \
+		GOFLAGS=-mod=mod go get "$${targets[@]}"; \
 		go mod tidy; \
 		go mod vendor'
 
@@ -191,8 +193,8 @@ test: ## Run all tests
 test-unit: dev-image ## Run the framework's unit test suite
 	@$(DEV_RUN) go test -race ./...
 
-test-integration: dev-image ## Run integration tests without cached results
-	@$(DEV_RUN_DIND) go test -race -count=1 -timeout=600s ./...
+test-integration: dev-image ## Run all tests, including integration-tagged ones, without cached results
+	@$(DEV_RUN_DIND) go test -race -count=1 -timeout=600s -tags=integration ./...
 
 test-coverage: ## Run tests with coverage check. Fails if coverage is below the threshold.
 	@$(MAKE) dev-image

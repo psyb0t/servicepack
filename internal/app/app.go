@@ -91,8 +91,11 @@ func (a *App) Run(ctx context.Context) error {
 
 	defer a.wg.Wait()
 
+	// Stop cancels ctx first, so the stop path gets a copy without that
+	// cancellation; otherwise services and post-stop hooks would receive an
+	// already-cancelled context. See ServiceManager.Run for the same fix.
 	defer func() {
-		if err := a.Stop(ctx); err != nil {
+		if err := a.Stop(context.WithoutCancel(ctx)); err != nil {
 			ctxscope.GetLogger(ctx).Error("failed to stop app", "err", err)
 		}
 	}()

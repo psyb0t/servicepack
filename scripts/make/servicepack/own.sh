@@ -45,6 +45,17 @@ cp go.mod "$FRAMEWORK_GO_MOD"
 cp go.sum "$FRAMEWORK_GO_SUM"
 trap cleanup_framework_go_mod EXIT
 
+# Record which framework revision this project starts from while .git still
+# exists: the exact tag when the clone is on one, otherwise its commit.
+# `make servicepack-update` compares this with the latest tag. This used to ask
+# GitHub for its current HEAD instead, which was wrong for any clone of a tag or
+# an older commit.
+CLONED_VERSION=""
+if [ -d ".git" ]; then
+	CLONED_VERSION=$(git describe --tags --exact-match HEAD 2>/dev/null ||
+		git rev-parse --verify HEAD 2>/dev/null || true)
+fi
+
 section "Cleaning Project"
 
 # Remove example services (keep only hello-world)
@@ -57,20 +68,29 @@ done
 
 # Remove servicepack's own repo furniture. These files describe and publish
 # the framework repo itself: its agent instructions, skill and plugin
-# manifests, its sponsor links, and the GitHub Pages config that publishes its
-# documentation site. Left in a new project they tell agents and readers they
-# are looking at servicepack. The mirror-and-archive workflow pushes every
-# commit and tag to public GitLab and Codeberg mirrors and the Wayback Machine,
-# which would publish a private project, and issue-pull only relays issues
-# back from those mirrors. The docs/*.md pages stay as the project's scaffold.
+# manifests, its sponsor links, its documentation (docs/ and the Docusaurus
+# site and workflow that publish it), its release history, and the workflow
+# that closes outside pull requests with its author's message. Left in a new
+# project they tell agents and readers they are looking at servicepack. The
+# mirror-and-archive workflow pushes every commit and tag to public GitLab and
+# Codeberg mirrors and the Wayback Machine, which would publish a private
+# project, and issue-pull only relays issues back from those mirrors.
 for path in AGENTS.md CLAUDE.md .claude .agents .github/FUNDING.yml \
 	.github/workflows/mirror-and-archive.yml .github/workflows/issue-pull.yml \
-	docs/_config.yml docs/_sass docs/_includes docs/404.md docs/llms.txt docs/index.md; do
+	.github/workflows/docs.yml .github/workflows/collaborators-only.yml \
+	website docs CHANGELOG.md; do
 	if [ -e "$path" ] || [ -L "$path" ]; then
 		info "Removing servicepack's own $path"
 		rm -rf "$path"
 	fi
 done
+
+# The root Makefile includes the documentation site's targets from website/,
+# which the loop above just deleted. Drop the include and its comment so the new
+# project's Makefile does not mention a site it does not have.
+if [ -f Makefile ]; then
+	sed -i '/^# servicepack.s own documentation site targets/,/^-include website\/docs\.mk$/d' Makefile
+fi
 
 # Remove .git directory
 if [ -d ".git" ]; then
@@ -136,10 +156,14 @@ if [ -f "servicepack.version" ]; then
 	CURRENT_VERSION=$(cat servicepack.version)
 	info "Preserving servicepack version: $CURRENT_VERSION"
 else
-	# Get latest commit from servicepack repo to set as current version
-	LATEST_VERSION=$(git ls-remote https://github.com/psyb0t/servicepack HEAD | cut -f1)
-	printf "%s" "$LATEST_VERSION" >servicepack.version
-	info "Set servicepack version to: $LATEST_VERSION"
+	if [ -z "$CLONED_VERSION" ]; then
+		# No Git checkout to read (a downloaded archive, say): fall back to
+		# the head of servicepack's default branch.
+		CLONED_VERSION=$(git ls-remote https://github.com/psyb0t/servicepack HEAD | cut -f1)
+	fi
+
+	printf "%s" "$CLONED_VERSION" >servicepack.version
+	info "Set servicepack version to: $CLONED_VERSION"
 fi
 
 success "Module name replacement completed!"

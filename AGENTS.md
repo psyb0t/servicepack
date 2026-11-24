@@ -29,7 +29,8 @@ A clone-and-own Go application template, not a library to add to an unrelated pr
 | `internal/app/`, `internal/pkg/service-manager/`, `pkg/runner/` | Framework code |
 | `internal/pkg/services/` | Services and generated registration |
 | `scripts/make/servicepack/` | Framework Make scripts, including the update and `own` flows |
-| `docs/` | The documentation site (GitHub Pages, Jekyll, Just the Docs); a downstream's own docs after `make own` |
+| `docs/` | The documentation pages; `make own` deletes them along with `CHANGELOG.md` |
+| `website/` | The Docusaurus build that publishes `docs/` to GitHub Pages; `make own` deletes it and the update floor never syncs it |
 | `tests/` | The testcontainers harness and service tests |
 | `.agents/skills/servicepack/` | The public usage skill, published to ClawHub |
 
@@ -48,7 +49,8 @@ make lint                        # shfmt, ShellCheck, go fix check, golangci-lin
 make lint-fix                    # apply supported fixes; review the diff
 make format                      # gofumpt and shfmt
 make sec                         # security checks, writes sec.sarif
-make docs                        # build the documentation site into .testing/docs-site
+make docs                        # build the documentation site into website/build and .testing/docs-site
+make docs-preview                # build, then serve it on http://127.0.0.1:61328/servicepack/
 make help                        # every target
 ```
 

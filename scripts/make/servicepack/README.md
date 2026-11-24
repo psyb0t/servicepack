@@ -11,15 +11,22 @@ developer-facing targets; this file documents how those targets are wired.
 
 `Makefile.servicepack` resolves a script name by checking:
 
-1. `scripts/make/<name>.sh` — project override; then
-2. `scripts/make/servicepack/<name>.sh` — framework default.
+1. `scripts/make/<name>.sh`, the project override; then
+2. `scripts/make/servicepack/<name>.sh`, the framework default.
 
-For example:
+Every script finds `common.sh` and the scripts it calls through `SCRIPT_DIR`,
+its own directory, so a copy must point `SCRIPT_DIR` back at `servicepack/`:
 
 ```bash
 cp scripts/make/servicepack/test.sh scripts/make/test.sh
+sed -i 's|dirname "${BASH_SOURCE\[0\]}")"|dirname "${BASH_SOURCE[0]}")/servicepack"|' scripts/make/test.sh
 # make test now uses scripts/make/test.sh
 ```
+
+Only targets that run a script use this lookup. Targets defined inline in
+`Makefile.servicepack`, such as `test-unit`, `test-integration`, `format`,
+`generate`, `dep` and the `pkg-*` targets, are overridden by defining the
+target in the project `Makefile`.
 
 Make the smallest override that owns your project-specific behavior. The
 framework directory is updated by `make servicepack-update`; edit it only when
@@ -27,12 +34,14 @@ you are intentionally changing Servicepack itself.
 
 ## Script map
 
+The [reference](https://psyb0t.github.io/servicepack/reference/#make-targets)
+lists every target and the script it runs.
+
 | Script | Target(s) | Responsibility |
 | --- | --- | --- |
 | `build.sh` | `make build` | Build a static binary in a pinned Go container and inject binary/commit identity. |
 | `docker_build*.sh` | `make docker-build*` | Build production or development images. |
 | `run_dev.sh` | `make run-dev` | Build/run the development image with the race detector. |
-| `dep.sh` | `make dep` | Tidy and vendor the Go module. |
 | `lint*.sh` | `make lint*` | Run or fix shell and Go lint findings. |
 | `test*.sh` | `make test`, `make test-coverage` | Race-enabled test and coverage workflow. |
 | `service.sh` / `service_remove.sh` | `make service*` | Create/remove a service directory. |

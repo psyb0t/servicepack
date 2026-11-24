@@ -13,8 +13,13 @@ SERVICE_IF_NAME="Service"
 SERVICES_DIR="internal/pkg/services"
 MODULE_NAME=$(head -n 1 go.mod | awk '{print $2}')
 
-# Use gofindimpl to discover all service implementations
-SERVICES_JSON=$(go tool gofindimpl \
+# Use gofindimpl to discover all service implementations.
+#
+# gofindimpl configures slogging from the LOG_* variables and writes its log
+# lines to stdout, ahead of the JSON. The development image sets
+# LOG_LEVEL=debug, so its "slogconf: configured" line broke the jq parse below
+# and with it make service, make own and this target. Only errors may print.
+SERVICES_JSON=$(LOG_LEVEL=error go tool gofindimpl \
 	-interface ${SERVICE_IF_FILE}:${SERVICE_IF_NAME} \
 	-dir ${SERVICES_DIR})
 

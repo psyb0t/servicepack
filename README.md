@@ -26,7 +26,8 @@ workflow, generated service registration, and sane places to customize it.
 
 Use a fresh clone. `make own` deliberately removes the clone's Git history,
 rewrites its module path, removes shipped example services (except
-`hello-world`), initializes a new repository, and creates its first commit.
+`hello-world`) and servicepack's own docs, changelog and publishing files,
+initializes a new repository, and creates its first commit.
 
 ```bash
 git clone https://github.com/psyb0t/servicepack.git my-service
@@ -61,11 +62,11 @@ structured log stream. That is not a lifetime commitment to a monolith.
 
 - **One binary:** ship the related services together when they genuinely share
   a release cadence and operational boundary.
-- **Separate deployables:** move a service behind HTTP, gRPC, a queue, or
-  another process boundary when it needs independent scaling, ownership, or
-  failure isolation. Servicepack's in-process `Dependent` contract only
-  coordinates services present in that binary; external dependencies belong in
-  the service's own connection and retry logic.
+- **Separate deployables:** run the same image once per service with a
+  different `SERVICES_ENABLED`, when a service needs independent scaling,
+  ownership, or failure isolation. servicepack's `Dependent` contract only
+  orders services in the same process; calls to a service in another
+  deployment need their own connection and retry logic.
 
 ## Everyday workflow
 
@@ -73,8 +74,8 @@ structured log stream. That is not a lifetime commitment to a monolith.
 | --- | --- |
 | `make service NAME=worker` | Scaffold a service and regenerate registration. |
 | `make test` | Run race-enabled tests in the development container. |
-| `make test-integration` | Run uncached, race-enabled tests with Docker available to Testcontainers. |
-| `make test-coverage` | Enforce the default 90% framework coverage floor. |
+| `make test-integration` | Run the tests including the `//go:build integration` ones, uncached, with Docker available to Testcontainers. |
+| `make test-coverage` | Enforce the default 90% coverage floor, services included. |
 | `make lint` | Run shell and Go linting in Docker. |
 | `make build` | Produce a static binary in `build/`, with binary name and source commit in log scope. |
 | `make docker-build` | Build the production image. |
@@ -92,9 +93,10 @@ The full documentation lives at **[https://psyb0t.github.io/servicepack/](https:
 | --- | --- |
 | [Getting started](https://psyb0t.github.io/servicepack/getting-started/) | Turning a fresh clone into your project, then adding and running a service. |
 | [Services and lifecycle](https://psyb0t.github.io/servicepack/services-and-lifecycle/) | Interface contracts, dependencies, retries, commands, filtering, logging, and shutdown. |
+| [Architecture](https://psyb0t.github.io/servicepack/architecture/) | The process layout, generated registration, logging, and running services in one deployment or several. |
 | [Development](https://psyb0t.github.io/servicepack/development/) | Docker-first Make targets, Testcontainers, coverage, builds, and overrides. |
-| [Architecture](https://psyb0t.github.io/servicepack/architecture/) | The process topology, ownership boundaries, generated registration, and deployment choices. |
-| [Framework updates](https://psyb0t.github.io/servicepack/framework-updates/) | Updating a clone safely and keeping project customizations out of the blast radius. |
+| [Framework updates](https://psyb0t.github.io/servicepack/framework-updates/) | What `make servicepack-update` changes, what it leaves alone, and how to keep your changes out of its way. |
+| [Reference](https://psyb0t.github.io/servicepack/reference/) | Environment variables, interface signatures, service package rules, and every Make target. |
 | [Service manager deep dive](internal/pkg/service-manager/README.md) | Exact orchestration semantics and test conventions. |
 | [Runner deep dive](pkg/runner/README.md) | Signals, parent contexts, and shutdown deadline behavior. |
 | [Framework Make scripts](scripts/make/servicepack/README.md) | The updateable script layer and user overrides. |
@@ -110,6 +112,7 @@ pkg/runner/                     signal-aware lifecycle runner
 scripts/make/servicepack/       updateable framework Make scripts
 scripts/make/                   project-specific script overrides
 docs/                           your operational and architectural docs
+website/                        servicepack's documentation site build (make own removes it)
 tests/                          your testcontainers harness and service tests
 ```
 

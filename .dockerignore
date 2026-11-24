@@ -16,6 +16,9 @@
 # a package may embed it.
 *.md
 docs/
+# servicepack's own documentation site build: Node packages and output, never
+# part of the binary.
+website/
 
 # Local secrets / env
 .env
@@ -48,3 +51,23 @@ __debug_*
 .research_files
 scripts/.post-update-temp
 __pycache__
+
+# Agent scratch dirs and local caches. Created by agent and QA runs, never part
+# of a build. Kept in sync across the psyb0t repos.
+.anustimes/
+.brutal_reviews/
+.secaudit/
+.refactor/
+.plan-and-delegate/
+.plan/
+.plans/
+.prompts/
+.agent_notes/
+.discuss/
+.sweep/
+.cover/
+.grype-db/
+.sbom/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

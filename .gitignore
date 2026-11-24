@@ -33,3 +33,11 @@ sec.sarif
 .brutal_reviews/
 .rule_audits/
 *.local.json
+/website/.assets/
+/website/.content/
+/website/.corepack/
+/website/.docusaurus/
+/website/.pnpm-store/
+/website/build/
+/website/node_modules/
+.discuss/

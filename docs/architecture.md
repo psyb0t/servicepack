@@ -1,14 +1,13 @@
 ---
 title: "Architecture"
-description: "How a servicepack process is laid out: the runner, the service manager, generated registration, ownership boundaries and deployment choices."
-nav_order: 5
+description: "How a servicepack process is laid out: the runner, the service manager, generated registration, logging and the ways to deploy services."
+sidebar_position: 4
 ---
 
 # Architecture
 
-Servicepack is a clone-and-own application skeleton. It gives a project a
-well-defined process lifecycle and a place for multiple services; it does not
-require every future deployment to stay inside one binary.
+servicepack gives a project one process lifecycle and a place for several
+services. It does not tie every later deployment to that one process.
 
 ## Runtime shape
 
@@ -26,104 +25,88 @@ cmd/main.go
                  └─ post-stop hooks
 ```
 
-`cmd/main.go` is intentionally small: establish process identity, register
-generated service factories, expose `run` and command namespaces, then pass
-control to the runner. The [runner README](https://github.com/psyb0t/servicepack/blob/main/pkg/runner/README.md) explains
-the signal and deadline rules.
+`cmd/main.go` stays small. It sets the process identity, registers the
+generated service factories, adds the `run` command and one command namespace
+per service, then hands control to the runner. The
+[runner README](https://github.com/psyb0t/servicepack/blob/main/pkg/runner/README.md)
+covers its signal and deadline rules.
 
-`internal/app` owns application-level hooks and delegates service execution to
-the [service manager](https://github.com/psyb0t/servicepack/blob/main/internal/pkg/service-manager/README.md). `App` is the
-place for whole-process behavior; individual services should not reach across
-into siblings to create their own lifecycle graph.
+`internal/app` runs the application hooks and hands the services to the
+[service manager](https://github.com/psyb0t/servicepack/blob/main/internal/pkg/service-manager/README.md).
+Whole-process behavior belongs in `App` hooks; a service should not start or
+stop its siblings.
 
-## Local composition and deployment choices
+## One process or several deployments
 
-During local development, keeping related services in one process makes
-debugging concrete: one binary, one cancellation path, one structured log
-stream, and direct visibility into failures. This is the default development
-shape:
+During development, keeping related services in one process makes debugging
+concrete: one binary, one cancellation path, one log stream, and every failure
+in front of you.
 
 ```
 my-service process
   ├─ api service
   ├─ worker service
-  ├─ scheduler service
-  └─ migration command namespace
+  └─ scheduler service
 ```
 
-Production has two valid shapes:
+In production you can keep that shape, or run the same image several times
+with a different `SERVICES_ENABLED` in each deployment:
 
 ```
-one release unit                      independently deployed units
-----------------                      ----------------------------
-my-service binary                     api binary ──────┐
-  ├─ api                               worker binary ───┼─ explicit HTTP/gRPC/queue contracts
-  ├─ worker                            scheduler binary ┘
+one deployment                        several deployments of one image
+--------------                        --------------------------------
+my-service run                        SERVICES_ENABLED=api       my-service run
+  ├─ api                              SERVICES_ENABLED=worker    my-service run
+  ├─ worker                           SERVICES_ENABLED=scheduler my-service run
   └─ scheduler
 ```
 
-Choose one binary when the services have the same release cadence and
-operational boundary. Split when they need separate scaling, ownership,
-security boundaries, or failure isolation. Splitting is an architecture change:
-replace in-process calls and service-manager dependency declarations with
-explicit APIs, messages, authentication, retries, observability, and deploy
-configuration.
+Each deployment builds and runs only the services it lists. `Dependencies()`
+on a service that runs in another deployment is skipped with a warning, so it
+no longer orders or waits for anything.
 
-`SERVICES_ENABLED` is useful for a partial local run within one binary; it is
-not a microservice deployment system.
-
-## Source ownership
-
-| Path | Role | Ownership after `make own` |
-| --- | --- | --- |
-| `cmd/main.go` | Process entry point and root CLI. | Framework |
-| `cmd/init.go` | Extra handlers and application hooks. | Project |
-| `cmd/commands.go` | App-level CLI commands. | Project |
-| `internal/app/` | App lifecycle wrapper. | Framework |
-| `internal/pkg/service-manager/` | Concurrency, dependency, retry, and stop semantics. | Framework |
-| `internal/pkg/services/` | Business services and `services.gen.go`. | Project; generated registration is not hand-edited. |
-| `pkg/runner/` | Signal-aware runner. | Framework |
-| `scripts/make/servicepack/` | Updateable Make implementations. | Framework |
-| `scripts/make/` | Project-specific target overrides. | Project |
-| `Makefile.servicepack` | Framework Make target definitions. | Framework |
-| `Makefile` | Project targets and overrides. | Project |
-
-Framework-owned means an update may replace it. Project-owned means the
-update's normal exclusion policy preserves it. See
-[framework updates](framework-updates.md) before changing that boundary.
+Keep services in one deployment when they share a release cadence and an
+operational boundary. Split them when they need separate scaling, ownership,
+security boundaries or failure isolation. Splitting changes how the services
+talk to each other: in-process calls and dependency declarations become
+explicit APIs or messages, with their own authentication, retries, readiness
+checks and monitoring. servicepack does not provide that layer.
 
 ## Registration and lazy construction
 
-`make service-registration` runs the generator that discovers `Service`
-implementations and writes `internal/pkg/services/services.gen.go`. The
-generated code registers factories rather than fully constructed services.
+`make service-registration` finds every `Service` implementation under
+`internal/pkg/services/` and writes `internal/pkg/services/services.gen.go`.
+The generated code registers a factory, the package's `New`, for each service,
+not a built service.
 
-That distinction matters:
+That matters because:
 
-- `run` instantiates all enabled factories;
-- a per-service Cobra command instantiates only that one service;
-- connections and config parsing happen in a service's `New`, not at package
-  import time.
+- `run` builds only the services `SERVICES_ENABLED` selects, or all of them;
+- a service's command builds only that service;
+- config parsing and connections happen in `New`, not when the package is
+  imported.
 
-This keeps command execution from accidentally opening every database/client
-in the project. Details are in the
-[service-manager README](https://github.com/psyb0t/servicepack/blob/main/internal/pkg/service-manager/README.md).
+So running one service's command does not open every database and client in
+the project. The [reference](reference.md#service-package-rules) has the rules a
+service package must follow for the generator.
 
-## Observability and configuration
+## Logging and configuration
 
-Logging starts with the `slogging` handler setup and flows through `ctxscope`.
-The binary, build commit and version are global scope; the service manager adds a
-`service` field while it runs or stops a service. Preserve and extend the
-context passed into `Run`; it carries cancellation and those fields together.
+Logging is configured by the `slogging` package from the `LOG_*` variables and
+flows through `ctxscope`. The binary name, build commit and version are in the
+global scope, and the service manager adds a `service` field while it runs or
+stops a service. Pass the context you receive in `Run` on to everything the
+service calls, so cancellation and those fields travel together. To send logs
+somewhere else as well, add a handler with `slogconf.AddSink` in `cmd/init.go`.
 
-Configuration is typed and parsed at each service boundary with
-`gonfiguration`. Framework settings are documented in
-[getting started](getting-started.md); application settings belong in the
-project's own docs and config examples.
+Each service parses its own typed config with `gonfiguration` in `New`. The
+framework's variables are in the [reference](reference.md#framework-environment-variables);
+your application's variables belong in your own documentation.
 
-## Build and test topology
+## Framework and project code
 
-The Makefile runs tooling in Docker. Test targets additionally receive Docker
-access for Testcontainers. The development model, coverage boundary, and
-override mechanism are documented in [development](development.md), with the
-exact script behavior in the [Make-script README](https://github.com/psyb0t/servicepack/blob/main/scripts/make/servicepack/README.md).
+`make servicepack-update` replaces framework code and leaves project code
+alone. [Framework updates](framework-updates.md#what-an-update-changes) has the
+exact boundary. In short, your code lives in `internal/pkg/services/`,
+`cmd/init.go`, `cmd/commands.go`, `Makefile`, `scripts/make/`, the Dockerfiles
+and `tests/`.

@@ -19,17 +19,23 @@ type Service interface {
 }
 ```
 
-`Name` is the map key for registration, filtering, dependency resolution, and
-service log scope. Names must be stable enough that a deployment configuration
-can refer to them through `SERVICES_ENABLED`.
+Return the package's `ServiceName` constant from `Name`. The generated
+registration and `SERVICES_ENABLED` filtering key services by `ServiceName`;
+the run map, dependency resolution and the service log scope use `Name()`. If
+the two differ, filtering and dependencies refer to different names. Keep the
+name stable, because deployment configuration refers to it through
+`SERVICES_ENABLED`.
 
 `Run` is called in a managed goroutine. It must return when `ctx.Done()` is
 closed. A clean return is logged as a clean service exit; a non-nil error goes
 through retry/failure handling. A panic is recovered and represented as
 `ErrServicePanic` so it cannot tear down the process without context.
 
-`Stop` is called after the manager cancels its run context. It receives a
-bounded shutdown context and should close resources, not start unbounded work.
+`Stop` is called after the manager cancels its run context. It should close
+resources, not start unbounded work. Its context is never already cancelled:
+when `Run` stops the services itself, after a service failure or a cancelled
+parent context, it passes a copy of its context without the cancellation, and
+`stopServiceWithTimeout` bounds each `Stop` with the stop timeout.
 The manager logs a `Stop` error but has no return path for it; report only
 useful errors there and make cleanup idempotent.
 
@@ -67,8 +73,8 @@ The key distinction:
 - `ReadyNotifier` controls when dependents may advance beyond that group.
 
 Without `ReadyNotifier`, launch is treated as readiness. If `api` needs a
-database that is accepting connections—not merely a goroutine that has been
-scheduled—have `database.Ready()` return a channel and close it after the
+database that is accepting connections, not merely a goroutine that has been
+scheduled, have `database.Ready()` return a channel and close it after the
 connection is established.
 
 Missing dependency names are treated as external to this process: the manager

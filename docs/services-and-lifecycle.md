@@ -1,12 +1,12 @@
 ---
 title: "Services and lifecycle"
 description: "The servicepack service contract: Run and Stop, dependencies, readiness, retries, allowed failures, commands, service filtering, logging and shutdown."
-nav_order: 3
+sidebar_position: 3
 ---
 
 # Services and lifecycle
 
-Servicepack supervises services that live in the same process. It provides
+servicepack supervises services that live in the same process. It provides
 startup ordering, readiness gates, failure policy, service-scoped logs, and
 one coordinated shutdown path. It does not turn in-process calls into a
 network protocol or solve distributed-systems concerns for services you split
@@ -28,8 +28,9 @@ type Service interface {
 }
 ```
 
-`Name` must be the stable name used by `SERVICES_ENABLED` and dependency
-declarations. `Run` must return when its context is cancelled. `Stop` is where
+`Name` must return the package's `ServiceName` constant: other services name it in
+`Dependencies()`, `SERVICES_ENABLED` selects it, and logs show it under that
+name. `Run` must return when its context is cancelled. `Stop` is where
 you close listeners, drain work, flush a client, or do other bounded cleanup.
 
 Do not use `Stop` as the first mechanism that tells a service to stop. The
@@ -64,13 +65,15 @@ builds, `commit` and `version` attributes. Do not replace those with ad-hoc glob
 
 Implement any combination of these interfaces on the same service.
 
-| Interface | Effect |
-| --- | --- |
-| `Retryable` | Retry a failed `Run` up to `MaxRetries()` times, waiting `RetryDelay()` between attempts. `0` means no retry. |
-| `AllowedFailure` | After retries are exhausted, log the failure and leave the rest of the application running. |
-| `Dependent` | Start after named services in this binary. Cycles fail startup. |
-| `ReadyNotifier` | Block later dependency groups until the service closes `Ready()`. |
-| `Commander` | Add `./build/<app> <service> <subcommand>` commands, instantiating only that service. |
+| Interface | Methods | Effect |
+| --- | --- | --- |
+| `Retryable` | `MaxRetries() int`, `RetryDelay() time.Duration` | Retry a failed `Run` up to `MaxRetries()` times, `RetryDelay()` apart. `0` means no retry, and a negative value counts as `0`. |
+| `AllowedFailure` | `IsAllowedFailure() bool` | When it returns `true`: after the retries run out, log the failure and keep the rest of the application running. |
+| `Dependent` | `Dependencies() []string` | Start after the named services in this process. A cycle fails startup. |
+| `ReadyNotifier` | `Ready() <-chan struct{}` | Hold back later dependency groups until the service closes the channel. |
+| `Commander` | `Commands() []*cobra.Command` | Add `./build/<app> <service> <subcommand>` commands that build only that service. |
+
+The full interface definitions are in the [reference](reference.md#service-interfaces).
 
 ### Ordering is not readiness
 
@@ -93,17 +96,22 @@ for every `ReadyNotifier` in that group before starting the next group.
 
 The wait ends early in two cases. If a service fails with a non-allowed error before it is ready, `Run` returns that error and later groups are never started. If a service's `Run` returns for good (an allowed failure, or a clean exit) before it signals ready, the manager logs a warning and stops waiting for it, and later groups still start.
 
-Dependency names that are not registered in the current process are logged and
-ignored. That makes it possible to use the same business design in a composed
-local binary and in a separately deployed setup, but it also means an external
-database, queue, or microservice still needs its own connection/retry/readiness
-handling.
+A dependency that is not running in this process, because it is not registered
+or `SERVICES_ENABLED` left it out, is logged as a warning and skipped. That
+lets the same code run with every service in one process or with services
+split across deployments. A dependency that runs elsewhere still needs its own
+connection, retry and readiness handling in the service that calls it.
 
 ### Failure and retry policy
 
-The first non-allowed terminal failure ends the application. Later concurrent
-failures are logged but do not block shutdown. A panic in `Run` is converted to
-a service error and follows that same policy.
+The first service that fails for good, without `AllowedFailure`, shuts the
+application down. Failures that arrive during that shutdown are logged. A panic
+in `Run` becomes an error and follows the same rules.
+
+A `Run` that returns `nil` ends that service only. The manager logs it and the
+other services keep running; when every service has returned, the process still
+waits for a signal. Put a one-off job in a `Commander` command or in
+`cmd/commands.go` instead.
 
 `AllowedFailure` is not a retry setting: a service can be both `Retryable` and
 `AllowedFailure`, in which case it retries first and becomes non-fatal only
@@ -112,7 +120,8 @@ does not make the process lie about its health.
 
 ## Selectively run services
 
-`SERVICES_ENABLED` filters service factories before instantiation:
+`SERVICES_ENABLED` picks services by `ServiceName` before any of them is
+built:
 
 ```bash
 SERVICES_ENABLED=api,price-worker ./build/my-service run
@@ -126,7 +135,9 @@ that local run. If filtering yields no services, startup returns an error.
 
 `Commander` is for commands owned by one service. It lets an operator invoke,
 for example, `my-service database migrate` without building the rest of the
-application's service graph.
+application's service graph. Every registered service appears as a command in
+`--help`; running one that does not implement `Commander` fails with
+`service has no commands`.
 
 `cmd/commands.go` is for app-level Cobra commands that do not belong to a
 specific service. `cmd/init.go` is the extension point for application hooks:
@@ -153,20 +164,19 @@ context and application errors. It then creates a shutdown context bounded by
 `RUNNER_SHUTDOWNTIMEOUT` (default `10s`) and calls application stop.
 
 The service manager cancels every running service, then stops dependency groups
-in reverse order; services within each group stop concurrently. The manager's
-own per-service stop default is `30s`, but the runner's parent deadline is
-normally shorter, so the whole process is usually capped by the runner's 10
-seconds. Set `RUNNER_SHUTDOWNTIMEOUT` high enough for legitimate cleanup, but
-do not make shutdown unbounded.
+in reverse order; services within each group stop concurrently. Each `Stop`
+gets a context that is not cancelled, limited to the manager's 30 seconds per
+service, so a drain such as `http.Server.Shutdown(ctx)` has time to finish.
 
-## Local composition versus microservices
+On a signal or a cancelled parent context, the runner's deadline also caps the
+whole process, and it is normally shorter: 10 seconds by default. Set
+`RUNNER_SHUTDOWNTIMEOUT` high enough for legitimate cleanup, but do not make
+shutdown unbounded. When a service fails, the manager stops the other services
+before the runner learns of the failure, so only the 30-second limit for each
+`Stop` applies.
 
-Keep services together when shared release cadence, shared local debugging,
-and in-process coordination are the simplest honest design. Split them when
-they need independent scaling, ownership, security boundaries, or failure
-isolation. The split point means replacing in-process contracts with explicit
-network/message contracts, not pretending a `Dependent` declaration will order
-another deployment.
+## Next
 
-Read [architecture](architecture.md) for the process-level picture and
-[development](development.md) for testing this in Docker.
+Read [architecture](architecture.md) for running services in one process or
+splitting them across deployments, and [development](development.md) for
+testing them.

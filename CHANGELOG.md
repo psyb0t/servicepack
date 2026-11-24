@@ -4,6 +4,21 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.11.0 (2026-11-24)
+
+`make service` and `make own` work again, `Stop` gets a usable context, `make own` drops servicepack's docs and changelog, and the images build with Go 1.26.11.
+
+- Fixed `make service-registration`, and with it `make service` and `make own`, failing with a `jq` parse error. The development image sets `LOG_LEVEL=debug`, and `gofindimpl` logged a line to stdout ahead of its JSON.
+- Fixed `Stop` receiving an already-cancelled context when shutdown started from a service failure or a cancelled parent context, so a drain such as `http.Server.Shutdown(ctx)` returned without draining. Post-stop hooks had the same problem. `Stop` now gets a live context, bounded by the manager's stop timeout.
+- Fixed a negative `MaxRetries()` leaving the process idle without ever calling `Run`. It now counts as 0.
+- Fixed `make test-integration` skipping the tests behind `//go:build integration`. It now passes `-tags=integration`.
+- Fixed the update's built-in exclude list matching at any depth. Its entries are now anchored to the project root, so the framework's READMEs in `internal/pkg/service-manager/`, `pkg/runner/` and `scripts/make/servicepack/` update like other framework files.
+- Fixed `make pkg-upgrade` leaving `go.mod` and `vendor/` out of step when the age gate refused a module partway through. It now checks every module before it upgrades any.
+- Changed `make own` to delete servicepack's `docs/`, `CHANGELOG.md` and `collaborators-only.yml` workflow, and to record the tag or commit you cloned in `servicepack.version` instead of GitHub's current head. The update never brings the collaborators-only workflow back. In an existing project, delete it yourself if you do not want it.
+- Updated the Docker images and `make build` to Go 1.26.11, `go.mod` to Go 1.26.11, and the OpenTelemetry modules to v1.47.0, which clears the reachable `net/http` and `otel/trace` vulnerabilities `make sec` reported. A project that keeps its own `Dockerfile` or `Dockerfile.dev` must move its `FROM` line to Go 1.26.11 itself, and can raise the `go` line in its own `go.mod`.
+- Removed the unused `scripts/make/servicepack/dep.sh`. `make dep` is unchanged.
+- Changed the documentation site to Docusaurus, with a new reference page for environment variables, interface signatures, service package rules and every Make target. The guides now match the code.
+
 ## v1.10.2 (2026-11-10)
 
 `make servicepack-update` no longer touches a project's agent instructions, and the images build with Go 1.26.10.

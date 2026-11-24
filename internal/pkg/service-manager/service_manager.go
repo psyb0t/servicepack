@@ -356,7 +356,14 @@ func (s *ServiceManager) Run(ctx context.Context) error {
 	defer close(errCh)
 
 	defer s.wg.Wait()
-	defer s.Stop(ctx)
+
+	// Stop cancels ctx before it stops the services, so handing it ctx itself
+	// gave every service's Stop an already-cancelled context whenever shutdown
+	// came from a service failure or the parent context: a drain such as
+	// http.Server.Shutdown(ctx) returned at once and drained nothing.
+	// WithoutCancel keeps the logging scope and drops that cancellation;
+	// stopServiceWithTimeout still bounds each Stop.
+	defer s.Stop(context.WithoutCancel(ctx))
 
 	if len(s.services) == 0 {
 		return ErrNoEnabledServices
@@ -514,12 +521,8 @@ func (s *ServiceManager) runService(
 	errCh chan<- error,
 	failure *failureSignal,
 ) {
-	maxRetries := 0
-
-	retryable, ok := service.(Retryable)
-	if ok {
-		maxRetries = retryable.MaxRetries()
-	}
+	retryable, _ := service.(Retryable)
+	maxRetries := retryCount(ctx, retryable)
 
 	var lastErr error
 
@@ -562,6 +565,30 @@ func (s *ServiceManager) runService(
 	)
 
 	s.handleServiceError(ctx, service, lastErr, errCh, failure)
+}
+
+// retryCount returns how many times a failed Run may be retried: zero for a
+// service that is not Retryable.
+func retryCount(ctx context.Context, retryable Retryable) int {
+	if retryable == nil {
+		return 0
+	}
+
+	maxRetries := retryable.MaxRetries()
+
+	// A negative count made the attempt loop in runService run zero times: Run
+	// was never called, the nil error was reported as a failure, and the
+	// process sat idle. Treat it as no retries.
+	if maxRetries < 0 {
+		ctxscope.GetLogger(ctx).Warn(
+			"negative MaxRetries treated as 0",
+			"max_retries", maxRetries,
+		)
+
+		return 0
+	}
+
+	return maxRetries
 }
 
 // waitRetryDelay logs the retry and waits for the delay.
