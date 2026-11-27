@@ -4,6 +4,16 @@ All notable changes per release. Versions follow [semver](https://semver.org)
 pre-1.0 conventions: minor bumps may include breaking REST changes (called
 out explicitly), patch bumps are docs / build / fixes only.
 
+## v1.11.1 (2026-11-27)
+
+The agent skill now describes what `make own` and the Docker-backed targets do, and tells agents to ask before running them.
+
+- Changed the skill's `make own` instructions. They list what the command removes and rewrites, and limit it to a fresh clone made because the user asked to start a new project.
+- Changed the skill's permissions to list the clone, the Docker image builds, the Go module downloads and the commands the skill runs.
+- Added a note to the skill's setup page that `make test`, `make test-integration` and `make test-coverage` mount the host Docker socket and use host networking.
+
+Nothing changes in the framework code or the Make targets, so a project needs no action. `make servicepack-update` does not copy agent files.
+
 ## v1.11.0 (2026-11-24)
 
 `make service` and `make own` work again, `Stop` gets a usable context, `make own` drops servicepack's docs and changelog, and the images build with Go 1.26.11.
